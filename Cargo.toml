@@ -1,0 +1,20 @@
+[package]
+name = "cookie"
+version = "0.1.0"
+description = "An example generated using the hello-world template"
+license = "MIT"
+edition = "2024"
+
+[dependencies]
+color-eyre = "0.6.3"
+crossterm = { version = "0.28.1", features = ["event-stream"] }
+ratatui = "0.29.0"
+tokio = { version = "1.45.1", features = ["full"] }
+futures-util = "0.3.31"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140" 
+async-trait = "0.1.88" 
+reqwest = { version = "0.12.15", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["fmt", "env-filter"] }
+tracing-appender = "0.2.3"
