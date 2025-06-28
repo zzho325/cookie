@@ -4,6 +4,7 @@ use crossterm::event::KeyCode;
 pub enum Message {
     Key(KeyCode),
     ServiceResp(String),
+    SendQuestion,
     CrosstermClose,
 }
 

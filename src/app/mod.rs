@@ -17,16 +17,31 @@ use tokio::{
     select,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
+use tracing::warn;
 
 use crate::app::types::{Command, Message};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Model {
     should_quit: bool,
 
-    question: String,
-    answer: String,
+    input: String,
+    history: Vec<(String, String)>, // (queston, answer)
+    pending_question: Option<String>,
+
     is_editing: bool,
+}
+
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            should_quit: false,
+            input: String::new(),
+            history: vec![],
+            is_editing: true,
+            pending_question: None,
+        }
+    }
 }
 
 pub struct App {
@@ -103,32 +118,41 @@ impl App {
     /// for side effect
     fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Command>) {
         match msg {
-            Message::Key(code) => Self::handle_key_code(model, code),
-            Message::ServiceResp(msg) => {
-                model.answer = msg.clone();
-                (None, None)
+            Message::Key(code) => return Self::handle_key_code(model, code),
+            Message::ServiceResp(a) => {
+                if let Some(q) = model.pending_question.as_ref() {
+                    model.history.push((q.clone(), a.clone()));
+                } else {
+                    warn!("received answer while no question is pending")
+                }
+                model.pending_question = None;
+            }
+            Message::SendQuestion => {
+                // only send response if not waiting
+                // TODO: implement timeout for pending resp
+                if model.pending_question.is_none() {
+                    let cmd = Command::ServiceReq(model.input.clone());
+                    // move input to pending
+                    model.pending_question = Some(model.input.clone());
+                    model.input.clear();
+                    // send cmd
+                    return (None, Some(cmd));
+                }
             }
             Message::CrosstermClose => {
                 model.should_quit = true;
-                (None, None)
             }
         }
+        (None, None)
     }
 
     fn handle_key_code(model: &mut Model, code: KeyCode) -> (Option<Message>, Option<Command>) {
         if model.is_editing {
             match code {
-                KeyCode::Esc => {
-                    model.is_editing = false;
-                }
-                KeyCode::Enter => {
-                    model.is_editing = false;
-                    return (None, Some(Command::ServiceReq(model.question.clone())));
-                }
-                KeyCode::Char(c) => model.question.push(c),
-                KeyCode::Backspace => {
-                    model.question.pop();
-                }
+                KeyCode::Char(c) => model.input.push(c),
+                KeyCode::Backspace => _ = model.input.pop(),
+                KeyCode::Esc => model.is_editing = false,
+                KeyCode::Enter => return (Some(Message::SendQuestion), None),
                 _ => {}
             }
         } else {
@@ -147,11 +171,21 @@ impl App {
             .title(title.centered())
             .border_set(border::THICK);
 
-        let texts = Text::from(vec![
-            Line::from(vec!["Q: ".into(), model.question.clone().into()]),
-            Line::from(vec!["A: ".into(), model.answer.clone().into()]),
-        ]);
+        let mut lines = vec![];
+        for (q, a) in &model.history {
+            lines.push(Line::from(vec!["•: ".into(), q.clone().into()]));
+            lines.push(Line::from(vec!["•: ".into(), a.clone().into()]));
+            lines.push(Line::from("")); // blank line
+        }
+        if let Some(q) = model.pending_question.as_ref() {
+            lines.push(Line::from(vec!["•: ".into(), q.into()]));
+        }
 
-        frame.render_widget(Paragraph::new(texts).centered().block(block), frame.area());
+        lines.push(Line::from(vec!["🚀: ".into(), model.input.clone().into()]));
+
+        frame.render_widget(
+            Paragraph::new(Text::from(lines)).centered().block(block),
+            frame.area(),
+        );
     }
 }
