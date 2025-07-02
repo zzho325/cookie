@@ -10,7 +10,7 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
         Message::Key(code) => return handle_key_code(model, code),
         Message::ServiceResp(a) => {
             if let Some(q) = model.pending_question.as_ref() {
-                model.history.push((q.clone(), a.clone()));
+                model.history_messages.push((q.clone(), a.clone()));
             } else {
                 warn!("received answer while no question is pending")
             }

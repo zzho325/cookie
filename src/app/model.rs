@@ -5,7 +5,7 @@ pub struct Model {
     pub should_quit: bool,
 
     pub input: String,
-    pub history: Vec<(String, String)>, // (queston, answer)
+    pub history_messages: Vec<(String, String)>, // (queston, answer)
     pub pending_question: Option<String>,
 
     pub is_editing: bool,
@@ -16,7 +16,7 @@ impl Default for Model {
         Self {
             should_quit: false,
             input: String::new(),
-            history: vec![],
+            history_messages: vec![],
             is_editing: true,
             pending_question: None,
         }

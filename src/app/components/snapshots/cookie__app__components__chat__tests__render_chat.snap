@@ -1,0 +1,24 @@
+---
+source: src/app/components/chat.rs
+expression: terminal.backend()
+---
+"• history question  "
+"• history answer    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"                    "
+"┌🚀:───────────────┐" Hidden by multi-width symbols: [(2, " ")]
+"│repeat thisrepeat │"
+"│thisrepeat this   │"
+"└──────────────────┘"

@@ -1,4 +1,4 @@
-use crate::app::model::Model;
+use crate::app::{components::chat::Chat, model::Model};
 use ratatui::{
     Frame,
     style::Stylize as _,
@@ -6,27 +6,20 @@ use ratatui::{
     text::{Line, Text},
     widgets::{Block, Paragraph},
 };
+use textwrap::wrap;
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
-    let title = Line::from(" Cookie ".bold());
-    let block = Block::bordered()
-        .title(title.centered())
-        .border_set(border::THICK);
-
-    let mut lines = vec![];
-    for (q, a) in &model.history {
-        lines.push(Line::from(vec!["•: ".into(), q.clone().into()]));
-        lines.push(Line::from(vec!["•: ".into(), a.clone().into()]));
-        lines.push(Line::from("")); // blank line
-    }
-    if let Some(q) = model.pending_question.as_ref() {
-        lines.push(Line::from(vec!["•: ".into(), q.into()]));
-    }
-
-    lines.push(Line::from(vec!["🚀: ".into(), model.input.clone().into()]));
+    // let title = Line::from(" Cookie ".bold());
+    // let block = Block::bordered()
+    //     .title(title.centered())
+    //     .border_set(border::THICK);
 
     frame.render_widget(
-        Paragraph::new(Text::from(lines)).centered().block(block),
+        Chat {
+            history_messages: &model.history_messages,
+            input: &model.input,
+            pending_question: model.pending_question.as_deref(),
+        },
         frame.area(),
     );
 }
