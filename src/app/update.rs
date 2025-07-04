@@ -39,7 +39,7 @@ fn handle_key_code(model: &mut Model, code: KeyCode) -> (Option<Message>, Option
     if model.input_editor.is_editing {
         let editor = &mut model.input_editor;
         match code {
-            KeyCode::Char(c) => editor.input.push(c),
+            KeyCode::Char(c) => editor.enter_char(c),
             KeyCode::Backspace => _ = editor.input.pop(),
             KeyCode::Esc => editor.is_editing = false,
             KeyCode::Enter => return (Some(Message::SendQuestion), None),
