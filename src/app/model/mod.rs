@@ -1,24 +1,27 @@
+pub mod editor;
+
 use crossterm::event::KeyCode;
+
+use crate::app::model::editor::Editor;
 
 #[derive(Debug)]
 pub struct Model {
     pub should_quit: bool,
 
-    pub input: String,
     pub history_messages: Vec<(String, String)>, // (queston, answer)
     pub pending_question: Option<String>,
 
-    pub is_editing: bool,
+    pub input_editor: Editor,
 }
 
 impl Default for Model {
     fn default() -> Self {
         Self {
             should_quit: false,
-            input: String::new(),
             history_messages: vec![],
-            is_editing: true,
             pending_question: None,
+            // By default editting
+            input_editor: Editor::new(String::new(), true),
         }
     }
 }

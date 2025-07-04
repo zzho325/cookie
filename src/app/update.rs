@@ -20,10 +20,10 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
             // only send response if not waiting
             // TODO: implement timeout for pending resp
             if model.pending_question.is_none() {
-                let cmd = Command::ServiceReq(model.input.clone());
+                let cmd = Command::ServiceReq(model.input_editor.input().to_string());
                 // move input to pending
-                model.pending_question = Some(model.input.clone());
-                model.input.clear();
+                model.pending_question = Some(model.input_editor.input().to_string());
+                model.input_editor.clear();
                 // send cmd
                 return (None, Some(cmd));
             }
@@ -36,18 +36,19 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
 }
 
 fn handle_key_code(model: &mut Model, code: KeyCode) -> (Option<Message>, Option<Command>) {
-    if model.is_editing {
+    if model.input_editor.is_editing {
+        let editor = &mut model.input_editor;
         match code {
-            KeyCode::Char(c) => model.input.push(c),
-            KeyCode::Backspace => _ = model.input.pop(),
-            KeyCode::Esc => model.is_editing = false,
+            KeyCode::Char(c) => editor.input.push(c),
+            KeyCode::Backspace => _ = editor.input.pop(),
+            KeyCode::Esc => editor.is_editing = false,
             KeyCode::Enter => return (Some(Message::SendQuestion), None),
             _ => {}
         }
     } else {
         match code {
             KeyCode::Char('q') => model.should_quit = true,
-            KeyCode::Char('i') => model.is_editing = true,
+            KeyCode::Char('i') => model.input_editor.is_editing = true,
             _ => {}
         }
     }
