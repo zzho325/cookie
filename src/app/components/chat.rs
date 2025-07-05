@@ -31,7 +31,7 @@ impl StatefulWidget for Chat<'_> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ChatState) {
         // use textwrap for height calculation and rendering for consistency
         let input_width = area.width.saturating_sub(BORDER_LINE_COUNT as u16) as usize;
-        let wrapped_input = self.input_editor.wrapped_input(input_width, false);
+        let (wrapped_input, cursor_position) = self.input_editor.wrapped_view(input_width);
 
         // calculate input and history messages area height
         let input_line_count = wrapped_input.len() + BORDER_LINE_COUNT;
@@ -74,7 +74,7 @@ impl StatefulWidget for Chat<'_> {
 
         // set cursor position if editing
         if self.input_editor.is_editing {
-            let (x, y) = self.input_editor.cursor_position(input_width);
+            let (x, y) = cursor_position;
             state.cursor_position = Some((
                 x + BORDER_LINE_COUNT_SIDE as u16,
                 y + message_height + BORDER_LINE_COUNT_SIDE as u16,
