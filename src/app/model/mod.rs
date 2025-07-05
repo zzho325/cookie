@@ -2,7 +2,7 @@ pub mod editor;
 
 use crossterm::event::KeyCode;
 
-use crate::app::model::editor::Editor;
+use crate::app::model::editor::{Editor, WrapMode};
 
 #[derive(Debug)]
 pub struct Model {
@@ -20,8 +20,8 @@ impl Default for Model {
             should_quit: false,
             history_messages: vec![],
             pending_question: None,
-            // By default editting
-            input_editor: Editor::new(String::new(), true),
+            // by default editting
+            input_editor: Editor::new(String::new(), true, WrapMode::default()),
         }
     }
 }

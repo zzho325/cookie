@@ -1,6 +1,21 @@
 use std::borrow::Cow;
+use textwrap::{
+    Options, WordSeparator,
+    core::{Word, display_width},
+    wrap,
+};
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
-use textwrap::{Options, WordSplitter, wrap};
+#[derive(Debug, Default)]
+pub enum WrapMode {
+    /// Vim-style: fill to the column limit, then break.
+    #[default]
+    Character,
+    /// Word-wrap: only break at word boundaries (spaces, punctuation, etc).
+    // TODO: make this configurable.
+    Word,
+}
 
 #[derive(Debug, Default)]
 pub struct Editor {
@@ -9,15 +24,17 @@ pub struct Editor {
     /// Position of cursor in the editor area.
     pub char_index: usize,
     pub is_editing: bool,
+    pub wrap_mode: WrapMode,
 }
 
 impl Editor {
-    pub fn new(input: String, is_editing: bool) -> Self {
+    pub fn new(input: String, is_editing: bool, wrap_mode: WrapMode) -> Self {
         let char_index = input.chars().count();
         Self {
             input,
             char_index,
             is_editing,
+            wrap_mode,
         }
     }
 
@@ -41,16 +58,50 @@ impl Editor {
     /// Input after soft-wrapping to `wrap_width`.
     ///
     /// Only lines up to current `char_index` if `up_to_index` is true.
-    pub fn wrapped_input(&self, width: usize, up_to_index: bool) -> Vec<Cow<'_, str>> {
+    pub fn wrapped_input(&self, wrap_width: usize, up_to_index: bool) -> Vec<Cow<'_, str>> {
         let slice = if up_to_index {
             &self.input[..self.byte_index()]
         } else {
             &self.input
         };
 
-        // TODO: disable triming white space.
-        // TODO: confirm options and unify with ratatui wrap.
-        wrap(slice, width)
+        match self.wrap_mode {
+            // TODO: handle \n
+            WrapMode::Character => {
+                let mut lines = Vec::new();
+                let mut start = 0;
+                let mut current_width = 0;
+
+                for (idx, grapheme) in slice.grapheme_indices(true) {
+                    let w = UnicodeWidthStr::width(grapheme);
+                    if current_width + w > wrap_width && current_width > 0 {
+                        lines.push(Cow::Borrowed(&slice[start..idx]));
+                        start = idx;
+                        current_width = 0;
+                    }
+                    current_width += w;
+                }
+
+                // push the remainder
+                if start < slice.len() {
+                    lines.push(Cow::Borrowed(&slice[start..]));
+                }
+
+                lines
+            }
+            WrapMode::Word => {
+                // TODO: confirm options and unify with ratatui wrap
+                let opts = Options::new(wrap_width)
+                    .break_words(true)
+                    .word_separator(WordSeparator::UnicodeBreakProperties)
+                    // TODO: update dependency after textwrap's next release
+                    .preserve_trailing_space(true);
+
+                // textwrap uses an optimal-fit algorithm which looks ahead and chooses line breaks
+                // which minimize the gaps left at ends of lines
+                wrap(slice, opts)
+            }
+        }
     }
 
     /// Position (x, y) after soft-wrapping to `wrap_width`.
@@ -60,7 +111,8 @@ impl Editor {
         let x = lines
             .last()
             .map(|cow| textwrap::core::display_width(cow.as_ref()))
-            .unwrap_or(0);
+            .unwrap_or(0)
+            .min(wrap_width); // when trailing space overflow, keep cursor at border
 
         // y: # of lines - 1
         let y = lines.len().saturating_sub(1);
@@ -97,10 +149,30 @@ impl Editor {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::model::editor::Editor;
+    use std::borrow::Cow;
+
+    use crate::app::model::editor::{Editor, WrapMode};
 
     #[test]
-    fn cursor_position() {
+    fn wrap_input() {
+        let mut editor = Editor {
+            input: "test break foobar   quz ".to_string(),
+            char_index: 0,
+            is_editing: true,
+            wrap_mode: WrapMode::Character,
+        };
+        let wrapped_input = editor.wrapped_input(8, false);
+        let wrapped_input: Vec<&str> = wrapped_input.iter().map(Cow::as_ref).collect();
+        assert_eq!(wrapped_input, vec!["test bre", "ak fooba", "r   quz "]);
+
+        editor.wrap_mode = WrapMode::Word;
+        let wrapped_input = editor.wrapped_input(8, false);
+        let wrapped_input: Vec<&str> = wrapped_input.iter().map(Cow::as_ref).collect();
+        assert_eq!(wrapped_input, vec!["test ", "break ", "foobar   ", "quz "]);
+    }
+
+    #[test]
+    fn wrap_word_cursor_position() {
         #[derive(Default)]
         struct Case {
             description: &'static str,
@@ -143,27 +215,20 @@ mod tests {
                 wrap_width: 6,
                 expect: (1, 1),
             },
-            // FIXME: trimming trailing spaces makes cursor position tracking inaccurate.
             Case {
-                description: "two lines with soft wrap, trailing spaces trimmed",
-                input: "hello world",
-                char_index: 6,
+                description: "two lines with soft wrap at trailing whitespace",
+                input: "hello  world",
+                char_index: 7,
                 wrap_width: 6,
-                expect: (5, 0),
+                expect: (6, 0),
             },
-            // Case {
-            //     description: "three lines with new line and soft wrap",
-            //     input: "hello,\nhow are you doing",
-            //     char_index: 20,
-            //     wrap_width: 10,
-            //     expect: (2, 2),
-            // },
         ];
         for case in cases {
             let editor = Editor {
                 input: case.input.to_string(),
                 char_index: case.char_index,
                 is_editing: true,
+                wrap_mode: WrapMode::Word,
             };
             let position = editor.cursor_position(case.wrap_width);
             assert_eq!(position, case.expect, "{}", case.description);

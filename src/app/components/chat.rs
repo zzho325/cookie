@@ -66,9 +66,10 @@ impl StatefulWidget for Chat<'_> {
 
         // input
         let input_lines: Vec<Line> = wrapped_input.into_iter().map(Line::from).collect();
-        Paragraph::new(Text::from(input_lines))
+        let text = Text::from(input_lines);
+        tracing::debug!("{:?}", text);
+        Paragraph::new(text)
             .block(Block::bordered().title("🚀:"))
-            .wrap(Wrap { trim: false })
             .render(layout[1], buf);
 
         // set cursor position if editing
@@ -86,14 +87,17 @@ impl StatefulWidget for Chat<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{components::chat::ChatState, model::editor::Editor};
+    use crate::app::{
+        components::chat::ChatState,
+        model::editor::{Editor, WrapMode},
+    };
 
     #[test]
     fn render_chat() {
         let chat = super::Chat {
             history_messages: &[("history question".to_string(), "history answer".to_string())],
             pending_question: None,
-            input_editor: &Editor::new("repeat this".repeat(3), false),
+            input_editor: &Editor::new("repeat this".repeat(3), false, WrapMode::default()),
         };
         let chat_state = &mut ChatState {
             cursor_position: None,
