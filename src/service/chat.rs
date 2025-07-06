@@ -1,22 +1,17 @@
-use std::process::Output;
-
 use color_eyre::Result;
 
 use crate::service::{
     Service,
-    client::{
-        OpenAIClient,
-        api::{ContentItem, InputItem, OutputItem, ResponsesReq, Role},
-    },
+    client::api::{ContentItem, InputItem, OutputItem, ResponsesReq, Role},
     models::ServiceResp,
 };
 
-impl<C: OpenAIClient> Service<C> {
+impl Service {
     pub async fn fetch_response(&mut self, msg: String) -> Result<()> {
         let resp = self
             .open_ai_client
             .responses(ResponsesReq {
-                model: "gpt-4o".into(),
+                model: "gpt-4o-mini".into(),
                 input: vec![InputItem {
                     role: Role::User,
                     content: msg,

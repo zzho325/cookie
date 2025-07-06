@@ -6,7 +6,10 @@ use tokio::sync::mpsc;
 
 use crate::{
     app::App,
-    service::models::{ServiceReq, ServiceResp},
+    service::{
+        ServiceBuilder,
+        models::{ServiceReq, ServiceResp},
+    },
 };
 
 #[tokio::main]
@@ -14,12 +17,22 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     let _guard = init_logging();
 
+    // FIXME: quick hack to use mock client
+    let args: Vec<String> = std::env::args().collect();
+    let use_mock = args.iter().any(|a| a == "--mock");
+
     // frontend <> backend channels
     let (req_tx, req_rx) = mpsc::unbounded_channel::<ServiceReq>();
     let (resp_tx, resp_rx) = mpsc::unbounded_channel::<ServiceResp>();
 
     // spawn backend service and tui app, both *should* only return on irrecoverable error
-    let svc_fut = async move { service::run_service_loop_with_openai(req_rx, resp_tx).await };
+    let svc_fut = async move {
+        let provider = if use_mock { "mock" } else { "open_id" };
+        let service = ServiceBuilder::new(req_rx, resp_tx)
+            .with_llm_provider(provider)
+            .build();
+        service.run().await
+    };
     let app_fut = async move {
         let mut app = App::new(req_tx, resp_rx)?;
         app.run().await

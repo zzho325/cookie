@@ -1,4 +1,5 @@
 pub mod api;
+pub mod mock;
 
 use async_trait::async_trait;
 use color_eyre::eyre::{Result, WrapErr, bail};
