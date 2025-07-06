@@ -21,11 +21,13 @@ impl<C: OpenAIClient> Service<C> {
                     role: Role::User,
                     content: msg,
                 }],
+                previous_response_id: self.previous_response_id.clone(),
                 ..ResponsesReq::default()
             })
             .await?;
 
         tracing::debug!("resp {resp:?}");
+        // TODO: assert role and handle refusal
         let mut texts = Vec::new();
         for output in &resp.output {
             let OutputItem::Message { content, .. } = output;
@@ -35,6 +37,7 @@ impl<C: OpenAIClient> Service<C> {
                 }
             }
         }
+        self.previous_response_id = Some(resp.id);
         self.resp_tx
             .send(ServiceResp::ChatMessage(texts.join("")))?;
 

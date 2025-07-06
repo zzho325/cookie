@@ -14,6 +14,8 @@ pub struct Service<C: OpenAIClient> {
     open_ai_client: C,
     req_rx: UnboundedReceiver<ServiceReq>,
     resp_tx: UnboundedSender<ServiceResp>,
+
+    previous_response_id: Option<String>,
 }
 
 impl<C: OpenAIClient> Service<C> {
@@ -26,6 +28,7 @@ impl<C: OpenAIClient> Service<C> {
             open_ai_client: client,
             req_rx,
             resp_tx,
+            previous_response_id: None,
         }
     }
 
