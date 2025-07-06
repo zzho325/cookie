@@ -33,8 +33,18 @@ cargo build --release
 
 ### 🎯 Milestones
 
-* Chat UI/UX: polished Chat UI; intuitive key bindings.
-* Chat Engine: retain context across chats and stream responses; track token usage.
+* Chat UI/UX 
+  * [x] [Input box] Soft wrap supporting both Vim-style wrapping and Unicode Standard Annex #14 (UAX#14) word boundaries.
+  * [ ] [Chat messages] Render chat as markdown and make it scrollable.
+  * [ ] [Input box] Scrollable buffer, and hard newlines with Shift+Enter.
+  * [ ] Cursor Navigation.
+  * [ ] [Input box] Input copy paste + cursor better support.
+  * [ ] [Chat messages] Tmux like copy mode.
+  * [ ] [Input box] Embed nvim.
+  * [ ] Vim style nagivation keybindings and help.
+* Chat Engine:
+  * [x] Retain context across chats.
+  * [ ] Track token usage.
 * Session Management: persist chat session history and support global search.
 * Multi-Provider Support: pluggable provider interface for other LLM backend.
 * Configuration & Theming: full config support; custom keymaps.

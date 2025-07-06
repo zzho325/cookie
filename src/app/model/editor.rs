@@ -58,7 +58,9 @@ impl Editor {
         let mut lines = Vec::new();
         let (mut x, mut y) = (0, 0);
 
-        // TODO: refactor this
+        // TODO: Refactor this cache soft-wrap per paragram and only reflow affected lines.
+        // For further peformance improvement, use piece- or rope-based buffers to make edits and
+        // reflow O(log n).
         match self.wrap_mode {
             WrapMode::Character => {
                 // let mut paragraph_line_offset = 0;
