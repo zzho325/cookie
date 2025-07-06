@@ -14,18 +14,21 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::app::model::{Command, Message, Model};
+use crate::{
+    app::model::{Message, Model},
+    service::models::{ServiceReq, ServiceResp},
+};
 
 pub struct App {
     // frontend <> backend channels
-    req_tx: UnboundedSender<String>,
-    resp_rx: UnboundedReceiver<String>,
+    req_tx: UnboundedSender<ServiceReq>,
+    resp_rx: UnboundedReceiver<ServiceResp>,
 }
 
 impl App {
     pub fn new(
-        req_tx: UnboundedSender<String>,
-        resp_rx: UnboundedReceiver<String>,
+        req_tx: UnboundedSender<ServiceReq>,
+        resp_rx: UnboundedReceiver<ServiceResp>,
     ) -> Result<Self> {
         Ok(Self { req_tx, resp_rx })
     }
@@ -59,8 +62,11 @@ impl App {
             while let Some(msg) = maybe_msg {
                 let (next_msg, maybe_cmd) = update::update(&mut model, msg);
                 maybe_msg = next_msg;
-                if let Some(Command::ServiceReq(req)) = maybe_cmd {
-                    self.req_tx.send(req)?
+
+                if let Some(cmd) = maybe_cmd {
+                    if let Some(req) = cmd.into_service_req() {
+                        self.req_tx.send(req)?
+                    }
                 }
             }
         }

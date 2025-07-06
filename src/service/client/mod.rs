@@ -1,9 +1,11 @@
+pub mod api;
+
 use async_trait::async_trait;
 use color_eyre::eyre::{Result, WrapErr, bail};
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::service::models::{ResponsesReq, ResponsesResp};
+use crate::service::client::api::{ResponsesReq, ResponsesResp};
 
 #[async_trait]
 pub trait OpenAIClient {

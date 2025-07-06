@@ -4,7 +4,10 @@ mod service;
 use color_eyre::Result;
 use tokio::sync::mpsc;
 
-use crate::app::App;
+use crate::{
+    app::App,
+    service::models::{ServiceReq, ServiceResp},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -12,12 +15,10 @@ async fn main() -> Result<()> {
     let _guard = init_logging();
 
     // frontend <> backend channels
-    // TODO: replace String with Req / Resp enum
-    let (req_tx, req_rx) = mpsc::unbounded_channel::<String>();
-    let (resp_tx, resp_rx) = mpsc::unbounded_channel::<String>();
+    let (req_tx, req_rx) = mpsc::unbounded_channel::<ServiceReq>();
+    let (resp_tx, resp_rx) = mpsc::unbounded_channel::<ServiceResp>();
 
-    // spawn backend service and tui app both *should* only return on irrecoverable error
-
+    // spawn backend service and tui app, both *should* only return on irrecoverable error
     let svc_fut = async move { service::run_service_loop_with_openai(req_rx, resp_tx).await };
     let app_fut = async move {
         let mut app = App::new(req_tx, resp_rx)?;

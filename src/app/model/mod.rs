@@ -2,7 +2,10 @@ pub mod editor;
 
 use crossterm::event::KeyCode;
 
-use crate::app::model::editor::{Editor, WrapMode};
+use crate::{
+    app::model::editor::{Editor, WrapMode},
+    service::models::{ServiceReq, ServiceResp},
+};
 
 #[derive(Debug)]
 pub struct Model {
@@ -29,12 +32,20 @@ impl Default for Model {
 /// Drives update.
 pub enum Message {
     Key(KeyCode),
-    ServiceResp(String),
-    SendQuestion,
+    ServiceResp(ServiceResp),
+    Send,
     CrosstermClose,
 }
 
 /// Side effect of update.
 pub enum Command {
-    ServiceReq(String),
+    SendMessage(String),
+}
+
+impl Command {
+    /// If this `Command` corresponds to a service request, return `Some(_)`, otherwise return `None`.
+    pub fn into_service_req(self) -> Option<ServiceReq> {
+        let Command::SendMessage(msg) = self;
+        Some(ServiceReq::ChatMessage(msg))
+    }
 }
