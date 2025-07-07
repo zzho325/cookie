@@ -1,5 +1,5 @@
 use crate::app::{
-    components::chat::{Chat, ChatState},
+    components::chat::{ChatState, ChatView},
     model::Model,
 };
 use ratatui::{Frame, layout::Position};
@@ -9,9 +9,8 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         cursor_position: None,
     };
     frame.render_stateful_widget(
-        Chat {
-            history_messages: &model.history_messages,
-            pending_question: model.pending_question.as_deref(),
+        ChatView {
+            messages: &model.messages,
             input_editor: &model.input_editor,
         },
         frame.area(),

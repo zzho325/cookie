@@ -21,6 +21,7 @@ tracing-appender = "0.2.3"
 textwrap = {git = "https://github.com/mgeisler/textwrap", rev = "77a634f72506cc8ec26b499949a500fd6a9d5cdc"}
 unicode-width = "0.2.0"
 unicode-segmentation = "1.12.0"
+tui-markdown = "0.3.5"
 
 [dev-dependencies]
 insta = "1.43.1"

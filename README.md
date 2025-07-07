@@ -35,7 +35,11 @@ cargo build --release
 
 * Chat UI/UX 
   * [x] [Input box] Soft wrap supporting both Vim-style wrapping and Unicode Standard Annex #14 (UAX#14) word boundaries.
-  * [ ] [Chat messages] Render chat as markdown and make it scrollable.
+    * [ ] Per paragraph cache to improve performance.
+  * [x] [Chat messages] Render chat as markdown.
+    * [ ] Fix color.
+    * [ ] Fix unsupported syntax.
+  * [ ] [Chat messages] Make it scrollable.
   * [ ] [Input box] Scrollable buffer, and hard newlines with Shift+Enter.
   * [ ] Cursor Navigation.
   * [ ] [Input box] Input copy paste + cursor better support.
@@ -44,10 +48,15 @@ cargo build --release
   * [ ] Vim style nagivation keybindings and help.
 * Chat Engine:
   * [x] Retain context across chats.
+  * [ ] Web: optional search and crawl.
   * [ ] Track token usage.
 * Session Management: persist chat session history and support global search.
 * Multi-Provider Support: pluggable provider interface for other LLM backend.
 * Configuration & Theming: full config support; custom keymaps.
+
+### ⚠️ Limitations
+
+* Using the [tui-markdown](https://github.com/joshka/tui-markdown) crate for Markdown rendering, which currently supports a subset of markdown features.
 
 ## License
 

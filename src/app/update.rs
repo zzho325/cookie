@@ -13,12 +13,7 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
         Message::Key(code) => return handle_key_code(model, code),
         Message::ServiceResp(resp) => {
             if let ServiceResp::ChatMessage(a) = resp {
-                if let Some(q) = model.pending_question.as_ref() {
-                    model.history_messages.push((q.clone(), a.clone()));
-                    model.pending_question = None;
-                } else {
-                    warn!("received answer while no question is pending")
-                }
+                model.messages.append_message(a);
             } else {
                 // TODO: show refusal
                 warn!("received refusal")
@@ -27,11 +22,11 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
         Message::Send => {
             // only send response if not waiting
             // TODO: implement timeout for pending resp
-            if model.pending_question.is_none() {
+            if !model.messages.is_pending_resp() {
                 let q = model.input_editor.input().to_string();
                 let cmd = Command::SendMessage(q);
                 // move input to pending
-                model.pending_question = Some(model.input_editor.input().to_string());
+                model.messages.send_question(model.input_editor.input());
                 model.input_editor.clear();
                 // send cmd
                 return (None, Some(cmd));

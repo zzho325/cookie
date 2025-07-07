@@ -5,7 +5,10 @@ use ratatui::{
     widgets::{Block, Paragraph, StatefulWidget, Widget, Wrap},
 };
 
-use crate::app::model::editor::Editor;
+use crate::app::{
+    components::messages::MessagesView,
+    model::{editor::Editor, messages::Messages},
+};
 
 const BORDER_LINE_COUNT_SIDE: usize = 1;
 const BORDER_LINE_COUNT: usize = BORDER_LINE_COUNT_SIDE * 2;
@@ -17,13 +20,12 @@ pub struct ChatState {
     pub cursor_position: Option<(u16, u16)>,
 }
 
-pub struct Chat<'a> {
-    pub history_messages: &'a [(String, String)],
-    pub pending_question: Option<&'a str>,
+pub struct ChatView<'a> {
+    pub messages: &'a Messages,
     pub input_editor: &'a Editor,
 }
 
-impl StatefulWidget for Chat<'_> {
+impl StatefulWidget for ChatView<'_> {
     type State = ChatState;
 
     /// Renders chat pane with input block starting with height = 1 (excluding border) and increase
@@ -50,24 +52,16 @@ impl StatefulWidget for Chat<'_> {
             ])
             .split(area);
 
-        // history messages
-        let mut lines = vec![];
-        for (q, a) in self.history_messages {
-            lines.push(Line::from(vec!["• ".into(), q.clone().into()]));
-            lines.push(Line::from(vec!["• ".into(), a.clone().into()]));
-            lines.push(Line::from("")); // blank line
-        }
-        if let Some(q) = self.pending_question {
-            lines.push(Line::from(vec!["•: ".into(), q.into()]));
-        }
-        Paragraph::new(Text::from(lines))
-            .wrap(Wrap { trim: false })
-            .render(layout[0], buf);
+        let messages = MessagesView::from(self.messages);
+        messages.render(layout[0], buf);
+        //
+        // Paragraph::new(messages)
+        //     .wrap(Wrap { trim: false })
+        //     .render(layout[0], buf);
 
         // input
         let input_lines: Vec<Line> = wrapped_input.into_iter().map(Line::from).collect();
         let text = Text::from(input_lines);
-        tracing::debug!("{:?}", text);
         Paragraph::new(text)
             .block(Block::bordered().title("🚀:"))
             .render(layout[1], buf);
@@ -94,7 +88,7 @@ mod tests {
 
     #[test]
     fn render_chat() {
-        let chat = super::Chat {
+        let chat = super::ChatView {
             history_messages: &[("history question".to_string(), "history answer".to_string())],
             pending_question: None,
             input_editor: &Editor::new("repeat this".repeat(3), false, WrapMode::default()),
