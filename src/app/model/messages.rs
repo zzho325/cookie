@@ -1,7 +1,10 @@
+use crate::app::model::scroll::{ScrollState, Scrollable};
+
 #[derive(Default)]
 pub struct Messages {
     pub history_messages: Vec<(String, String)>, // (queston, answer)
     pub pending_question: Option<String>,
+    pub scroll_state: ScrollState,
 }
 
 impl Messages {
@@ -29,5 +32,15 @@ impl Messages {
 
     pub fn pending_question(&self) -> Option<&str> {
         self.pending_question.as_deref()
+    }
+}
+
+impl Scrollable for Messages {
+    fn scroll_offset(&self) -> (u16, u16) {
+        self.scroll_state.scroll_offset()
+    }
+
+    fn scroll_state(&mut self) -> &mut ScrollState {
+        &mut self.scroll_state
     }
 }

@@ -2,10 +2,10 @@
 source: src/app/components/chat.rs
 expression: terminal.backend()
 ---
-"• history question  "
-"• history answer    "
 "                    "
-"                    "
+"history question    "
+"────────────────────"
+"history answer      "
 "                    "
 "                    "
 "                    "

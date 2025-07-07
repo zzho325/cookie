@@ -2,7 +2,7 @@ use crossterm::event::KeyCode;
 use tracing::warn;
 
 use crate::{
-    app::model::{Command, Message, Model},
+    app::model::{Command, Message, Model, scroll::Scrollable as _},
     service::models::ServiceResp,
 };
 
@@ -53,6 +53,8 @@ fn handle_key_code(model: &mut Model, code: KeyCode) -> (Option<Message>, Option
         match code {
             KeyCode::Char('q') => model.should_quit = true,
             KeyCode::Char('i') => model.input_editor.is_editing = true,
+            KeyCode::Down => model.messages.scroll_down(),
+            KeyCode::Up => model.messages.scroll_up(),
             _ => {}
         }
     }

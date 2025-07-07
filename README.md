@@ -39,7 +39,8 @@ cargo build --release
   * [x] [Chat messages] Render chat as markdown.
     * [ ] Fix color.
     * [ ] Fix unsupported syntax.
-  * [ ] [Chat messages] Make it scrollable.
+  * [x] [Chat messages] Make it scrollable.
+    * [ ] Add limit to scrollable.
   * [ ] [Input box] Scrollable buffer, and hard newlines with Shift+Enter.
   * [ ] Cursor Navigation.
   * [ ] [Input box] Input copy paste + cursor better support.

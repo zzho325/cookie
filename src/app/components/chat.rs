@@ -2,7 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Text},
-    widgets::{Block, Paragraph, StatefulWidget, Widget, Wrap},
+    widgets::{Block, Paragraph, StatefulWidget, Widget},
 };
 
 use crate::app::{
@@ -83,14 +83,22 @@ impl StatefulWidget for ChatView<'_> {
 mod tests {
     use crate::app::{
         components::chat::ChatState,
-        model::editor::{Editor, WrapMode},
+        model::{
+            editor::{Editor, WrapMode},
+            messages::Messages,
+        },
     };
 
     #[test]
     fn render_chat() {
         let chat = super::ChatView {
-            history_messages: &[("history question".to_string(), "history answer".to_string())],
-            pending_question: None,
+            messages: &Messages {
+                history_messages: vec![(
+                    "history question".to_string(),
+                    "history answer".to_string(),
+                )],
+                ..Messages::default()
+            },
             input_editor: &Editor::new("repeat this".repeat(3), false, WrapMode::default()),
         };
         let chat_state = &mut ChatState {
