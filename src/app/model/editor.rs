@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use textwrap::{Options, WordSeparator, wrap};
+use tracing::debug;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -43,6 +44,7 @@ impl Editor {
         let index = self.byte_index();
         self.input.insert(index, new_char);
         self.move_cursor_right();
+        debug!("{:?}, cursor index {}", self.input, self.char_index)
     }
 
     /// Clear input.
@@ -58,7 +60,8 @@ impl Editor {
         let mut lines = Vec::new();
         let (mut x, mut y) = (0, 0);
 
-        // TODO: Refactor this cache soft-wrap per paragram and only reflow affected lines.
+        // TODO: Refactor this and implement cursor position -> char index.
+        // Cache soft-wrap per paragraph and only reflow affected lines.
         // For further peformance improvement, use piece- or rope-based buffers to make edits and
         // reflow O(log n).
         match self.wrap_mode {
@@ -95,8 +98,9 @@ impl Editor {
                         }
                     }
 
-                    // handle at the end of paragraph
-                    if !found_cursor && cursor_byte_index <= paragraph.len() {
+                    // handle cursor at the end of paragraph
+                    if !found_cursor && cursor_byte_index == paragraph_byte_offset + paragraph.len()
+                    {
                         x = current_width;
                         y = lines.len();
                         if x == wrap_width {
@@ -111,9 +115,15 @@ impl Editor {
                         lines.push(Cow::Borrowed(&paragraph[line_byte_offset..]));
                     }
 
+                    // handle empty paragraph
+                    if paragraph.is_empty() {
+                        lines.push(Cow::Borrowed(""));
+                    }
+
                     paragraph_byte_offset += paragraph.len() + 1; // count for '\n'
                 }
 
+                debug!("{x}, {y}");
                 (lines, (x as u16, y as u16))
             }
             WrapMode::Word => {
@@ -180,14 +190,30 @@ impl Editor {
         }
     }
 
-    fn move_cursor_left(&mut self) {
+    pub fn move_cursor_left(&mut self) {
         let cursor_moved_left = self.char_index.saturating_sub(1);
         self.char_index = self.clamp_cursor(cursor_moved_left);
     }
 
-    fn move_cursor_right(&mut self) {
+    pub fn move_cursor_right(&mut self) {
         let cursor_moved_right = self.char_index.saturating_add(1);
         self.char_index = self.clamp_cursor(cursor_moved_right);
+    }
+
+    pub fn delete_char(&mut self) {
+        let is_not_cursor_leftmost = self.char_index != 0;
+        if is_not_cursor_leftmost {
+            // Not using `remove` since it works on bytes instead of the chars.
+            let current_index = self.char_index;
+            let from_left_to_current_index = current_index - 1;
+
+            let before_char_to_delete = self.input.chars().take(from_left_to_current_index);
+            let after_char_to_delete = self.input.chars().skip(current_index);
+
+            // Put all characters together except the selected one.
+            self.input = before_char_to_delete.chain(after_char_to_delete).collect();
+            self.move_cursor_left();
+        }
     }
 
     /// Returns the byte index based on the character position.
@@ -226,7 +252,7 @@ mod tests {
             Case {
                 description: "empty input",
                 wrap_width: 5,
-                expect_wrapped_input: vec![],
+                expect_wrapped_input: vec![""],
                 ..Default::default()
             },
             Case {
@@ -260,6 +286,14 @@ mod tests {
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", "world"],
                 expect_cursor_position: (5, 0),
+            },
+            Case {
+                description: "two lines with new line, second line empty, cursor at newline",
+                input: "hello\n",
+                char_index: 6,
+                wrap_width: 10,
+                expect_wrapped_input: vec!["hello", ""],
+                expect_cursor_position: (0, 1),
             },
             Case {
                 description: "two lines with wrap",
@@ -355,6 +389,14 @@ mod tests {
                 char_index: 6,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", "world"],
+                expect_cursor_position: (0, 1),
+            },
+            Case {
+                description: "two lines with new line, second line empty, cursor at newline",
+                input: "hello\n",
+                char_index: 6,
+                wrap_width: 10,
+                expect_wrapped_input: vec!["hello", ""],
                 expect_cursor_position: (0, 1),
             },
             Case {

@@ -1,5 +1,5 @@
-use crossterm::event::KeyCode;
-use tracing::warn;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use tracing::{debug, warn};
 
 use crate::{
     app::model::{Command, Message, Model, scroll::Scrollable as _},
@@ -10,7 +10,7 @@ use crate::{
 /// for side effect.
 pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Command>) {
     match msg {
-        Message::Key(code) => return handle_key_code(model, code),
+        Message::Key(evt) => return handle_key_event(model, evt),
         Message::ServiceResp(resp) => {
             if let ServiceResp::ChatMessage(a) = resp {
                 model.messages.append_message(a);
@@ -39,14 +39,25 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
     (None, None)
 }
 
-fn handle_key_code(model: &mut Model, code: KeyCode) -> (Option<Message>, Option<Command>) {
+fn handle_key_event(
+    model: &mut Model,
+    KeyEvent {
+        code,
+        modifiers,
+        kind: _,
+        state: _,
+    }: KeyEvent,
+) -> (Option<Message>, Option<Command>) {
     if model.input_editor.is_editing {
         let editor = &mut model.input_editor;
-        match code {
-            KeyCode::Char(c) => editor.enter_char(c),
-            KeyCode::Backspace => _ = editor.input.pop(),
-            KeyCode::Esc => editor.is_editing = false,
-            KeyCode::Enter => return (Some(Message::Send), None),
+        match (code, modifiers) {
+            (KeyCode::Char(c), _) => editor.enter_char(c),
+            (KeyCode::Backspace, _) => editor.delete_char(),
+            (KeyCode::Left, _) => editor.move_cursor_left(),
+            (KeyCode::Right, _) => editor.move_cursor_right(),
+            (KeyCode::Esc, _) => editor.is_editing = false,
+            (KeyCode::Enter, KeyModifiers::ALT) => editor.enter_char('\n'),
+            (KeyCode::Enter, _) => return (Some(Message::Send), None),
             _ => {}
         }
     } else {

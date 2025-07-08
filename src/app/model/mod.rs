@@ -2,7 +2,7 @@ pub mod editor;
 pub mod messages;
 pub mod scroll;
 
-use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
 
 use crate::{
     app::model::{
@@ -31,7 +31,7 @@ impl Default for Model {
 
 /// Drives update.
 pub enum Message {
-    Key(KeyCode),
+    Key(KeyEvent),
     ServiceResp(ServiceResp),
     Send,
     CrosstermClose,

@@ -81,9 +81,7 @@ fn handle_crossterm_event(
     maybe_evt: Option<Result<Event, std::io::Error>>,
 ) -> Result<Option<Message>> {
     match maybe_evt {
-        Some(Ok(Event::Key(key))) if key.kind == KeyEventKind::Press => {
-            Ok(Some(Message::Key(key.code)))
-        }
+        Some(Ok(Event::Key(evt))) if evt.kind == KeyEventKind::Press => Ok(Some(Message::Key(evt))),
         Some(Ok(_)) => Ok(None),
         Some(Err(e)) => Err(e).context("reading crossterm event failed"),
         None => {
