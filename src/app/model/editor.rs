@@ -88,21 +88,16 @@ impl Paragraph {
         for (line_idx, line) in self.lines.iter().enumerate() {
             if cursor_byte_idx < self.byte_offset + line_byte_offset + line.len() {
                 let x = line[..(cursor_byte_idx - self.byte_offset - line_byte_offset)]
-                    .graphemes(true)
-                    .count()
-                    .min(wrap_width);
+                    .width()
+                    .min(wrap_width); // tailing white spaces from word wrap mode
                 let y = self.line_offset + line_idx;
                 return (x as u16, y as u16);
             }
             line_byte_offset += line.len();
         }
 
-        // handle cursor at the end of paragraph
-        let current_width = self
-            .lines
-            .last()
-            .map(|line| line.graphemes(true).count())
-            .unwrap_or(0);
+        // handle cursor at the end of paragraph, handle tailing white spaces from word wrap mode
+        let current_width = self.lines.last().map_or(0, |s| s.width()).min(wrap_width);
 
         let mut x = current_width;
         let mut y = self.line_offset + self.lines.len() - 1;
@@ -324,6 +319,14 @@ mod tests {
                 expect_wrapped_input: vec![" hello ", " world "],
                 expect_cursor_position: (0, 1),
             },
+            Case {
+                description: "Chinese",
+                input: "芋泥奶茶\n",
+                char_idx: 4,
+                wrap_width: 10,
+                expect_wrapped_input: vec!["芋泥奶茶", ""],
+                expect_cursor_position: (8, 0),
+            },
         ];
         for case in cases {
             let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Character);
@@ -433,6 +436,14 @@ mod tests {
                 wrap_width: 7,
                 expect_wrapped_input: vec![" hello,  ", "world", ""],
                 expect_cursor_position: (0, 2),
+            },
+            Case {
+                description: "Chinese",
+                input: "芋泥奶茶\n",
+                char_idx: 4,
+                wrap_width: 10,
+                expect_wrapped_input: vec!["芋泥奶茶", ""],
+                expect_cursor_position: (8, 0),
             },
         ];
         for case in cases {
