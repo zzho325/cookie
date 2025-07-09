@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 use textwrap::{Options, WordSeparator, wrap};
-use tracing::debug;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum WrapMode {
     /// Vim-style: fill to the column limit, then break.
     #[default]
@@ -14,24 +13,128 @@ pub enum WrapMode {
     Word,
 }
 
+#[derive(Debug)]
+struct Paragraph {
+    /// Current input buffer.
+    input: String,
+    lines: Vec<String>,
+    /// Byte offset of start of paragraph.
+    byte_offset: usize,
+    /// Line number offset.
+    line_offset: usize,
+}
+
+impl Paragraph {
+    fn new(input: String, byte_offset: usize, line_offset: usize) -> Self {
+        Self {
+            input,
+            lines: Vec::new(),
+            byte_offset,
+            line_offset,
+        }
+    }
+
+    /// Recalculate paragraph lines.
+    fn reflow(&mut self, wrap_width: usize, wrap_mode: WrapMode) {
+        let input = &self.input;
+        match wrap_mode {
+            WrapMode::Character => {
+                let mut current_width = 0;
+                let mut line_byte_offset = 0;
+                let mut lines = Vec::new();
+                // iterate graphemes
+                for (grapheme_byte_offset, grapheme) in input.grapheme_indices(true) {
+                    let grapheme_width = UnicodeWidthStr::width(grapheme);
+                    // create new line when width is reached
+                    if current_width + grapheme_width > wrap_width {
+                        lines.push(input[(line_byte_offset)..grapheme_byte_offset].to_string());
+                        line_byte_offset = grapheme_byte_offset;
+                        current_width = 0;
+                    }
+                    current_width += grapheme_width;
+                }
+                // push the remainder
+                if line_byte_offset < input.len() {
+                    lines.push(input[line_byte_offset..].to_string());
+                }
+                // handle empty paragraph
+                if input.is_empty() {
+                    lines.push(String::new());
+                }
+                self.lines = lines;
+            }
+            WrapMode::Word => {
+                // TODO: confirm options and unify with ratatui wrap_mode
+                // FIXME: don't recreate it every time
+                let opts = Options::new(wrap_width)
+                    .break_words(true)
+                    .word_separator(WordSeparator::UnicodeBreakProperties)
+                    // TODO: update dependency after textwrap's next release
+                    .preserve_trailing_space(true);
+
+                let lines = wrap(input, opts.clone());
+                self.lines = lines.into_iter().map(Cow::into_owned).collect();
+            }
+        }
+    }
+
+    /// Find cursor position if it's in this paragraph.
+    fn find_cursor_position(
+        &self,
+        wrap_width: usize,
+        cursor_byte_idx: usize,
+    ) -> (u16 /*x*/, u16 /*y*/) {
+        let mut line_byte_offset = 0;
+        for (line_idx, line) in self.lines.iter().enumerate() {
+            if cursor_byte_idx < self.byte_offset + line_byte_offset + line.len() {
+                let x = line[..(cursor_byte_idx - self.byte_offset - line_byte_offset)]
+                    .graphemes(true)
+                    .count()
+                    .min(wrap_width);
+                let y = self.line_offset + line_idx;
+                return (x as u16, y as u16);
+            }
+            line_byte_offset += line.len();
+        }
+
+        // handle cursor at the end of paragraph
+        let current_width = self
+            .lines
+            .last()
+            .map(|line| line.graphemes(true).count())
+            .unwrap_or(0);
+
+        let mut x = current_width;
+        let mut y = self.line_offset + self.lines.len() - 1;
+        if x == wrap_width {
+            x = 0;
+            y += 1;
+        }
+        (x as u16, y as u16)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Editor {
     /// Current value of the input.
     pub input: String,
     /// Position of cursor in the editor area.
-    pub char_index: usize,
+    pub char_idx: usize,
     pub is_editing: bool,
     pub wrap_mode: WrapMode,
+
+    paragraphs: Vec<Paragraph>,
 }
 
 impl Editor {
     pub fn new(input: String, is_editing: bool, wrap_mode: WrapMode) -> Self {
-        let char_index = input.chars().count();
+        let char_idx = input.chars().count();
         Self {
             input,
-            char_index,
+            char_idx,
             is_editing,
             wrap_mode,
+            ..Editor::default()
         }
     }
 
@@ -41,174 +144,76 @@ impl Editor {
     }
 
     pub fn enter_char(&mut self, new_char: char) {
-        let index = self.byte_index();
-        self.input.insert(index, new_char);
+        let idx = self.byte_idx();
+        self.input.insert(idx, new_char);
         self.move_cursor_right();
-        debug!("{:?}, cursor index {}", self.input, self.char_index)
     }
 
     /// Clear input.
     pub fn clear(&mut self) {
         self.input = String::new();
-        self.char_index = 0;
+        self.char_idx = 0;
     }
 
-    /// Input and cursor index after soft-wrapping to `wrap_width` based on `wrap_mode`.
-    pub fn wrapped_view(&self, wrap_width: usize) -> (Vec<Cow<'_, str>>, (u16 /*x*/, u16 /*y*/)) {
+    pub fn lines(&mut self, wrap_width: usize) -> Vec<String> {
         let input = &self.input;
-        let cursor_byte_index = self.byte_index();
         let mut lines = Vec::new();
-        let (mut x, mut y) = (0, 0);
+        let mut paragraphs = Vec::new();
 
-        // TODO: Refactor this and implement cursor position -> char index.
-        // Cache soft-wrap per paragraph and only reflow affected lines.
-        // For further peformance improvement, use piece- or rope-based buffers to make edits and
-        // reflow O(log n).
-        match self.wrap_mode {
-            WrapMode::Character => {
-                // let mut paragraph_line_offset = 0;
-                let mut paragraph_byte_offset = 0;
-                let mut found_cursor = false;
+        let mut byte_offset = 0;
+        let mut line_offset = 0;
 
-                for paragraph in input.split('\n') {
-                    let mut current_width = 0;
-                    let mut line_byte_offset = 0;
+        // TODO: instead of reflow all paragraphs, cache and update on edits / width change.
+        for paragraph_input in input.split('\n') {
+            let mut paragraph =
+                Paragraph::new(paragraph_input.to_string(), byte_offset, line_offset);
+            paragraph.reflow(wrap_width, self.wrap_mode);
 
-                    // iterate graphemes
-                    for (grapheme_byte_offset, grapheme) in paragraph.grapheme_indices(true) {
-                        let grapheme_width = UnicodeWidthStr::width(grapheme);
-                        // create new line when width is reached
-                        if current_width + grapheme_width > wrap_width {
-                            lines.push(Cow::Borrowed(
-                                &input[(paragraph_byte_offset + line_byte_offset)
-                                    ..grapheme_byte_offset],
-                            ));
-                            line_byte_offset = grapheme_byte_offset;
-                            current_width = 0;
-                        }
-                        current_width += grapheme_width;
+            byte_offset += paragraph_input.len() + 1; // count for '\n'
+            line_offset += paragraph.lines.len();
 
-                        // find cursor at the first grapheme with byte index >= cursor byte index
-                        if !found_cursor
-                            && cursor_byte_index <= paragraph_byte_offset + grapheme_byte_offset
-                        {
-                            x = current_width - 1;
-                            y = lines.len();
-                            found_cursor = true;
-                        }
-                    }
+            lines.extend(paragraph.lines.clone());
+            paragraphs.push(paragraph);
+        }
 
-                    // handle cursor at the end of paragraph
-                    if !found_cursor && cursor_byte_index == paragraph_byte_offset + paragraph.len()
-                    {
-                        x = current_width;
-                        y = lines.len();
-                        if x == wrap_width {
-                            x = 0;
-                            y += 1;
-                        }
-                        found_cursor = true;
-                    }
+        self.paragraphs = paragraphs;
+        lines
+    }
 
-                    // push the remainder
-                    if line_byte_offset < paragraph.len() {
-                        lines.push(Cow::Borrowed(&paragraph[line_byte_offset..]));
-                    }
-
-                    // handle empty paragraph
-                    if paragraph.is_empty() {
-                        lines.push(Cow::Borrowed(""));
-                    }
-
-                    paragraph_byte_offset += paragraph.len() + 1; // count for '\n'
-                }
-
-                debug!("{x}, {y}");
-                (lines, (x as u16, y as u16))
-            }
-            WrapMode::Word => {
-                // TODO: confirm options and unify with ratatui wrap
-                let opts = Options::new(wrap_width)
-                    .break_words(true)
-                    .word_separator(WordSeparator::UnicodeBreakProperties)
-                    // TODO: update dependency after textwrap's next release
-                    .preserve_trailing_space(true);
-
-                let mut paragraph_line_offset = 0;
-                let mut paragraph_byte_offset = 0;
-                let mut found_cursor = false;
-
-                for paragraph in input.split('\n') {
-                    // textwrap uses an optimal-fit algorithm which looks ahead and chooses line
-                    // breaks which minimize the gaps left at ends of lines
-                    let paragraph_lines = wrap(paragraph, opts.clone());
-
-                    // if cursor is in this paragrah, find its line and find cursor
-                    // inclusive on the right side to take account for \n
-                    if cursor_byte_index >= paragraph_byte_offset
-                        && cursor_byte_index <= paragraph_byte_offset + paragraph.len()
-                    {
-                        let mut line_byte_offset = 0;
-                        for (line_index, line) in paragraph_lines.iter().enumerate() {
-                            if cursor_byte_index
-                                < paragraph_byte_offset + line_byte_offset + line.len()
-                            {
-                                x = line[..(cursor_byte_index
-                                    - paragraph_byte_offset
-                                    - line_byte_offset)]
-                                    .graphemes(true)
-                                    .count()
-                                    .min(wrap_width);
-                                y = paragraph_line_offset + line_index;
-                                found_cursor = true;
-                                break;
-                            }
-                            line_byte_offset += line.len();
-                        }
-
-                        // handle cursor at the end of paragraph
-                        if !found_cursor {
-                            let current_width = paragraph_lines
-                                .last()
-                                .map(|line| line.graphemes(true).count())
-                                .unwrap_or(0);
-
-                            x = current_width;
-                            y = paragraph_line_offset + paragraph_lines.len() - 1;
-                            if x == wrap_width {
-                                x = 0;
-                                y += 1;
-                            }
-                        }
-                    }
-                    lines.extend(paragraph_lines.iter().cloned());
-                    paragraph_line_offset += paragraph_lines.len();
-                    paragraph_byte_offset += paragraph.len() + 1; // count for '\n'
-                }
-                (lines, (x as u16, y as u16))
+    pub fn cursor_position(&self, wrap_width: usize) -> (u16 /*x*/, u16 /*y*/) {
+        let cursor_byte_idx = self.byte_idx();
+        for paragraph in &self.paragraphs {
+            // if cursor is in this paragrah, find its line and find cursor
+            // inclusive on the right side to take account for \n
+            if cursor_byte_idx >= paragraph.byte_offset
+                && cursor_byte_idx <= paragraph.byte_offset + paragraph.input.len()
+            {
+                return paragraph.find_cursor_position(wrap_width, cursor_byte_idx);
             }
         }
+        tracing::warn!("cursor position not found");
+        (0u16, 0u16)
     }
 
     pub fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.char_index.saturating_sub(1);
-        self.char_index = self.clamp_cursor(cursor_moved_left);
+        let cursor_moved_left = self.char_idx.saturating_sub(1);
+        self.char_idx = self.clamp_cursor(cursor_moved_left);
     }
 
     pub fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.char_index.saturating_add(1);
-        self.char_index = self.clamp_cursor(cursor_moved_right);
+        let cursor_moved_right = self.char_idx.saturating_add(1);
+        self.char_idx = self.clamp_cursor(cursor_moved_right);
     }
 
     pub fn delete_char(&mut self) {
-        let is_not_cursor_leftmost = self.char_index != 0;
+        let is_not_cursor_leftmost = self.char_idx != 0;
         if is_not_cursor_leftmost {
             // Not using `remove` since it works on bytes instead of the chars.
-            let current_index = self.char_index;
-            let from_left_to_current_index = current_index - 1;
+            let current_idx = self.char_idx;
+            let from_left_to_current_idx = current_idx - 1;
 
-            let before_char_to_delete = self.input.chars().take(from_left_to_current_index);
-            let after_char_to_delete = self.input.chars().skip(current_index);
+            let before_char_to_delete = self.input.chars().take(from_left_to_current_idx);
+            let after_char_to_delete = self.input.chars().skip(current_idx);
 
             // Put all characters together except the selected one.
             self.input = before_char_to_delete.chain(after_char_to_delete).collect();
@@ -216,15 +221,15 @@ impl Editor {
         }
     }
 
-    /// Returns the byte index based on the character position.
+    /// Returns the byte idx based on the character position.
     ///
     /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
-    /// the byte index based on the index of the character.
-    fn byte_index(&self) -> usize {
+    /// the byte idx based on the idx of the character.
+    fn byte_idx(&self) -> usize {
         self.input
             .char_indices()
             .map(|(i, _)| i)
-            .nth(self.char_index)
+            .nth(self.char_idx)
             .unwrap_or(self.input.len())
     }
 
@@ -243,7 +248,7 @@ mod tests {
         struct Case {
             description: &'static str,
             input: &'static str,
-            char_index: usize,
+            char_idx: usize,
             wrap_width: usize,
             expect_wrapped_input: Vec<&'static str>,
             expect_cursor_position: (u16, u16),
@@ -258,7 +263,7 @@ mod tests {
             Case {
                 description: "one line, cursor at the end of input",
                 input: "hello",
-                char_index: 5,
+                char_idx: 5,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello"],
                 expect_cursor_position: (5, 0),
@@ -266,7 +271,7 @@ mod tests {
             Case {
                 description: "one line, cursor in the middle of input",
                 input: "hello",
-                char_index: 2,
+                char_idx: 2,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello"],
                 expect_cursor_position: (2, 0),
@@ -274,7 +279,7 @@ mod tests {
             Case {
                 description: "two lines with new line",
                 input: "hello\nworld",
-                char_index: 6,
+                char_idx: 6,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", "world"],
                 expect_cursor_position: (0, 1),
@@ -282,7 +287,7 @@ mod tests {
             Case {
                 description: "two lines with new line, cursor at newline",
                 input: "hello\nworld",
-                char_index: 5,
+                char_idx: 5,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", "world"],
                 expect_cursor_position: (5, 0),
@@ -290,7 +295,7 @@ mod tests {
             Case {
                 description: "two lines with new line, second line empty, cursor at newline",
                 input: "hello\n",
-                char_index: 6,
+                char_idx: 6,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", ""],
                 expect_cursor_position: (0, 1),
@@ -298,7 +303,7 @@ mod tests {
             Case {
                 description: "two lines with wrap",
                 input: "hello world",
-                char_index: 7,
+                char_idx: 7,
                 wrap_width: 6,
                 expect_wrapped_input: vec!["hello ", "world"],
                 expect_cursor_position: (1, 1),
@@ -306,7 +311,7 @@ mod tests {
             Case {
                 description: "two lines with wrap, cursor before break",
                 input: " hello  world ",
-                char_index: 6,
+                char_idx: 6,
                 wrap_width: 7,
                 expect_wrapped_input: vec![" hello ", " world "],
                 expect_cursor_position: (6, 0),
@@ -314,20 +319,18 @@ mod tests {
             Case {
                 description: "two lines with wrap, cursor after break",
                 input: " hello  world ",
-                char_index: 7,
+                char_idx: 7,
                 wrap_width: 7,
                 expect_wrapped_input: vec![" hello ", " world "],
                 expect_cursor_position: (0, 1),
             },
         ];
         for case in cases {
-            let editor = Editor {
-                input: case.input.to_string(),
-                char_index: case.char_index,
-                is_editing: true,
-                wrap_mode: WrapMode::Character,
-            };
-            let (wrapped_input, cursor_position) = editor.wrapped_view(case.wrap_width);
+            let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Character);
+            editor.char_idx = case.char_idx;
+
+            let wrapped_input = editor.lines(case.wrap_width);
+            let cursor_position = editor.cursor_position(case.wrap_width);
             assert_eq!(
                 wrapped_input, case.expect_wrapped_input,
                 "{} wrapped inpput",
@@ -347,7 +350,7 @@ mod tests {
         struct Case {
             description: &'static str,
             input: &'static str,
-            char_index: usize,
+            char_idx: usize,
             wrap_width: usize,
             expect_wrapped_input: Vec<&'static str>,
             expect_cursor_position: (u16, u16),
@@ -362,7 +365,7 @@ mod tests {
             Case {
                 description: "one line, cursor at the end of input",
                 input: "hello",
-                char_index: 5,
+                char_idx: 5,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello"],
                 expect_cursor_position: (5, 0),
@@ -370,7 +373,7 @@ mod tests {
             Case {
                 description: "one line, cursor in the middle of input",
                 input: "hello world",
-                char_index: 5,
+                char_idx: 5,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello ", "world"],
                 expect_cursor_position: (5, 0),
@@ -378,7 +381,7 @@ mod tests {
             Case {
                 description: "two lines with new line, cursor at newline",
                 input: "hello\nworld",
-                char_index: 5,
+                char_idx: 5,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", "world"],
                 expect_cursor_position: (5, 0),
@@ -386,7 +389,7 @@ mod tests {
             Case {
                 description: "two lines with new line, cursor after newline",
                 input: "hello\nworld",
-                char_index: 6,
+                char_idx: 6,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", "world"],
                 expect_cursor_position: (0, 1),
@@ -394,7 +397,7 @@ mod tests {
             Case {
                 description: "two lines with new line, second line empty, cursor at newline",
                 input: "hello\n",
-                char_index: 6,
+                char_idx: 6,
                 wrap_width: 10,
                 expect_wrapped_input: vec!["hello", ""],
                 expect_cursor_position: (0, 1),
@@ -402,7 +405,7 @@ mod tests {
             Case {
                 description: "two lines with soft wrap",
                 input: "hello world",
-                char_index: 7,
+                char_idx: 7,
                 wrap_width: 6,
                 expect_wrapped_input: vec!["hello ", "world"],
                 expect_cursor_position: (1, 1),
@@ -410,7 +413,7 @@ mod tests {
             Case {
                 description: "two lines with soft wrap, cursor before break with trailing whitespace",
                 input: " hello   world ",
-                char_index: 8,
+                char_idx: 8,
                 wrap_width: 7,
                 expect_wrapped_input: vec![" hello   ", "world "],
                 expect_cursor_position: (7, 0),
@@ -418,20 +421,25 @@ mod tests {
             Case {
                 description: "two lines with soft wrap, cursor after break",
                 input: " hello  world ",
-                char_index: 8,
+                char_idx: 8,
                 wrap_width: 7,
                 expect_wrapped_input: vec![" hello  ", "world "],
                 expect_cursor_position: (0, 1),
             },
+            Case {
+                description: "three lines",
+                input: " hello,  world\n",
+                char_idx: 15,
+                wrap_width: 7,
+                expect_wrapped_input: vec![" hello,  ", "world", ""],
+                expect_cursor_position: (0, 2),
+            },
         ];
         for case in cases {
-            let editor = Editor {
-                input: case.input.to_string(),
-                char_index: case.char_index,
-                is_editing: true,
-                wrap_mode: WrapMode::Word,
-            };
-            let (wrapped_input, cursor_position) = editor.wrapped_view(case.wrap_width);
+            let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Word);
+            editor.char_idx = case.char_idx;
+            let wrapped_input = editor.lines(case.wrap_width);
+            let cursor_position = editor.cursor_position(case.wrap_width);
             assert_eq!(
                 wrapped_input, case.expect_wrapped_input,
                 "{} wrapped inpput",

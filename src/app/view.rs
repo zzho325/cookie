@@ -11,7 +11,7 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
     frame.render_stateful_widget(
         ChatView {
             messages: &model.messages,
-            input_editor: &model.input_editor,
+            input_editor: &mut model.input_editor,
         },
         frame.area(),
         chat_state,

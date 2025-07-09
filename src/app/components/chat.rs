@@ -22,7 +22,7 @@ pub struct ChatState {
 
 pub struct ChatView<'a> {
     pub messages: &'a Messages,
-    pub input_editor: &'a Editor,
+    pub input_editor: &'a mut Editor,
 }
 
 impl StatefulWidget for ChatView<'_> {
@@ -33,7 +33,8 @@ impl StatefulWidget for ChatView<'_> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ChatState) {
         // use textwrap for height calculation and rendering for consistency
         let input_width = area.width.saturating_sub(BORDER_LINE_COUNT as u16) as usize;
-        let (wrapped_input, cursor_position) = self.input_editor.wrapped_view(input_width);
+        let wrapped_input = self.input_editor.lines(input_width);
+        let cursor_position = self.input_editor.cursor_position(input_width);
 
         // calculate input and history messages area height
         let input_line_count = wrapped_input.len() + BORDER_LINE_COUNT;
@@ -99,7 +100,7 @@ mod tests {
                 )],
                 ..Messages::default()
             },
-            input_editor: &Editor::new("repeat this".repeat(3), false, WrapMode::default()),
+            input_editor: &mut Editor::new("repeat this".repeat(3), false, WrapMode::default()),
         };
         let chat_state = &mut ChatState {
             cursor_position: None,
