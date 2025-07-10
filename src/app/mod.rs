@@ -15,8 +15,9 @@ use tokio::{
 };
 
 use crate::{
+    Config,
     app::model::{Message, Model},
-    service::models::{ServiceReq, ServiceResp},
+    service::models::{LlmProvider, ServiceReq, ServiceResp},
 };
 
 pub struct App {
@@ -34,9 +35,12 @@ impl App {
     }
 
     /// Runs the application's main loop until the user quits.
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(&mut self, cfg: &Config) -> Result<()> {
         let mut terminal = ratatui::init();
-        let mut model = Model::default();
+
+        let mut model = Model::new(model::Settings {
+            llm: cfg.default_llm.clone(),
+        });
 
         let mut event_reader = EventStream::new();
 

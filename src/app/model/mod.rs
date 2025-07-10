@@ -2,6 +2,8 @@ pub mod editor;
 pub mod messages;
 pub mod scroll;
 
+use std::sync::Arc;
+
 use crossterm::event::KeyEvent;
 
 use crate::{
@@ -9,20 +11,29 @@ use crate::{
         editor::{Editor, WrapMode},
         messages::Messages,
     },
-    service::models::{ServiceReq, ServiceResp},
+    service::models::{LlmProvider, ServiceReq, ServiceResp},
 };
 
+/// Mutable settings.
+#[derive(Default)]
+pub struct Settings {
+    pub llm: LlmProvider,
+}
+
 pub struct Model {
+    pub settings: Arc<Settings>,
     pub should_quit: bool,
     pub messages: Messages,
     pub input_editor: Editor,
 }
 
-impl Default for Model {
-    fn default() -> Self {
+impl Model {
+    pub fn new(settings: Settings) -> Self {
+        let shared_settings = Arc::new(settings);
         Self {
+            settings: shared_settings.clone(),
             should_quit: false,
-            messages: Messages::default(),
+            messages: Messages::new(shared_settings),
             // by default editting
             input_editor: Editor::new(String::new(), true, WrapMode::default()),
         }

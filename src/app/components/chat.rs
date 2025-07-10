@@ -1,13 +1,17 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
-    text::{Line, Text},
-    widgets::{Block, Paragraph, StatefulWidget, Widget},
+    style::{Color, Modifier, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, Padding, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::app::{
-    components::messages::MessagesView,
-    model::{editor::Editor, messages::Messages},
+use crate::{
+    app::{
+        components::messages::MessagesView,
+        model::{editor::Editor, messages::Messages},
+    },
+    service::models::LlmProvider,
 };
 
 const BORDER_LINE_COUNT_SIDE: usize = 1;
@@ -23,6 +27,7 @@ pub struct ChatState {
 pub struct ChatView<'a> {
     pub messages: &'a Messages,
     pub input_editor: &'a mut Editor,
+    pub llm: &'a LlmProvider,
 }
 
 impl StatefulWidget for ChatView<'_> {
@@ -55,16 +60,35 @@ impl StatefulWidget for ChatView<'_> {
 
         let messages = MessagesView::from(self.messages);
         messages.render(layout[0], buf);
-        //
-        // Paragraph::new(messages)
-        //     .wrap(Wrap { trim: false })
-        //     .render(layout[0], buf);
 
         // input
         let input_lines: Vec<Line> = wrapped_input.into_iter().map(Line::from).collect();
         let text = Text::from(input_lines);
+
+        // construct title
+        // TODO: centralize style here and prompt style
+        let provider = self.llm.provider_name();
+        let model = self.llm.model_name();
+        let title: Line = Line::from(vec![
+            Span::raw("─ "),
+            Span::styled(
+                provider,
+                Style::default()
+                    .fg(Color::LightGreen)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" on "),
+            Span::styled(model, Style::default().fg(Color::LightBlue)),
+            Span::raw(" "),
+        ]);
+
         Paragraph::new(text)
-            .block(Block::bordered().title("🚀:"))
+            .block(
+                Block::new()
+                    .borders(Borders::TOP)
+                    .padding(Padding::horizontal(1))
+                    .title(title.left_aligned()),
+            )
             .render(layout[1], buf);
 
         // set cursor position if editing
@@ -86,21 +110,37 @@ mod tests {
         components::chat::ChatState,
         model::{
             editor::{Editor, WrapMode},
-            messages::Messages,
+            messages::{HistoryMessage, MessageMetadata, Messages},
         },
     };
 
     #[test]
     fn render_chat() {
+        let req_time = std::time::Instant::now();
+        let resp_time = req_time + std::time::Duration::from_secs(2);
+
+        let llm = crate::service::models::LlmProvider::OpenAI {
+            model: "gpt-4o".to_string(),
+            web_search: false,
+        };
+        let history_llm = llm.clone();
+        let history_message = HistoryMessage {
+            user_msg: "history question".to_string(),
+            assistant_msg: "history answer".to_string(),
+            metadata: MessageMetadata {
+                llm: history_llm,
+                req_time,
+                resp_time: Some(resp_time),
+            },
+        };
+
         let chat = super::ChatView {
             messages: &Messages {
-                history_messages: vec![(
-                    "history question".to_string(),
-                    "history answer".to_string(),
-                )],
+                history_messages: vec![history_message],
                 ..Messages::default()
             },
             input_editor: &mut Editor::new("repeat this".repeat(3), false, WrapMode::default()),
+            llm: &llm,
         };
         let chat_state = &mut ChatState {
             cursor_position: None,

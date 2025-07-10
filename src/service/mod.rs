@@ -5,45 +5,44 @@ pub mod models;
 use color_eyre::Result;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::service::{
-    client::{OpenAIClient, OpenAIClientImpl},
-    models::{ServiceReq, ServiceResp},
+use crate::{
+    Config,
+    service::{
+        client::{OpenAIClient, OpenAIClientImpl},
+        models::{ServiceReq, ServiceResp},
+    },
 };
 
 pub struct ServiceBuilder {
-    /// Default to open_ai
-    llm_provider: String,
+    cfg: Config,
     req_rx: UnboundedReceiver<ServiceReq>,
     resp_tx: UnboundedSender<ServiceResp>,
 }
 
 impl ServiceBuilder {
     pub fn new(
+        cfg: Config,
         req_rx: UnboundedReceiver<ServiceReq>,
         resp_tx: UnboundedSender<ServiceResp>,
     ) -> Self {
         Self {
-            llm_provider: "open_ai".to_string(),
+            cfg,
             req_rx,
             resp_tx,
         }
-    }
-
-    pub fn with_llm_provider(mut self, provider: &str) -> Self {
-        self.llm_provider = provider.to_string();
-        self
     }
 
     pub fn build(self) -> Service {
         let client: Box<dyn OpenAIClient> = {
             #[cfg(debug_assertions)]
             {
-                if self.llm_provider == "mock" {
-                    use crate::service::client::mock::MockOpenAIClient;
+                use crate::service::client::mock::MockOpenAIClient;
 
-                    Box::new(MockOpenAIClient {})
-                } else {
-                    Box::new(OpenAIClientImpl::new())
+                match self.cfg.default_llm {
+                    models::LlmProvider::Mock { latency } => Box::new(MockOpenAIClient {}),
+                    models::LlmProvider::OpenAI { model, web_search } => {
+                        Box::new(OpenAIClientImpl::new())
+                    }
                 }
             }
 

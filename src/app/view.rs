@@ -12,6 +12,7 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         ChatView {
             messages: &model.messages,
             input_editor: &mut model.input_editor,
+            llm: &model.settings.llm,
         },
         frame.area(),
         chat_state,

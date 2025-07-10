@@ -1,5 +1,4 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use tracing::{debug, warn};
 
 use crate::{
     app::model::{Command, Message, Model, scroll::Scrollable as _},
@@ -16,7 +15,7 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
                 model.messages.append_message(a);
             } else {
                 // TODO: show refusal
-                warn!("received refusal")
+                tracing::warn!("received refusal")
             }
         }
         Message::Send => {

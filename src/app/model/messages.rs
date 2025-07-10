@@ -1,37 +1,86 @@
-use crate::app::model::scroll::{ScrollState, Scrollable};
+use std::{sync::Arc, time::Instant};
+
+use futures_util::future::pending;
+
+use crate::{
+    app::model::{
+        Settings,
+        scroll::{ScrollState, Scrollable},
+    },
+    service::models::LlmProvider,
+};
+
+pub struct MessageMetadata {
+    pub llm: LlmProvider,
+    pub req_time: Instant,
+    pub resp_time: Option<Instant>,
+}
+
+pub struct HistoryMessage {
+    pub user_msg: String,
+    pub assistant_msg: String,
+    pub metadata: MessageMetadata,
+}
+
+pub struct PendingMessage {
+    pub user_msg: String,
+    pub metadata: MessageMetadata,
+}
 
 #[derive(Default)]
 pub struct Messages {
-    pub history_messages: Vec<(String, String)>, // (queston, answer)
-    pub pending_question: Option<String>,
+    pub settings: Arc<Settings>,
+    pub history_messages: Vec<HistoryMessage>,
+    pub pending: Option<PendingMessage>,
     pub scroll_state: ScrollState,
 }
 
 impl Messages {
-    pub fn append_message(&mut self, a: String) {
-        if let Some(q) = self.pending_question.as_ref() {
-            self.history_messages.push((q.clone(), a));
-            self.pending_question = None;
+    pub fn new(settings: Arc<Settings>) -> Self {
+        Self {
+            settings,
+            ..Self::default()
+        }
+    }
+
+    pub fn append_message(&mut self, assistant_msg: String) {
+        if let Some(mut pending) = self.pending.take() {
+            pending.metadata.resp_time = Some(Instant::now());
+            let history_msg = HistoryMessage {
+                user_msg: pending.user_msg,
+                assistant_msg,
+                metadata: pending.metadata,
+            };
+            self.history_messages.push(history_msg);
+            self.pending = None;
         } else {
             // TODO: report error
             tracing::warn!("received answer while no question is pending")
         }
     }
 
-    pub fn send_question(&mut self, q: &str) {
-        self.pending_question = Some(q.to_string());
+    pub fn send_question(&mut self, user_msg: &str) {
+        let metadata = MessageMetadata {
+            llm: self.settings.llm.clone(),
+            req_time: Instant::now(),
+            resp_time: None,
+        };
+        self.pending = Some(PendingMessage {
+            user_msg: user_msg.to_string(),
+            metadata,
+        });
     }
 
     pub fn is_pending_resp(&self) -> bool {
-        self.pending_question.is_some()
+        self.pending.is_some()
     }
 
-    pub fn history_messages(&self) -> &[(String, String)] {
+    pub fn history_messages(&self) -> &Vec<HistoryMessage> {
         &self.history_messages
     }
 
-    pub fn pending_question(&self) -> Option<&str> {
-        self.pending_question.as_deref()
+    pub fn pending_question(&self) -> Option<&PendingMessage> {
+        self.pending.as_ref()
     }
 }
 
