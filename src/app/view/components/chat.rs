@@ -38,9 +38,9 @@ impl StatefulWidget for ChatView<'_> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ChatState) {
         // use textwrap for height calculation and rendering for consistency
         let input_width = area.width.saturating_sub(BORDER_LINE_COUNT as u16) as usize;
-        let wrapped_input = self.input_editor.lines(input_width);
-        let cursor_position = self.input_editor.cursor_position(input_width);
-
+        self.input_editor.set_width(input_width);
+        let wrapped_input = self.input_editor.lines();
+        let cursor_position = self.input_editor.cursor_position();
         // calculate input and history messages area height
         let input_line_count = wrapped_input.len() + BORDER_LINE_COUNT;
         let max_input_line_count = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
