@@ -5,6 +5,8 @@
 
 A lightweight, terminal-based chat client for large language models (LLMs), built in Rust. Chat with OpenAI’s ChatGPT or any provider directly from your terminal.
 
+<img width="1000" alt="Snapshots" src="https://github.com/user-attachments/assets/13f6bd63-4276-4150-86ee-8871f1eff2d5" />
+
 ## 🛠️ Getting Started
 
 ### Installation
@@ -41,19 +43,22 @@ cargo build --release
     * [ ] Fix unsupported syntax.
   * [x] [Chat messages] Make it scrollable.
     * [ ] Add limit to scrollable.
-  * [ ] [Input box] Scrollable buffer, and hard newlines with Shift+Enter.
-  * [ ] Cursor Navigation.
-  * [ ] [Input box] Input copy paste + cursor better support.
-  * [ ] [Chat messages] Tmux like copy mode.
+  * [ ] [Input box] Scrollable buffer.
+  * [ ] Cursor navigation and cursor based copy.
   * [ ] [Input box] Embed nvim.
   * [ ] Vim style nagivation keybindings and help.
+* App:
+  * [ ] Load config properly.
+  * [ ] Update settings at run time.
+  * [ ] Help and Keymaps.
 * Chat Engine:
   * [x] Retain context across chats.
   * [ ] Web: optional search and crawl.
+  * [ ] Streaming.
   * [ ] Track token usage.
+  * [ ] Search.
 * Session Management: persist chat session history and support global search.
-* Multi-Provider Support: pluggable provider interface for other LLM backend.
-* Configuration & Theming: full config support; custom keymaps.
+* Multi-Provider Support: other LLM backend.
 
 ### ⚠️ Limitations
 
