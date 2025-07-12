@@ -1,5 +1,5 @@
 ---
-source: src/app/components/chat.rs
+source: src/app/view/components/chat.rs
 expression: terminal.backend()
 ---
 "                    "

@@ -158,7 +158,7 @@ impl Editor {
         let mut byte_offset = 0;
         let mut line_offset = 0;
 
-        // TODO: instead of reflow all paragraphs, cache and update on edits / width change.
+        // TODO: instead of reflow all paragraphs, cache and update on edits / width change
         for paragraph_input in input.split('\n') {
             let mut paragraph =
                 Paragraph::new(paragraph_input.to_string(), byte_offset, line_offset);
@@ -201,16 +201,15 @@ impl Editor {
     }
 
     pub fn delete_char(&mut self) {
-        let is_not_cursor_leftmost = self.char_idx != 0;
-        if is_not_cursor_leftmost {
-            // Not using `remove` since it works on bytes instead of the chars.
+        if self.char_idx != 0 {
+            // not using `remove` since it works on bytes instead of the chars
             let current_idx = self.char_idx;
             let from_left_to_current_idx = current_idx - 1;
 
             let before_char_to_delete = self.input.chars().take(from_left_to_current_idx);
             let after_char_to_delete = self.input.chars().skip(current_idx);
 
-            // Put all characters together except the selected one.
+            // put all characters together except the selected one.
             self.input = before_char_to_delete.chain(after_char_to_delete).collect();
             self.move_cursor_left();
         }

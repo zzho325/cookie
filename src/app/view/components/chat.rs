@@ -8,8 +8,8 @@ use ratatui::{
 
 use crate::{
     app::{
-        components::messages::MessagesView,
         model::{editor::Editor, messages::Messages},
+        view::components::messages::MessagesView,
     },
     service::models::LlmProvider,
 };
@@ -107,11 +107,11 @@ impl StatefulWidget for ChatView<'_> {
 #[cfg(test)]
 mod tests {
     use crate::app::{
-        components::chat::ChatState,
         model::{
             editor::{Editor, WrapMode},
             messages::{HistoryMessage, MessageMetadata, Messages},
         },
+        view::components::chat::ChatState,
     };
 
     #[test]

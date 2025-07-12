@@ -1,6 +1,8 @@
+mod components;
+
 use crate::app::{
-    components::chat::{ChatState, ChatView},
     model::Model,
+    view::components::chat::{ChatState, ChatView},
 };
 use ratatui::{Frame, layout::Position};
 

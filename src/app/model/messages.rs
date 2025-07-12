@@ -1,7 +1,5 @@
 use std::{sync::Arc, time::Instant};
 
-use futures_util::future::pending;
-
 use crate::{
     app::model::{
         Settings,
