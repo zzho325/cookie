@@ -52,7 +52,7 @@ impl MessagesView<'_> {
 }
 
 impl Widget for MessagesView<'_> {
-    /// Renders history passanges pane.
+    /// Renders history messages pane.
     fn render(self, area: Rect, buf: &mut Buffer) {
         // history messages
         let mut messages = Text::raw("");
