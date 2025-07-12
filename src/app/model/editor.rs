@@ -83,17 +83,11 @@ impl Paragraph {
 
     /// Returns cursor position given a byte idx against cached lines, assuming it's in this
     /// paragraph.
-    fn find_cursor_position(
-        &self,
-        wrap_width: usize,
-        cursor_byte_idx: usize,
-    ) -> (u16 /*x*/, u16 /*y*/) {
+    fn find_cursor_position(&self, cursor_byte_idx: usize) -> (u16 /*x*/, u16 /*y*/) {
         let mut line_byte_offset = 0;
         for (line_idx, line) in self.lines.iter().enumerate() {
             if cursor_byte_idx < self.byte_offset + line_byte_offset + line.len() {
-                let x = line[..(cursor_byte_idx - self.byte_offset - line_byte_offset)]
-                    .width()
-                    .min(wrap_width); // tailing white spaces from word wrap mode
+                let x = line[..(cursor_byte_idx - self.byte_offset - line_byte_offset)].width();
                 let y = self.line_offset + line_idx;
                 return (x as u16, y as u16);
             }
@@ -101,14 +95,9 @@ impl Paragraph {
         }
 
         // handle cursor at the end of paragraph
-        let current_width = self.lines.last().map_or(0, |s| s.width()).min(wrap_width);
-        let mut x = current_width;
-        let mut y = self.line_offset + self.lines.len() - 1;
-        if x == wrap_width {
-            // shift to next line
-            x = 0;
-            y += 1;
-        }
+        let current_width = self.lines.last().map_or(0, |s| s.width());
+        let x = current_width;
+        let y = self.line_offset + self.lines.len() - 1;
         (x as u16, y as u16)
     }
 
@@ -226,13 +215,8 @@ impl Editor {
             if cursor_byte_idx >= paragraph.byte_offset
                 && cursor_byte_idx <= paragraph.byte_offset + paragraph.input.len()
             {
-                tracing::debug!(
-                    target_paragraph = ?paragraph,
-                    cursor_byte_index = ?cursor_byte_idx,
-                    "finding cursor position"
-                );
-
-                return paragraph.find_cursor_position(self.wrap_width, cursor_byte_idx);
+                let (x, y) = paragraph.find_cursor_position(cursor_byte_idx);
+                return (x.min(self.wrap_width as u16), y);
             }
         }
         tracing::warn!("cursor position not found");
@@ -252,12 +236,6 @@ impl Editor {
         paragraph_idx = paragraph_idx.clamp(0, self.paragraphs.len() - 1);
         let paragraph = &self.paragraphs[paragraph_idx];
         let byte_idx = paragraph.find_byte_idx(cursor_position);
-        tracing::debug!(
-            target_paragraph = ?paragraph,
-            cursor_position = ?cursor_position,
-            byte_idx = ?byte_idx,
-            "finding char idx",
-        );
         self.input[..byte_idx].chars().count()
     }
 
@@ -496,6 +474,15 @@ mod tests {
                 clamped_char_idx: 5,
             },
             Case {
+                description: "one line with trailing whitespace",
+                input: " hello   ",
+                char_idx: 9,
+                wrap_width: 7,
+                lines: vec![" hello   "],
+                cursor_position: (7, 0),
+                clamped_char_idx: 7,
+            },
+            Case {
                 description: "two lines with new line, cursor at newline",
                 input: "hello\nworld",
                 char_idx: 5,
@@ -593,13 +580,6 @@ mod tests {
 
     #[test]
     fn move_cursor_vertical() {
-        tracing_subscriber::fmt()
-            .with_env_filter(
-                tracing_subscriber::EnvFilter::builder()
-                    .with_default_directive(tracing::Level::TRACE.into())
-                    .from_env_lossy(),
-            )
-            .init();
         #[derive(Default)]
         struct Case {
             description: &'static str,
