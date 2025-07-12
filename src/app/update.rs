@@ -57,6 +57,8 @@ fn handle_key_event(
             (KeyCode::Esc, _) => editor.is_editing = false,
             (KeyCode::Enter, KeyModifiers::ALT) => editor.enter_char('\n'),
             (KeyCode::Enter, _) => return (Some(Message::Send), None),
+            (KeyCode::Down, _) => editor.move_cursor_down(),
+            (KeyCode::Up, _) => editor.move_cursor_up(),
             _ => {}
         }
     } else {
