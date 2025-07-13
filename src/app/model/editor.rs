@@ -116,7 +116,7 @@ impl Paragraph {
         let mut current_width = 0;
         for (grapheme_byte_offset, grapheme) in line.grapheme_indices(true) {
             let grapheme_width = UnicodeWidthStr::width(grapheme);
-            if current_width == x as usize {
+            if current_width + grapheme_width > x as usize {
                 return self.byte_offset + line_byte_offset + grapheme_byte_offset;
             }
             current_width += grapheme_width;
@@ -620,6 +620,14 @@ mod tests {
                 view_width: 11,
                 expected_positions: vec![(4, 1), (4, 0)],
                 expected_char_indices: vec![8, 2],
+            },
+            Case {
+                description: "Chinese",
+                input: "taro\n芋泥奶茶",
+                char_idx: 3,
+                view_width: 11,
+                expected_positions: vec![(2, 1), (2, 0)],
+                expected_char_indices: vec![6, 2],
             },
         ];
         for case in cases {
