@@ -1,4 +1,5 @@
 mod components;
+pub mod constants;
 
 use crate::app::{
     model::Model,

@@ -8,17 +8,16 @@ use ratatui::{
 
 use crate::{
     app::{
-        model::{editor::Editor, messages::Messages},
-        view::components::messages::MessagesView,
+        model::{editor::Editor, messages::Messages, scroll::Scrollable},
+        view::{
+            components::messages::MessagesView,
+            constants::{
+                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
+            },
+        },
     },
     service::models::LlmProvider,
 };
-
-const BORDER_LINE_COUNT_SIDE: usize = 1;
-const BORDER_LINE_COUNT: usize = BORDER_LINE_COUNT_SIDE * 2;
-
-const MIN_INPUT_LINE_CPUNT: usize = 1 + BORDER_LINE_COUNT;
-const MAX_INPUT_RATIO: f32 = 0.3;
 
 pub struct ChatState {
     pub cursor_position: Option<(u16, u16)>,
@@ -33,21 +32,18 @@ pub struct ChatView<'a> {
 impl StatefulWidget for ChatView<'_> {
     type State = ChatState;
 
-    /// Renders chat pane with input block starting with height = 1 (excluding border) and increase
-    /// height as input length increases with a maximum of 0.3 * widget area.
+    /// Renders chat pane with input block starting with MIN_INPUT_HEIGHT including border and
+    /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ChatState) {
-        // use textwrap for height calculation and rendering for consistency
-        let input_width = area.width.saturating_sub(BORDER_LINE_COUNT as u16) as usize;
-        self.input_editor.set_width(input_width);
-        let wrapped_input = self.input_editor.lines();
-        let cursor_position = self.input_editor.cursor_position();
-        // calculate input and history messages area height
-        let input_line_count = wrapped_input.len() + BORDER_LINE_COUNT;
-        let max_input_line_count = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
-        let input_height = input_line_count
-            .max(MIN_INPUT_LINE_CPUNT)
-            .min(max_input_line_count) as u16;
+        let input_content_width = area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
+        self.input_editor.set_width(input_content_width);
+        let max_input_height = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
+        let max_input_content_height = max_input_height - BORDER_THICKNESS_SIDE;
+        self.input_editor.set_max_height(max_input_content_height);
 
+        let lines = self.input_editor.lines();
+        let input_height =
+            (lines.len() + BORDER_THICKNESS_SIDE).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
         let message_height = area.height.saturating_sub(input_height);
 
         let layout = Layout::default()
@@ -62,7 +58,7 @@ impl StatefulWidget for ChatView<'_> {
         messages.render(layout[0], buf);
 
         // input
-        let input_lines: Vec<Line> = wrapped_input.into_iter().map(Line::from).collect();
+        let input_lines: Vec<Line> = lines.into_iter().map(Line::from).collect();
         let text = Text::from(input_lines);
 
         // construct title
@@ -82,6 +78,7 @@ impl StatefulWidget for ChatView<'_> {
             Span::raw(" "),
         ]);
 
+        let scroll_offset = self.input_editor.scroll_offset();
         Paragraph::new(text)
             .block(
                 Block::new()
@@ -89,14 +86,17 @@ impl StatefulWidget for ChatView<'_> {
                     .padding(Padding::horizontal(1))
                     .title(title.left_aligned()),
             )
+            .scroll(scroll_offset)
             .render(layout[1], buf);
 
         // set cursor position if editing
         if self.input_editor.is_editing {
+            let cursor_position = self.input_editor.cursor_position();
             let (x, y) = cursor_position;
+            let (y_scroll_offset, _) = scroll_offset;
             state.cursor_position = Some((
-                x + BORDER_LINE_COUNT_SIDE as u16,
-                y + message_height + BORDER_LINE_COUNT_SIDE as u16,
+                x + BORDER_THICKNESS_SIDE as u16,
+                y + message_height + BORDER_THICKNESS_SIDE as u16 - y_scroll_offset,
             ));
         } else {
             state.cursor_position = None;

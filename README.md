@@ -36,21 +36,22 @@ cargo build --release
 ### 🎯 Milestones
 
 * Chat UI/UX 
-  * [x] [Input box] Soft wrap supporting both Vim-style wrapping and Unicode Standard Annex #14 (UAX#14) word boundaries.
-    * [ ] Per paragraph cache to improve performance.
+  * [x] [Input box] Soft wrap.
+  * [x] [Input box] Cursor nagivation.
+  * [x] [Input box] Scrollable buffer.
   * [x] [Chat messages] Render chat as markdown.
     * [ ] Fix color.
     * [ ] Fix unsupported syntax.
-  * [x] [Chat messages] Make it scrollable.
-    * [ ] Add limit to scrollable.
-  * [ ] [Input box] Scrollable buffer.
-  * [ ] Cursor navigation and cursor based copy.
+  * [x] [Chat messages] Scroll.
+  * [ ] [Chat messages] Cursor navigation.
+  * [ ] Select range and copy.
+  * [ ] Mouse event.
   * [ ] [Input box] Embed nvim.
-  * [ ] Vim style nagivation keybindings and help.
 * App:
   * [ ] Load config properly.
   * [ ] Update settings at run time.
   * [ ] Help and Keymaps.
+  * [ ] Error popup.
 * Chat Engine:
   * [x] Retain context across chats.
   * [ ] Web: optional search and crawl.

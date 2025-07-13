@@ -3,7 +3,10 @@ use textwrap::{Options, WordSeparator, wrap};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::model::scroll::{ScrollState, Scrollable};
+use crate::app::{
+    model::scroll::{ScrollState, Scrollable},
+    view::constants::MIN_INPUT_CONTENT_HEIGHT,
+};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum WrapMode {
@@ -137,8 +140,10 @@ pub struct Editor {
     wrap_mode: WrapMode,
 
     pub scroll_state: ScrollState,
-    /// Current view_width.
+    /// Available visual width.
     view_width: usize,
+    /// Max available visual height.
+    max_view_height: usize,
     /// Current paragraphs holding visual lines wrapped with view_width.
     paragraphs: Vec<Paragraph>,
     /// If paragraphs are up-to-date with `input`, `view_width`.
@@ -188,11 +193,15 @@ impl Editor {
         self.needs_reflow = false;
     }
 
-    pub fn set_width(&mut self, view_width: usize) {
-        if view_width != self.view_width {
-            self.view_width = view_width;
+    pub fn set_width(&mut self, width: usize) {
+        if width != self.view_width {
+            self.view_width = width;
             self.needs_reflow = true;
         }
+    }
+
+    pub fn set_max_height(&mut self, height: usize) {
+        self.max_view_height = height;
     }
 
     /// Returns visual lines given a view_width.
@@ -241,8 +250,8 @@ impl Editor {
     pub fn enter_char(&mut self, new_char: char) {
         let idx = self.byte_idx();
         self.input.insert(idx, new_char);
-        self.move_cursor_right();
         self.needs_reflow = true;
+        self.move_cursor_right();
     }
 
     pub fn delete_char(&mut self) {
@@ -256,38 +265,40 @@ impl Editor {
 
             // put all characters together except the selected one
             self.input = before_char_to_delete.chain(after_char_to_delete).collect();
-            self.move_cursor_left();
             self.needs_reflow = true;
+            self.move_cursor_left();
         }
     }
 
     /// Clears input.
     pub fn clear(&mut self) {
         self.input = String::new();
-        self.char_idx = 0;
         self.needs_reflow = true;
+        self.set_char_idx_and_sroll(0);
     }
 
     pub fn move_cursor_down(&mut self) {
         let (x, mut y) = self.cursor_position();
         y = y.saturating_add(1);
-        self.char_idx = self.find_char_idx((x, y));
+        let cursor_moved_down = self.find_char_idx((x, y));
+        self.set_char_idx_and_sroll(cursor_moved_down);
     }
 
     pub fn move_cursor_up(&mut self) {
         let (x, mut y) = self.cursor_position();
         y = y.saturating_sub(1);
-        self.char_idx = self.find_char_idx((x, y));
+        let cursor_moved_up = self.find_char_idx((x, y));
+        self.set_char_idx_and_sroll(cursor_moved_up);
     }
 
     pub fn move_cursor_left(&mut self) {
         let cursor_moved_left = self.char_idx.saturating_sub(1);
-        self.char_idx = self.clamp_cursor_idx(cursor_moved_left);
+        self.set_char_idx_and_sroll(cursor_moved_left);
     }
 
     pub fn move_cursor_right(&mut self) {
         let cursor_moved_right = self.char_idx.saturating_add(1);
-        self.char_idx = self.clamp_cursor_idx(cursor_moved_right);
+        self.set_char_idx_and_sroll(cursor_moved_right);
     }
 
     /// Returns current cursor byte idx.
@@ -302,8 +313,14 @@ impl Editor {
             .unwrap_or(self.input.len())
     }
 
-    fn clamp_cursor_idx(&self, new_char_idx: usize) -> usize {
-        new_char_idx.clamp(0, self.input.chars().count())
+    /// Updates `char_idx` and scrolls so that cursor is visible.
+    fn set_char_idx_and_sroll(&mut self, char_idx: usize) {
+        self.char_idx = char_idx.clamp(0, self.input.chars().count());
+        let (_, y) = self.cursor_position();
+        let mut height: usize = self.paragraphs.iter().map(|p| p.lines.len()).sum();
+        height = height.clamp(MIN_INPUT_CONTENT_HEIGHT, self.max_view_height);
+
+        self.ensure_visible(y as usize, height);
     }
 }
 
@@ -633,6 +650,7 @@ mod tests {
         for case in cases {
             let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Character);
             editor.char_idx = case.char_idx;
+            editor.set_max_height(10);
             editor.set_width(case.view_width);
             let mut char_indices: Vec<usize> = Vec::new();
             let mut positions: Vec<(u16, u16)> = Vec::new();
