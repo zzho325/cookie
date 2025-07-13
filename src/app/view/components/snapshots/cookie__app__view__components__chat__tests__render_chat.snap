@@ -3,7 +3,7 @@ source: src/app/view/components/chat.rs
 expression: terminal.backend()
 ---
 "                    "
-"┌─> openAI on gpt-4o"
+"┌─> openAI on 4o    "
 "[2s]                "
 "└─> history question"
 "history answer      "
@@ -19,6 +19,6 @@ expression: terminal.backend()
 "                    "
 "                    "
 "                    "
-"─ openAI on gpt-4o ─"
+"─ openAI on 4o ─────"
 " repeat thisrepeat  "
 " thisrepeat this    "

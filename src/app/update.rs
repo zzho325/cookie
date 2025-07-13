@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
     app::model::{Command, Message, Model, scroll::Scrollable as _},
-    service::models::ServiceResp,
+    models::ServiceResp,
 };
 
 /// Updates model with message and optionally create next message for chained update and command

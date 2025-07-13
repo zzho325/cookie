@@ -16,7 +16,7 @@ use crate::{
             },
         },
     },
-    service::models::LlmProvider,
+    models::LlmSettings,
 };
 
 pub struct ChatState {
@@ -26,7 +26,7 @@ pub struct ChatState {
 pub struct ChatView<'a> {
     pub messages: &'a Messages,
     pub input_editor: &'a mut Editor,
-    pub llm: &'a LlmProvider,
+    pub llm: &'a LlmSettings,
 }
 
 impl StatefulWidget for ChatView<'_> {
@@ -119,8 +119,8 @@ mod tests {
         let req_time = std::time::Instant::now();
         let resp_time = req_time + std::time::Duration::from_secs(2);
 
-        let llm = crate::service::models::LlmProvider::OpenAI {
-            model: "gpt-4o".to_string(),
+        let llm = crate::models::LlmSettings::OpenAI {
+            model: crate::service::client::api::OpenAIModel::Gpt4o,
             web_search: false,
         };
         let history_llm = llm.clone();

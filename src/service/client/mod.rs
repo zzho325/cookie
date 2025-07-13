@@ -2,15 +2,27 @@ pub mod api;
 pub mod mock;
 
 use async_trait::async_trait;
-use color_eyre::eyre::{Result, WrapErr, bail};
+use color_eyre::eyre::{Result, WrapErr, bail, eyre};
 use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::service::client::api::{ResponsesReq, ResponsesResp};
+use crate::models::LlmSettings;
+use api::{ContentItem, InputItem, OutputItem, ResponsesReq, ResponsesResp, Role};
 
 #[async_trait]
-pub trait OpenAIClient {
-    async fn responses(&self, req: ResponsesReq) -> Result<ResponsesResp>;
+pub trait LlmClient {
+    async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp>;
+}
+
+pub struct LlmReq {
+    pub msg: String,
+    pub previous_response_id: Option<String>,
+    pub settings: LlmSettings,
+}
+
+pub struct LlmResp {
+    pub msg: String,
+    pub id: String,
 }
 
 pub struct OpenAIClientImpl {
@@ -18,12 +30,42 @@ pub struct OpenAIClientImpl {
 }
 
 #[async_trait]
-impl OpenAIClient for OpenAIClientImpl {
-    async fn responses(&self, req: ResponsesReq) -> Result<ResponsesResp> {
+impl LlmClient for OpenAIClientImpl {
+    async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp> {
+        let (model, web_search_) = match llm_req.settings {
+            LlmSettings::OpenAI { model, web_search } => (model, web_search),
+            _ => return Err(eyre!("Client and settings do not match")),
+        };
+
+        let req = ResponsesReq {
+            model,
+            input: vec![InputItem {
+                role: Role::User,
+                content: llm_req.msg,
+            }],
+            previous_response_id: llm_req.previous_response_id.clone(),
+            ..ResponsesReq::default()
+        };
         let resp = self
             .post::<ResponsesReq, ResponsesResp>("v1/responses", &req)
             .await?;
-        Ok(resp)
+
+        tracing::debug!("req model {}", req.model.display_name());
+        tracing::debug!("resp {resp:?}");
+        // TODO: assert role and handle refusal
+        let mut texts = Vec::new();
+        for output in &resp.output {
+            let OutputItem::Message { content, .. } = output;
+            for item in content {
+                if let ContentItem::OutputText { text } = item {
+                    texts.push(text.clone());
+                }
+            }
+        }
+        Ok(LlmResp {
+            msg: texts.join(""),
+            id: resp.id,
+        })
     }
 }
 
@@ -41,6 +83,7 @@ impl OpenAIClientImpl {
         resource: &str,
         payload: &U,
     ) -> Result<T> {
+        // TODO: fetch kay at service bootstrap and error out if doesn't exist
         let api_key = std::env::var("OPENAI_API_KEY")
             .wrap_err("set the OPENAI_API_KEY environment variable")?;
 
@@ -58,14 +101,14 @@ impl OpenAIClientImpl {
 
     async fn handle_resp<T: DeserializeOwned>(resp: reqwest::Response) -> Result<T> {
         let status = resp.status();
-        let body = resp.text().await.wrap_err("Failed to read response body")?;
+        let body = resp.text().await.wrap_err("failed to read response body")?;
 
         if !status.is_success() {
             bail!("request failed: HTTP {status} with body:\n{body}");
         }
 
         let result: T = serde_json::from_str(&body)
-            .wrap_err_with(|| format!("Could not deserialize response body:\n{}", body))?;
+            .wrap_err_with(|| format!("could not deserialize response body:\n{}", body))?;
 
         Ok(result)
     }

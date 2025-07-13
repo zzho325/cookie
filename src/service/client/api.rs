@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Default)]
 pub struct ResponsesReq {
-    pub model: String,
+    pub model: OpenAIModel,
     /// A system (or developer) message inserted into model's context.
     /// Not carried over to next response when using previous_response_id.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,6 +24,30 @@ pub enum Role {
 pub struct InputItem {
     pub role: Role,
     pub content: String,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub enum OpenAIModel {
+    #[default]
+    #[serde(rename = "gpt-4o")]
+    Gpt4o,
+    #[serde(rename = "gpt-4o-mini")]
+    Gpt4oMini,
+    #[serde(rename = "o4-mini")]
+    O4Mini,
+    #[serde(rename = "o3")]
+    O3,
+}
+
+impl OpenAIModel {
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            OpenAIModel::Gpt4o => "4o",
+            OpenAIModel::Gpt4oMini => "4o-mini",
+            OpenAIModel::O4Mini => "o4-mini",
+            OpenAIModel::O3 => "o3",
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]

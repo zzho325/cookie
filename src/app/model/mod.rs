@@ -11,29 +11,23 @@ use crate::{
         editor::{Editor, WrapMode},
         messages::Messages,
     },
-    service::models::{LlmProvider, ServiceReq, ServiceResp},
+    models::{LlmSettings, ServiceReq, ServiceResp},
 };
 
-/// Mutable settings.
-#[derive(Default)]
-pub struct Settings {
-    pub llm: LlmProvider,
-}
-
 pub struct Model {
-    pub settings: Arc<Settings>,
+    pub llm_settings: Arc<LlmSettings>,
     pub should_quit: bool,
     pub messages: Messages,
     pub input_editor: Editor,
 }
 
 impl Model {
-    pub fn new(settings: Settings) -> Self {
-        let shared_settings = Arc::new(settings);
+    pub fn new(default_llm_settings: LlmSettings) -> Self {
+        let shared_llm_settings = Arc::new(default_llm_settings);
         Self {
-            settings: shared_settings.clone(),
+            llm_settings: shared_llm_settings.clone(),
             should_quit: false,
-            messages: Messages::new(shared_settings),
+            messages: Messages::new(shared_llm_settings),
             // by default editting
             input_editor: Editor::new(String::new(), true, WrapMode::default()),
         }

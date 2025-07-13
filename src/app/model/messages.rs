@@ -1,15 +1,12 @@
 use std::{sync::Arc, time::Instant};
 
 use crate::{
-    app::model::{
-        Settings,
-        scroll::{ScrollState, Scrollable},
-    },
-    service::models::LlmProvider,
+    app::model::scroll::{ScrollState, Scrollable},
+    models::LlmSettings,
 };
 
 pub struct MessageMetadata {
-    pub llm: LlmProvider,
+    pub llm: LlmSettings,
     pub req_time: Instant,
     pub resp_time: Option<Instant>,
 }
@@ -27,16 +24,16 @@ pub struct PendingMessage {
 
 #[derive(Default)]
 pub struct Messages {
-    pub settings: Arc<Settings>,
+    pub llm_settings: Arc<LlmSettings>,
     pub history_messages: Vec<HistoryMessage>,
     pub pending: Option<PendingMessage>,
     pub scroll_state: ScrollState,
 }
 
 impl Messages {
-    pub fn new(settings: Arc<Settings>) -> Self {
+    pub fn new(settings: Arc<LlmSettings>) -> Self {
         Self {
-            settings,
+            llm_settings: settings,
             ..Self::default()
         }
     }
@@ -59,7 +56,7 @@ impl Messages {
 
     pub fn send_question(&mut self, user_msg: &str) {
         let metadata = MessageMetadata {
-            llm: self.settings.llm.clone(),
+            llm: (*self.llm_settings).clone(),
             req_time: Instant::now(),
             resp_time: None,
         };

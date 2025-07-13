@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use color_eyre::Result;
 
 use crate::service::client::{
-    OpenAIClient,
-    api::{ContentItem, OutputItem, ResponsesReq, ResponsesResp, Role},
+    LlmClient, LlmReq, LlmResp,
+    api::{ContentItem, OutputItem, ResponsesResp, Role},
 };
 
 const MARKDOWN_RESP: &str = "
@@ -67,21 +67,17 @@ pub struct MockOpenAIClient {}
 
 #[async_trait]
 #[cfg(debug_assertions)]
-impl OpenAIClient for MockOpenAIClient {
-    async fn responses(&self, req: ResponsesReq) -> Result<ResponsesResp> {
-        let message = req.input[0].content.clone();
-        let resp = match message.as_str() {
+impl LlmClient for MockOpenAIClient {
+    async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp> {
+        let msg = match llm_req.msg.as_str() {
             "long" => "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100),
             "markdown" => MARKDOWN_RESP.to_string(),
-            _ => message,
+            _ => llm_req.msg,
         };
 
-        Ok(ResponsesResp {
+        Ok(LlmResp {
+            msg,
             id: "mock-response-id".to_string(),
-            output: vec![OutputItem::Message {
-                role: Role::Assistant,
-                content: vec![ContentItem::OutputText { text: resp }],
-            }],
         })
     }
 }

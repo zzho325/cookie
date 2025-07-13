@@ -1,78 +1,72 @@
 mod chat;
 pub mod client;
-pub mod models;
 
 use color_eyre::Result;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::{
-    Config,
-    service::{
-        client::{OpenAIClient, OpenAIClientImpl},
-        models::{ServiceReq, ServiceResp},
-    },
+    models::{LlmSettings, ServiceReq, ServiceResp},
+    service::client::{LlmClient, OpenAIClientImpl},
 };
 
 pub struct ServiceBuilder {
-    cfg: Config,
+    llm_settings: LlmSettings,
     req_rx: UnboundedReceiver<ServiceReq>,
     resp_tx: UnboundedSender<ServiceResp>,
 }
 
 impl ServiceBuilder {
     pub fn new(
-        cfg: Config,
+        llm_settings: LlmSettings,
         req_rx: UnboundedReceiver<ServiceReq>,
         resp_tx: UnboundedSender<ServiceResp>,
     ) -> Self {
         Self {
-            cfg,
+            llm_settings,
             req_rx,
             resp_tx,
         }
     }
 
     pub fn build(self) -> Service {
-        let client: Box<dyn OpenAIClient> = {
-            #[cfg(debug_assertions)]
-            {
-                use crate::service::client::mock::MockOpenAIClient;
-
-                match self.cfg.default_llm {
-                    models::LlmProvider::Mock { latency } => Box::new(MockOpenAIClient {}),
-                    models::LlmProvider::OpenAI { model, web_search } => {
-                        Box::new(OpenAIClientImpl::new())
+        let client: Box<dyn LlmClient> = {
+            match self.llm_settings {
+                LlmSettings::OpenAI { .. } => Box::new(OpenAIClientImpl::new()),
+                LlmSettings::Mock { .. } => {
+                    #[cfg(debug_assertions)]
+                    {
+                        Box::new(crate::service::client::mock::MockOpenAIClient {})
                     }
+                    #[cfg(not(debug_assertions))]
+                    panic!("using mock llm provider with non debug build")
                 }
             }
-
-            #[cfg(not(debug_assertions))]
-            {
-                Box::new(OpenAIClientImpl::new())
-            }
         };
-        Service::new(client, self.req_rx, self.resp_tx)
+        Service::new(self.req_rx, self.resp_tx, client, self.llm_settings)
     }
 }
 
 pub struct Service {
-    open_ai_client: Box<dyn OpenAIClient>,
     req_rx: UnboundedReceiver<ServiceReq>,
     resp_tx: UnboundedSender<ServiceResp>,
 
+    llm_client: Box<dyn LlmClient>,
+    llm_settings: LlmSettings,
     previous_response_id: Option<String>,
 }
 
 impl Service {
     pub fn new(
-        client: Box<dyn OpenAIClient>,
         req_rx: UnboundedReceiver<ServiceReq>,
         resp_tx: UnboundedSender<ServiceResp>,
+        client: Box<dyn LlmClient>,
+        llm_settings: LlmSettings,
     ) -> Self {
         Self {
-            open_ai_client: client,
             req_rx,
             resp_tx,
+            llm_client: client,
+            llm_settings,
             previous_response_id: None,
         }
     }
