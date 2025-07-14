@@ -2,7 +2,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
     app::model::{Command, Message, Model, scroll::Scrollable as _},
-    models::ServiceResp,
+    models::{LlmSettings, ServiceReq, ServiceResp, configs::OpenAIConfig},
+    service::client::api::OpenAIModel,
 };
 
 /// Updates model with message and optionally create next message for chained update and command
@@ -23,7 +24,8 @@ pub fn update(model: &mut Model, msg: Message) -> (Option<Message>, Option<Comma
             // TODO: implement timeout for pending resp
             if !model.messages.is_pending_resp() {
                 let q = model.input_editor.input().to_string();
-                let cmd = Command::SendMessage(q);
+                let req = crate::models::ServiceReq::ChatMessage(q);
+                let cmd = Command::ServiceReq(req);
                 // move input to pending
                 model.messages.send_question(model.input_editor.input());
                 model.input_editor.clear();
@@ -67,6 +69,17 @@ fn handle_key_event(
             KeyCode::Char('i') => model.input_editor.is_editing = true,
             KeyCode::Down => model.messages.scroll_down(),
             KeyCode::Up => model.messages.scroll_up(),
+            KeyCode::Right => {
+                // for now for test
+                let llm_settings = LlmSettings::OpenAI {
+                    model: OpenAIModel::Gpt4oMini,
+                    web_search: false,
+                };
+                tracing::debug!("send setting update");
+                let req = crate::models::ServiceReq::UpdateSettings(llm_settings);
+                let cmd = Command::ServiceReq(req);
+                return (None, Some(cmd));
+            }
             _ => {}
         }
     }

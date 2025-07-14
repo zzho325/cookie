@@ -7,6 +7,7 @@ use crate::service::client::api::OpenAIModel;
 #[derive(Debug)]
 pub enum ServiceReq {
     ChatMessage(String),
+    UpdateSettings(LlmSettings),
 }
 
 pub enum ServiceResp {
@@ -14,7 +15,7 @@ pub enum ServiceResp {
     Refusal(String),
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub enum LlmSettings {
     OpenAI {
         model: OpenAIModel,

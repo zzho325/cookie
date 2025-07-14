@@ -44,13 +44,13 @@ pub enum Message {
 
 /// Side effect of update.
 pub enum Command {
-    SendMessage(String),
+    ServiceReq(ServiceReq),
 }
 
 impl Command {
     /// If this `Command` corresponds to a service request, return `Some(_)`, otherwise return `None`.
     pub fn into_service_req(self) -> Option<ServiceReq> {
-        let Command::SendMessage(msg) = self;
-        Some(ServiceReq::ChatMessage(msg))
+        let Command::ServiceReq(req) = self;
+        Some(req)
     }
 }

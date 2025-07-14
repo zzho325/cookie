@@ -1,6 +1,8 @@
 pub mod api;
 pub mod mock;
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use color_eyre::eyre::{Result, WrapErr, bail, eyre};
 use reqwest::header::AUTHORIZATION;
@@ -14,6 +16,7 @@ pub trait LlmClient {
     async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp>;
 }
 
+#[derive(Debug, Clone)]
 pub struct LlmReq {
     pub msg: String,
     pub previous_response_id: Option<String>,
@@ -23,6 +26,41 @@ pub struct LlmReq {
 pub struct LlmResp {
     pub msg: String,
     pub id: String,
+}
+
+#[derive(Clone)]
+pub struct LlmClientRouter {
+    open_ai: Arc<OpenAIClientImpl>,
+    #[cfg(debug_assertions)]
+    mock: Arc<mock::MockLlmClientImpl>,
+}
+
+impl LlmClientRouter {
+    pub fn new() -> Self {
+        Self {
+            open_ai: Arc::new(OpenAIClientImpl::new()),
+            #[cfg(debug_assertions)]
+            mock: Arc::new(mock::MockLlmClientImpl {}),
+        }
+    }
+}
+
+#[async_trait]
+impl LlmClient for LlmClientRouter {
+    async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp> {
+        tracing::debug!("router handle request {:?}", llm_req);
+        match llm_req.settings {
+            LlmSettings::OpenAI { .. } => return self.open_ai.responses(llm_req).await,
+            LlmSettings::Mock { .. } => {
+                #[cfg(debug_assertions)]
+                {
+                    self.mock.responses(llm_req).await
+                }
+                #[cfg(not(debug_assertions))]
+                panic!("using mock llm provider with non debug build")
+            }
+        }
+    }
 }
 
 pub struct OpenAIClientImpl {
@@ -37,6 +75,8 @@ impl LlmClient for OpenAIClientImpl {
             _ => return Err(eyre!("Client and settings do not match")),
         };
 
+        tracing::debug!("open ai req!!!!");
+
         let req = ResponsesReq {
             model,
             input: vec![InputItem {
@@ -50,7 +90,6 @@ impl LlmClient for OpenAIClientImpl {
             .post::<ResponsesReq, ResponsesResp>("v1/responses", &req)
             .await?;
 
-        tracing::debug!("req model {}", req.model.display_name());
         tracing::debug!("resp {resp:?}");
         // TODO: assert role and handle refusal
         let mut texts = Vec::new();
@@ -83,7 +122,7 @@ impl OpenAIClientImpl {
         resource: &str,
         payload: &U,
     ) -> Result<T> {
-        // TODO: fetch kay at service bootstrap and error out if doesn't exist
+        // TODO: fetch key at service bootstrap and error out if doesn't exist
         let api_key = std::env::var("OPENAI_API_KEY")
             .wrap_err("set the OPENAI_API_KEY environment variable")?;
 
@@ -102,14 +141,15 @@ impl OpenAIClientImpl {
     async fn handle_resp<T: DeserializeOwned>(resp: reqwest::Response) -> Result<T> {
         let status = resp.status();
         let body = resp.text().await.wrap_err("failed to read response body")?;
-
         if !status.is_success() {
+            // TODO: return error
             bail!("request failed: HTTP {status} with body:\n{body}");
         }
 
         let result: T = serde_json::from_str(&body)
             .wrap_err_with(|| format!("could not deserialize response body:\n{}", body))?;
 
+        tracing::debug!(body);
         Ok(result)
     }
 }

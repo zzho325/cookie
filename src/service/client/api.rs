@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+// TODO: handle error response and timeout
 #[derive(Serialize, Default)]
 pub struct ResponsesReq {
     pub model: OpenAIModel,
@@ -26,7 +27,7 @@ pub struct InputItem {
     pub content: String,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub enum OpenAIModel {
     #[default]
     #[serde(rename = "gpt-4o")]
@@ -37,6 +38,8 @@ pub enum OpenAIModel {
     O4Mini,
     #[serde(rename = "o3")]
     O3,
+    #[serde(rename = "o3-mini")]
+    O3Mini,
 }
 
 impl OpenAIModel {
@@ -46,6 +49,7 @@ impl OpenAIModel {
             OpenAIModel::Gpt4oMini => "4o-mini",
             OpenAIModel::O4Mini => "o4-mini",
             OpenAIModel::O3 => "o3",
+            OpenAIModel::O3Mini => "o3-mini",
         }
     }
 }

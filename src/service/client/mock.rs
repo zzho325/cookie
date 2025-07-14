@@ -1,10 +1,7 @@
 use async_trait::async_trait;
 use color_eyre::Result;
 
-use crate::service::client::{
-    LlmClient, LlmReq, LlmResp,
-    api::{ContentItem, OutputItem, ResponsesResp, Role},
-};
+use crate::service::client::{LlmClient, LlmReq, LlmResp};
 
 const MARKDOWN_RESP: &str = "
 # Heading Level 1
@@ -63,11 +60,11 @@ E=mc^2^ and water is H~2~O.
 ///
 /// It simply echos request message back.
 #[cfg(debug_assertions)]
-pub struct MockOpenAIClient {}
+pub struct MockLlmClientImpl {}
 
 #[async_trait]
 #[cfg(debug_assertions)]
-impl LlmClient for MockOpenAIClient {
+impl LlmClient for MockLlmClientImpl {
     async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp> {
         let msg = match llm_req.msg.as_str() {
             "long" => "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100),
