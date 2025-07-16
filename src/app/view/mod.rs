@@ -8,14 +8,16 @@ use crate::app::{
 use ratatui::{Frame, layout::Position};
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
+    tracing::debug!("render_ui");
     let chat_state = &mut ChatState {
         cursor_position: None,
     };
     frame.render_stateful_widget(
         ChatView {
-            messages: &model.messages,
-            input_editor: &mut model.input_editor,
-            llm: &model.llm_settings,
+            is_editing: model.session.is_editing,
+            messages: &model.session.messages,
+            input_editor: &mut model.session.input_editor,
+            llm_settings: &model.session.llm_settings,
         },
         frame.area(),
         chat_state,

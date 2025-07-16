@@ -1,32 +1,15 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use crate::{
     app::model::scroll::{ScrollState, Scrollable},
-    models::LlmSettings,
+    models::{ChatMessage, LlmSettings},
 };
-
-pub struct MessageMetadata {
-    pub llm: LlmSettings,
-    pub req_time: Instant,
-    pub resp_time: Option<Instant>,
-}
-
-pub struct HistoryMessage {
-    pub user_msg: String,
-    pub assistant_msg: String,
-    pub metadata: MessageMetadata,
-}
-
-pub struct PendingMessage {
-    pub user_msg: String,
-    pub metadata: MessageMetadata,
-}
 
 #[derive(Default)]
 pub struct Messages {
     pub llm_settings: Arc<LlmSettings>,
-    pub history_messages: Vec<HistoryMessage>,
-    pub pending: Option<PendingMessage>,
+    pub history_messages: Vec<ChatMessage>,
+    pub pending: Option<(ChatMessage, LlmSettings)>,
     pub scroll_state: ScrollState,
 }
 
@@ -38,15 +21,10 @@ impl Messages {
         }
     }
 
-    pub fn append_message(&mut self, assistant_msg: String) {
-        if let Some(mut pending) = self.pending.take() {
-            pending.metadata.resp_time = Some(Instant::now());
-            let history_msg = HistoryMessage {
-                user_msg: pending.user_msg,
-                assistant_msg,
-                metadata: pending.metadata,
-            };
-            self.history_messages.push(history_msg);
+    pub fn receive_response(&mut self, assistant_message: ChatMessage) {
+        if let Some((user_message, _)) = self.pending.take() {
+            self.history_messages.push(user_message);
+            self.history_messages.push(assistant_message);
             self.pending = None;
         } else {
             // TODO: report error
@@ -54,27 +32,19 @@ impl Messages {
         }
     }
 
-    pub fn send_question(&mut self, user_msg: &str) {
-        let metadata = MessageMetadata {
-            llm: (*self.llm_settings).clone(),
-            req_time: Instant::now(),
-            resp_time: None,
-        };
-        self.pending = Some(PendingMessage {
-            user_msg: user_msg.to_string(),
-            metadata,
-        });
+    pub fn send_question(&mut self, user_chat_message: ChatMessage) {
+        self.pending = Some((user_chat_message, (*self.llm_settings).clone()));
     }
 
     pub fn is_pending_resp(&self) -> bool {
         self.pending.is_some()
     }
 
-    pub fn history_messages(&self) -> &Vec<HistoryMessage> {
+    pub fn history_messages(&self) -> &Vec<ChatMessage> {
         &self.history_messages
     }
 
-    pub fn pending_question(&self) -> Option<&PendingMessage> {
+    pub fn pending_question(&self) -> Option<&(ChatMessage, LlmSettings)> {
         self.pending.as_ref()
     }
 }

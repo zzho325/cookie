@@ -9,7 +9,7 @@ use reqwest::header::AUTHORIZATION;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::models::LlmSettings;
-use api::{ContentItem, InputItem, OutputItem, ResponsesReq, ResponsesResp, Role};
+use api::{ContentItem, InputItem, OpenAIRole, OutputItem, ResponsesReq, ResponsesResp};
 
 #[async_trait]
 pub trait LlmClient {
@@ -80,7 +80,7 @@ impl LlmClient for OpenAIClientImpl {
         let req = ResponsesReq {
             model,
             input: vec![InputItem {
-                role: Role::User,
+                role: OpenAIRole::User,
                 content: llm_req.msg,
             }],
             previous_response_id: llm_req.previous_response_id.clone(),

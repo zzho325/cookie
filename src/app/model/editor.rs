@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use textwrap::{Options, WordSeparator, wrap};
+use textwrap::{wrap, Options, WordSeparator};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -135,7 +135,6 @@ pub struct Editor {
     pub input: String,
     /// Current cursor char idx in input.
     pub char_idx: usize,
-    pub is_editing: bool,
     /// Wrap mode, should not change after bootstrap.
     wrap_mode: WrapMode,
 
@@ -151,12 +150,11 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(input: String, is_editing: bool, wrap_mode: WrapMode) -> Self {
+    pub fn new(input: String, wrap_mode: WrapMode) -> Self {
         let char_idx = input.chars().count();
         Self {
             input,
             char_idx,
-            is_editing,
             wrap_mode,
             ..Editor::default()
         }
@@ -430,7 +428,7 @@ mod tests {
             },
         ];
         for case in cases {
-            let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Character);
+            let mut editor = Editor::new(case.input.to_string(), WrapMode::Character);
             editor.char_idx = case.char_idx;
 
             editor.set_width(case.view_width);
@@ -535,7 +533,8 @@ mod tests {
                 clamped_char_idx: 7,
             },
             Case {
-                description: "two lines with soft wrap, cursor before break with trailing whitespace",
+                description:
+                    "two lines with soft wrap, cursor before break with trailing whitespace",
                 input: " hello   world ",
                 char_idx: 8,
                 view_width: 7,
@@ -572,7 +571,7 @@ mod tests {
             },
         ];
         for case in cases {
-            let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Word);
+            let mut editor = Editor::new(case.input.to_string(), WrapMode::Word);
             editor.char_idx = case.char_idx;
 
             editor.set_width(case.view_width);
@@ -648,7 +647,7 @@ mod tests {
             },
         ];
         for case in cases {
-            let mut editor = Editor::new(case.input.to_string(), true, WrapMode::Character);
+            let mut editor = Editor::new(case.input.to_string(), WrapMode::Character);
             editor.char_idx = case.char_idx;
             editor.set_max_height(10);
             editor.set_width(case.view_width);

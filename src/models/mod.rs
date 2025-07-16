@@ -1,18 +1,77 @@
 pub mod configs;
 
 use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::service::client::api::OpenAIModel;
 
 #[derive(Debug)]
 pub enum ServiceReq {
-    ChatMessage(String),
-    UpdateSettings(LlmSettings),
+    ChatMessage(ChatMessage),
+    NewSession {
+        settings: LlmSettings,
+        user_message: ChatMessage,
+    },
+    UpdateSettings {
+        session_id: Uuid,
+        settings: LlmSettings,
+    },
 }
 
 pub enum ServiceResp {
-    ChatMessage(String),
-    Refusal(String),
+    ChatMessage(ChatMessage),
+    Sessions(Vec<SessionSummary>),
+    Error(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum Role {
+    User,
+    Assistant(LlmSettings),
+}
+
+#[derive(Debug, Clone)]
+pub struct ChatMessage {
+    pub id: uuid::Uuid,
+    pub session_id: uuid::Uuid,
+    pub role: Role,
+    pub msg: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub struct Session {
+    pub id: Uuid,
+    pub chat_messages: Vec<ChatMessage>,
+    // FIXME: we shouldn't use previous id to support other providers
+    pub previous_response_id: Option<String>,
+    pub settings: LlmSettings,
+    pub summary: String,
+}
+
+pub struct SessionSummary {
+    pub id: uuid::Uuid,
+    pub summary: String,
+}
+
+impl From<Session> for SessionSummary {
+    fn from(session: Session) -> Self {
+        SessionSummary {
+            id: session.id,
+            summary: session.summary,
+        }
+    }
+}
+
+impl ChatMessage {
+    pub fn new(session_id: uuid::Uuid, role: Role, msg: String) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4(),
+            session_id,
+            role,
+            msg,
+            created_at: chrono::Utc::now(),
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Debug)]

@@ -24,9 +24,10 @@ pub struct ChatState {
 }
 
 pub struct ChatView<'a> {
+    pub is_editing: bool,
     pub messages: &'a Messages,
     pub input_editor: &'a mut Editor,
-    pub llm: &'a LlmSettings,
+    pub llm_settings: &'a LlmSettings,
 }
 
 impl StatefulWidget for ChatView<'_> {
@@ -63,8 +64,8 @@ impl StatefulWidget for ChatView<'_> {
 
         // construct title
         // TODO: centralize style here and prompt style
-        let provider = self.llm.provider_name();
-        let model = self.llm.model_name();
+        let provider = self.llm_settings.provider_name();
+        let model = self.llm_settings.model_name();
         let title: Line = Line::from(vec![
             Span::raw("─ "),
             Span::styled(
@@ -90,7 +91,7 @@ impl StatefulWidget for ChatView<'_> {
             .render(layout[1], buf);
 
         // set cursor position if editing
-        if self.input_editor.is_editing {
+        if self.is_editing {
             let cursor_position = self.input_editor.cursor_position();
             let (x, y) = cursor_position;
             let (y_scroll_offset, _) = scroll_offset;
@@ -106,42 +107,58 @@ impl StatefulWidget for ChatView<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{
-        model::{
-            editor::{Editor, WrapMode},
-            messages::{HistoryMessage, MessageMetadata, Messages},
+    use chrono::TimeZone;
+    use uuid::Uuid;
+
+    use crate::{
+        app::{
+            model::{
+                editor::{Editor, WrapMode},
+                messages::Messages,
+            },
+            view::components::chat::ChatState,
         },
-        view::components::chat::ChatState,
+        models::{ChatMessage, Role},
     };
 
     #[test]
     fn render_chat() {
-        let req_time = std::time::Instant::now();
-        let resp_time = req_time + std::time::Duration::from_secs(2);
+        let user_message_created_at = chrono::Utc.with_ymd_and_hms(2025, 7, 10, 0, 0, 0).unwrap();
+        let assistant_message_created_at =
+            user_message_created_at + std::time::Duration::from_secs(2);
 
-        let llm = crate::models::LlmSettings::OpenAI {
+        let llm_settings = crate::models::LlmSettings::OpenAI {
             model: crate::service::client::api::OpenAIModel::Gpt4o,
             web_search: false,
         };
-        let history_llm = llm.clone();
-        let history_message = HistoryMessage {
-            user_msg: "history question".to_string(),
-            assistant_msg: "history answer".to_string(),
-            metadata: MessageMetadata {
-                llm: history_llm,
-                req_time,
-                resp_time: Some(resp_time),
+        let session_id = Uuid::new_v4();
+        let messages: Vec<ChatMessage> = vec![
+            ChatMessage {
+                id: Uuid::new_v4(),
+                session_id,
+                role: Role::User,
+                msg: "history question".to_string(),
+                created_at: user_message_created_at,
             },
-        };
+            ChatMessage {
+                id: Uuid::new_v4(),
+                session_id,
+                role: Role::Assistant(llm_settings.clone()),
+                msg: "history answer".to_string(),
+                created_at: assistant_message_created_at,
+            },
+        ];
 
         let chat = super::ChatView {
+            is_editing: false,
             messages: &Messages {
-                history_messages: vec![history_message],
+                history_messages: messages,
                 ..Messages::default()
             },
-            input_editor: &mut Editor::new("repeat this".repeat(3), false, WrapMode::default()),
-            llm: &llm,
+            input_editor: &mut Editor::new("repeat this".repeat(3), WrapMode::default()),
+            llm_settings: &llm_settings,
         };
+
         let chat_state = &mut ChatState {
             cursor_position: None,
         };

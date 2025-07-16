@@ -1,4 +1,7 @@
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, eyre},
+};
 use serde::Deserialize;
 
 use crate::{models::LlmSettings, service::client::api::OpenAIModel};
@@ -34,7 +37,7 @@ impl Configs {
 
         let config_dir = std::env::var(XDG_CONFIG_HOME)
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| dirs::config_dir().expect("failed to get config dir"));
+            .or_else(|_| dirs::config_dir().ok_or_else(|| eyre!("failed to get config dir")))?;
         let config_path = config_dir.join(COOKIE_CONFIG_PATH);
 
         if !config_path.exists() {

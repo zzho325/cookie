@@ -16,14 +16,14 @@ pub struct ResponsesReq {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
-pub enum Role {
+pub enum OpenAIRole {
     User,
     Assistant,
 }
 
 #[derive(Serialize)]
 pub struct InputItem {
-    pub role: Role,
+    pub role: OpenAIRole,
     pub content: String,
 }
 
@@ -65,7 +65,7 @@ pub struct ResponsesResp {
 pub enum OutputItem {
     #[serde(rename = "message")]
     Message {
-        role: Role,
+        role: OpenAIRole,
         content: Vec<ContentItem>,
     },
 }

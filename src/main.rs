@@ -37,9 +37,8 @@ async fn main() -> Result<()> {
     let (resp_tx, resp_rx) = mpsc::unbounded_channel::<ServiceResp>();
 
     // spawn backend service and tui app, both *should* only return on irrecoverable error
-    let svc_llm_settings = default_llm_settings.clone();
     let svc_fut = async move {
-        let service = ServiceBuilder::new(svc_llm_settings, req_rx, resp_tx).build();
+        let service = ServiceBuilder::new(req_rx, resp_tx).build();
         service.run().await
     };
 
@@ -51,7 +50,6 @@ async fn main() -> Result<()> {
 
     // return either when both complete with Ok or when the first complete with Err
     let res = tokio::try_join!(svc_fut, app_fut);
-
     ratatui::restore();
 
     // propagate the first error
