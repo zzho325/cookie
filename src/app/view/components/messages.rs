@@ -12,13 +12,7 @@ use crate::{
     models::{ChatMessage, LlmSettings},
 };
 
-pub struct MessagesView<'a> {
-    pub history_messages: &'a [ChatMessage],
-    pub pending_question: Option<&'a (ChatMessage, LlmSettings)>,
-    pub scroll_offset: (u16, u16),
-}
-
-impl MessagesView<'_> {
+impl Messages {
     /// Generate prefix spans from message metadata.
     // TODO: handle narrow width, clean up spans and add unit test
     fn prefix(
@@ -55,7 +49,7 @@ impl MessagesView<'_> {
     }
 }
 
-impl Widget for MessagesView<'_> {
+impl Widget for &Messages {
     /// Renders history messages pane.
     fn render(self, area: Rect, buf: &mut Buffer) {
         // history messages
@@ -72,7 +66,7 @@ impl Widget for MessagesView<'_> {
                 }
             };
 
-            let prefix = MessagesView::prefix(
+            let prefix = Messages::prefix(
                 settings,
                 Some((user_message.created_at, assistant_message.created_at)),
             );
@@ -93,8 +87,8 @@ impl Widget for MessagesView<'_> {
             messages.extend(tui_markdown::from_str(&assistant_message.msg));
             messages.extend(Text::from(""));
         }
-        if let Some((user_message, settings)) = self.pending_question {
-            let prefix = MessagesView::prefix(settings, None);
+        if let Some((user_message, settings)) = self.pending_question() {
+            let prefix = Messages::prefix(settings, None);
             let lines = prefix
                 .iter()
                 .enumerate()
@@ -111,17 +105,7 @@ impl Widget for MessagesView<'_> {
 
         Paragraph::new(messages)
             .wrap(Wrap { trim: false })
-            .scroll(self.scroll_offset)
+            .scroll(self.scroll_offset())
             .render(area, buf);
-    }
-}
-
-impl<'a> From<&'a Messages> for MessagesView<'a> {
-    fn from(messages: &'a Messages) -> Self {
-        MessagesView {
-            history_messages: messages.history_messages(),
-            pending_question: messages.pending_question(),
-            scroll_offset: messages.scroll_offset(),
-        }
     }
 }

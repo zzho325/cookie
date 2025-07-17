@@ -9,11 +9,8 @@ use ratatui::{
 use crate::{
     app::{
         model::{editor::Editor, messages::Messages, scroll::Scrollable},
-        view::{
-            components::messages::MessagesView,
-            constants::{
-                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
-            },
+        view::constants::{
+            BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
         },
     },
     models::LlmSettings,
@@ -55,8 +52,7 @@ impl StatefulWidget for ChatView<'_> {
             ])
             .split(area);
 
-        let messages = MessagesView::from(self.messages);
-        messages.render(layout[0], buf);
+        self.messages.render(layout[0], buf);
 
         // input
         let input_lines: Vec<Line> = lines.into_iter().map(Line::from).collect();
