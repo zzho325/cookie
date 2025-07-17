@@ -68,7 +68,7 @@ impl Service {
                     match maybe_req {
                         None => break,
                         Some(ServiceReq::NewSession { settings, user_message })=>{
-                            let chat_handle = self.new_session(settings, user_message)?;
+                            let chat_handle = self.new_session(settings, user_message).await?;
                             chat_handles.push(chat_handle);
                         }
                         Some(ServiceReq::ChatMessage (chat_message)) => {

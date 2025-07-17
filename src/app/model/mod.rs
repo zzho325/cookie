@@ -1,6 +1,7 @@
 pub mod editor;
 pub mod messages;
 pub mod scroll;
+pub mod session_manager;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::sync::Arc;
@@ -12,6 +13,7 @@ use crate::{
             editor::{Editor, WrapMode},
             messages::Messages,
             scroll::Scrollable as _,
+            session_manager::SessionManager,
         },
         update::Update,
     },
@@ -21,7 +23,10 @@ use crate::{
 pub struct Model {
     pub default_llm_settings: LlmSettings,
     pub session: Session,
+    pub session_manager: SessionManager,
+
     pub should_quit: bool,
+    pub is_focused: bool,
 }
 
 impl Model {
@@ -30,6 +35,8 @@ impl Model {
             default_llm_settings: default_llm_settings.clone(),
             should_quit: false,
             session: Session::new(default_llm_settings),
+            session_manager: SessionManager::new(),
+            is_focused: false,
         }
     }
 }

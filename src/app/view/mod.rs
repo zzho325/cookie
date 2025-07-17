@@ -1,29 +1,60 @@
 mod components;
 pub mod constants;
 
-use crate::app::{
-    model::Model,
-    view::components::chat::{ChatState, ChatView},
+use crate::
+    app::{
+        model::Model,
+        view::components::{
+            chat::{ChatState, ChatView},
+        },
+    }
+;
+use ratatui::{
+    Frame,
+    layout::{Constraint, Direction, Layout, Position},
 };
-use ratatui::{Frame, layout::Position};
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
-    tracing::debug!("render_ui");
     let chat_state = &mut ChatState {
         cursor_position: None,
     };
-    frame.render_stateful_widget(
-        ChatView {
-            is_editing: model.session.is_editing,
-            messages: &model.session.messages,
-            input_editor: &mut model.session.input_editor,
-            llm_settings: &model.session.llm_settings,
-        },
-        frame.area(),
-        chat_state,
-    );
+    if model.is_focused {
+        frame.render_stateful_widget(
+            ChatView {
+                is_editing: model.session.is_editing,
+                messages: &model.session.messages,
+                input_editor: &mut model.session.input_editor,
+                llm_settings: &model.session.llm_settings,
+            },
+            frame.area(),
+            chat_state,
+        );
 
-    if let Some((x, y)) = chat_state.cursor_position {
-        frame.set_cursor_position(Position::new(x, y));
+        if let Some((x, y)) = chat_state.cursor_position {
+            frame.set_cursor_position(Position::new(x, y));
+        }
+    } else {
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(20), Constraint::Percentage(90)])
+            .split(frame.area());
+
+        frame.render_widget(&mut model.session_manager, layout[0]);
+
+        frame.render_stateful_widget(
+            ChatView {
+                is_editing: model.session.is_editing,
+                messages: &model.session.messages,
+                input_editor: &mut model.session.input_editor,
+                llm_settings: &model.session.llm_settings,
+            },
+            layout[1],
+            chat_state,
+        );
+
+        if let Some((mut x, y)) = chat_state.cursor_position {
+            x = x + layout[0].width;
+            frame.set_cursor_position(Position::new(x, y));
+        }
     }
 }

@@ -30,6 +30,7 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
         ServiceResp::ChatMessage(assistant_message) => {
             model.session.handle_assistant_message(assistant_message)
         }
+        ServiceResp::Sessions(session_summaries) => model.session_manager.update(session_summaries),
         _ => todo!(),
     }
 }

@@ -37,6 +37,8 @@ impl Session {
         Self {
             id,
             chat_messages: Vec::new(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
             previous_response_id: None,
             settings,
             summary: "".to_string(),
@@ -55,14 +57,16 @@ impl Session {
             assistant_msg,
         );
 
-        self.chat_messages.push(user_message);
+        self.chat_messages.push(user_message.clone());
         self.chat_messages.push(assistant_message.clone());
+        self.updated_at = chrono::Utc::now();
+
         assistant_message
     }
 }
 
 impl Service {
-    pub fn new_session(
+    pub async fn new_session(
         &mut self,
         settings: LlmSettings,
         user_message: ChatMessage,
@@ -71,6 +75,7 @@ impl Service {
         let session_id = user_message.session_id;
         let session = SharedSession::new(RwLock::new(Session::new(session_id, settings.clone())));
         self.sessions.insert(session_id, session.clone());
+        self.send_sessions().await?;
 
         // create session channel and send initial message
         let (chat_tx, chat_rx) = mpsc::unbounded_channel::<ChatMessage>();
@@ -135,6 +140,7 @@ impl Service {
     }
 
     async fn send_sessions(&mut self) -> Result<()> {
+        tracing::debug!("sending sessions");
         let mut summaries: Vec<SessionSummary> = Vec::new();
         for session in self.sessions.values() {
             let session_summary;
@@ -143,10 +149,12 @@ impl Service {
                 session_summary = SessionSummary {
                     id: guard.id,
                     summary: guard.summary.clone(),
+                    updated_at: guard.updated_at,
                 }
             }
             summaries.push(session_summary);
         }
+        self.resp_tx.send(ServiceResp::Sessions(summaries))?;
         Ok(())
     }
 
