@@ -55,7 +55,7 @@ impl Widget for &Messages {
         // history messages
         let mut messages = Text::raw("");
 
-        for chunk in self.history_messages.chunks_exact(2) {
+        for chunk in self.history_messages().chunks_exact(2) {
             let user_message: &ChatMessage = &chunk[0];
             let assistant_message: &ChatMessage = &chunk[1];
             let settings = match &assistant_message.role {

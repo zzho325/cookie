@@ -128,7 +128,9 @@ mod tests {
             web_search: false,
         };
         let session_id = Uuid::new_v4();
-        let messages: Vec<ChatMessage> = vec![
+
+        let mut messages = Messages::default();
+        let history_messages: Vec<ChatMessage> = vec![
             ChatMessage {
                 id: Uuid::new_v4(),
                 session_id,
@@ -144,13 +146,11 @@ mod tests {
                 created_at: assistant_message_created_at,
             },
         ];
+        messages.set_history_messages(history_messages);
 
         let chat = super::ChatView {
             is_editing: false,
-            messages: &Messages {
-                history_messages: messages,
-                ..Messages::default()
-            },
+            messages: &messages,
             input_editor: &mut Editor::new("repeat this".repeat(3), WrapMode::default()),
             llm_settings: &llm_settings,
         };

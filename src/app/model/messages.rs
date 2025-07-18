@@ -5,9 +5,9 @@ use crate::{
 
 #[derive(Default)]
 pub struct Messages {
-    pub history_messages: Vec<ChatMessage>,
-    pub pending: Option<(ChatMessage, LlmSettings)>,
-    pub scroll_state: ScrollState,
+    history_messages: Vec<ChatMessage>,
+    pending: Option<(ChatMessage, LlmSettings)>,
+    scroll_state: ScrollState,
 }
 
 impl Messages {
@@ -36,6 +36,12 @@ impl Messages {
 
     pub fn pending_question(&self) -> Option<&(ChatMessage, LlmSettings)> {
         self.pending.as_ref()
+    }
+
+    #[cfg(test)]
+    #[doc(hidden)]
+    pub fn set_history_messages(&mut self, history_messages: Vec<ChatMessage>) {
+        self.history_messages = history_messages;
     }
 }
 

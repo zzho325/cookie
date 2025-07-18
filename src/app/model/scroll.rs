@@ -55,4 +55,11 @@ impl ScrollState {
             .vertical_scroll_bar_state
             .position(self.vertical_scroll_offset);
     }
+
+    pub fn reset(&mut self) {
+        self.vertical_scroll_offset = 0;
+        self.vertical_scroll_bar_state = self
+            .vertical_scroll_bar_state
+            .position(self.vertical_scroll_offset);
+    }
 }
