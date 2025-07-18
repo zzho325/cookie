@@ -1,14 +1,11 @@
 pub mod editor;
 pub mod messages;
-pub mod scroll;
 pub mod session;
 pub mod session_manager;
 
-use std::default;
-
 use crate::{
     app::model::{session::Session, session_manager::SessionManager},
-    models::{LlmSettings, configs::Configs},
+    models::configs::Configs,
 };
 
 #[derive(Debug, PartialEq)]

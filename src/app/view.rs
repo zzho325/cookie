@@ -1,10 +1,10 @@
-mod components;
+mod chat;
+pub mod components;
 pub mod constants;
+mod messages;
+mod session_manager;
 
-use crate::app::{
-    model::Model,
-    view::components::chat::{ChatState, ChatView},
-};
+use crate::app::model::Model;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Position},
@@ -12,7 +12,7 @@ use ratatui::{
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
     let input_editor = &mut model.session.input_editor;
-    let chat_state = &mut ChatState {
+    let chat_state = &mut chat::ChatState {
         cursor_position: None,
     };
     if model.show_sidebar {
@@ -24,10 +24,10 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         frame.render_widget(&mut model.session_manager, layout[0]);
 
         frame.render_stateful_widget(
-            ChatView {
+            chat::ChatView {
                 is_editing: model.session.is_editing,
                 messages: &model.session.messages,
-                input_editor: input_editor,
+                input_editor,
                 llm_settings: &model.session.llm_settings,
             },
             layout[1],
@@ -40,7 +40,7 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         }
     } else {
         frame.render_stateful_widget(
-            ChatView {
+            chat::ChatView {
                 is_editing: model.session.is_editing,
                 messages: &model.session.messages,
                 input_editor: &mut model.session.input_editor,

@@ -1,5 +1,5 @@
 use crate::{
-    app::model::scroll::{ScrollState, Scrollable},
+    app::view::components::scroll::{ScrollState, Scrollable},
     models::{ChatMessage, LlmSettings},
 };
 

@@ -3,9 +3,9 @@ use textwrap::{Options, WordSeparator, wrap};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::{
-    model::scroll::{ScrollState, Scrollable},
-    view::constants::MIN_INPUT_CONTENT_HEIGHT,
+use crate::app::view::{
+    components::scroll::{ScrollState, Scrollable as _},
+    constants::MIN_INPUT_CONTENT_HEIGHT,
 };
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -323,7 +323,7 @@ impl Editor {
     }
 }
 
-impl Scrollable for Editor {
+impl crate::app::view::components::scroll::Scrollable for Editor {
     fn scroll_offset(&self) -> (u16, u16) {
         self.scroll_state.scroll_offset()
     }

@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::model::scroll::Scrollable as _;
-use crate::app::model::{Focused, Model};
+use crate::app::model::Model;
+use crate::app::view::components::scroll::Scrollable as _;
 use crate::app::{Message, update::Update};
 
 pub fn handle_session_key_event(

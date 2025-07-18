@@ -1,6 +1,6 @@
-pub mod model;
-pub mod update;
-pub mod view;
+mod model;
+mod update;
+mod view;
 
 use color_eyre::{
     Result,

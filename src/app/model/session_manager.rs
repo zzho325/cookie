@@ -10,7 +10,6 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn default() -> Self {
-        let mut list_state = ListState::default();
         Self {
             session_summaries: Vec::new(),
             list_state: ListState::default(),

@@ -8,14 +8,13 @@ use ratatui::{
 
 use crate::{
     app::{
-        model::{
-            editor::Editor,
-            messages::Messages,
-            scroll::{ScrollState, Scrollable},
-        },
-        view::constants::{
-            BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_CONTENT_HEIGHT,
-            MIN_INPUT_HEIGHT,
+        model::{editor::Editor, messages::Messages},
+        view::{
+            components::scroll::Scrollable as _,
+            constants::{
+                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_CONTENT_HEIGHT,
+                MIN_INPUT_HEIGHT,
+            },
         },
     },
     models::LlmSettings,
@@ -124,7 +123,7 @@ mod tests {
                 editor::{Editor, WrapMode},
                 messages::Messages,
             },
-            view::components::chat::ChatState,
+            view::chat::ChatState,
         },
         models::{ChatMessage, Role},
     };

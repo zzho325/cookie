@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-    app::model::{messages::Messages, scroll::Scrollable as _},
+    app::{model::messages::Messages, view::components::scroll::Scrollable as _},
     models::{ChatMessage, LlmSettings},
 };
 

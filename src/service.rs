@@ -1,4 +1,4 @@
-pub mod chat;
+mod chat;
 pub mod client;
 
 use color_eyre::{Result, eyre::eyre};

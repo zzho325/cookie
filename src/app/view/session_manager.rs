@@ -2,7 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     text::Line,
-    widgets::{Block, HighlightSpacing, List, ListItem, ListState, StatefulWidget, Widget},
+    widgets::{Block, HighlightSpacing, List, ListItem, StatefulWidget, Widget},
 };
 
 use crate::{app::model::session_manager::SessionManager, models::SessionSummary};
@@ -15,9 +15,7 @@ impl From<&SessionSummary> for ListItem<'_> {
             value.summary.clone()
         };
 
-        let line = Line::from(
-            format!("{}", summary),
-        );
+        let line = Line::from(format!("{}", summary));
 
         ListItem::new(line)
     }
