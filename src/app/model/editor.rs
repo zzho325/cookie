@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use textwrap::{wrap, Options, WordSeparator};
+use textwrap::{Options, WordSeparator, wrap};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -156,6 +156,7 @@ impl Editor {
             input,
             char_idx,
             wrap_mode,
+            max_view_height: 1,
             ..Editor::default()
         }
     }
@@ -533,8 +534,7 @@ mod tests {
                 clamped_char_idx: 7,
             },
             Case {
-                description:
-                    "two lines with soft wrap, cursor before break with trailing whitespace",
+                description: "two lines with soft wrap, cursor before break with trailing whitespace",
                 input: " hello   world ",
                 char_idx: 8,
                 view_width: 7,
