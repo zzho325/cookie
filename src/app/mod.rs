@@ -6,18 +6,14 @@ use color_eyre::{
     Result,
     eyre::{Context as _, bail},
 };
-use crossterm::event::{Event, EventStream, KeyEventKind};
+use crossterm::event::{Event, EventStream, KeyEvent, KeyEventKind};
 use futures_util::stream::StreamExt;
 use tokio::{
     select,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{
-    ServiceReq, ServiceResp,
-    app::model::{Message, Model},
-    models::LlmSettings,
-};
+use crate::{ServiceReq, ServiceResp, app::model::Model, models::LlmSettings};
 
 pub struct App {
     // frontend <> backend channels
@@ -88,5 +84,26 @@ fn handle_crossterm_event(
             // the EventStream has closed
             Ok(Some(Message::CrosstermClose))
         }
+    }
+}
+
+/// Drives update.
+pub enum Message {
+    Key(KeyEvent),
+    ServiceResp(ServiceResp),
+    Send,
+    CrosstermClose,
+}
+
+/// Side effect of update.
+pub enum Command {
+    ServiceReq(ServiceReq),
+}
+
+impl Command {
+    /// If this `Command` corresponds to a service request, return `Some(_)`, otherwise return `None`.
+    pub fn into_service_req(self) -> Option<ServiceReq> {
+        let Command::ServiceReq(req) = self;
+        Some(req)
     }
 }

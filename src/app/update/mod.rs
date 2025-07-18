@@ -1,7 +1,12 @@
+mod session;
+
 use crossterm::event::{KeyCode, KeyEvent};
 
 use crate::{
-    app::model::{Command, Message, Model},
+    app::{
+        Command, Message,
+        model::{Focused, Model},
+    },
     models::ServiceResp,
 };
 
@@ -16,7 +21,9 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
             return handle_service_resp(model, resp);
         }
         Message::Send => {
-            return model.session.handle_user_message();
+            if let Some(req) = model.session.handle_user_message() {
+                return (None, Some(Command::ServiceReq(req)));
+            }
         }
         Message::CrosstermClose => {
             model.should_quit = true;
@@ -30,23 +37,26 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
         ServiceResp::ChatMessage(assistant_message) => {
             model.session.handle_assistant_message(assistant_message)
         }
-        ServiceResp::Sessions(session_summaries) => model.session_manager.update(session_summaries),
+
+        ServiceResp::Sessions(session_summaries) => model
+            .session_manager
+            .handle_sessions_update(session_summaries),
         _ => todo!(),
     }
+    (None, None)
 }
 
 // TODO: clean this up
 fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
-    if model.session.is_editing {
-        return model.session.handle_key_event(keyevent);
-    } else {
-        match keyevent.code {
-            KeyCode::Char('q') => model.should_quit = true,
-            KeyCode::Char('i') => model.session.is_editing = true,
-            _ => {
-                return model.session.handle_key_event(keyevent);
-            }
+    match model.focused {
+        Focused::Session => {
+            return session::handle_session_key_event(model, keyevent);
         }
+        Focused::SessionManager => match keyevent.code {
+            KeyCode::Char('q') => model.should_quit = true,
+            _ => {}
+        },
     }
+
     (None, None)
 }
