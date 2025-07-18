@@ -8,9 +8,14 @@ use ratatui::{
 
 use crate::{
     app::{
-        model::{editor::Editor, messages::Messages, scroll::Scrollable},
+        model::{
+            editor::Editor,
+            messages::Messages,
+            scroll::{ScrollState, Scrollable},
+        },
         view::constants::{
-            BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
+            BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_CONTENT_HEIGHT,
+            MIN_INPUT_HEIGHT,
         },
     },
     models::LlmSettings,
@@ -40,8 +45,11 @@ impl StatefulWidget for ChatView<'_> {
         self.input_editor.set_max_height(max_input_content_height);
 
         let lines = self.input_editor.lines();
-        let input_height =
-            (lines.len() + BORDER_THICKNESS_SIDE).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
+        let input_content_height = lines
+            .len()
+            .clamp(MIN_INPUT_CONTENT_HEIGHT, max_input_content_height);
+        let input_height = (input_content_height + BORDER_THICKNESS_SIDE)
+            .clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
         let message_height = area.height.saturating_sub(input_height);
 
         let layout = Layout::default()
@@ -75,6 +83,23 @@ impl StatefulWidget for ChatView<'_> {
             Span::raw(" "),
         ]);
 
+        // set cursor position if editing
+        if self.is_editing {
+            let cursor_position = self.input_editor.cursor_position();
+            let (x, y) = cursor_position;
+
+            self.input_editor
+                .scroll_state
+                .ensure_visible(y as usize, input_content_height);
+            let (y_scroll_offset, _) = self.input_editor.scroll_offset();
+            state.cursor_position = Some((
+                x + BORDER_THICKNESS_SIDE as u16,
+                y + message_height + BORDER_THICKNESS_SIDE as u16 - y_scroll_offset,
+            ));
+        } else {
+            state.cursor_position = None;
+        }
+
         let scroll_offset = self.input_editor.scroll_offset();
         Paragraph::new(text)
             .block(
@@ -85,19 +110,6 @@ impl StatefulWidget for ChatView<'_> {
             )
             .scroll(scroll_offset)
             .render(layout[1], buf);
-
-        // set cursor position if editing
-        if self.is_editing {
-            let cursor_position = self.input_editor.cursor_position();
-            let (x, y) = cursor_position;
-            let (y_scroll_offset, _) = scroll_offset;
-            state.cursor_position = Some((
-                x + BORDER_THICKNESS_SIDE as u16,
-                y + message_height + BORDER_THICKNESS_SIDE as u16 - y_scroll_offset,
-            ));
-        } else {
-            state.cursor_position = None;
-        }
     }
 }
 

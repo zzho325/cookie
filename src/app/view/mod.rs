@@ -11,6 +11,7 @@ use ratatui::{
 };
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
+    let input_editor = &mut model.session.input_editor;
     let chat_state = &mut ChatState {
         cursor_position: None,
     };
@@ -26,7 +27,7 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
             ChatView {
                 is_editing: model.session.is_editing,
                 messages: &model.session.messages,
-                input_editor: &mut model.session.input_editor,
+                input_editor: input_editor,
                 llm_settings: &model.session.llm_settings,
             },
             layout[1],

@@ -273,31 +273,31 @@ impl Editor {
     pub fn clear(&mut self) {
         self.input = String::new();
         self.needs_reflow = true;
-        self.set_char_idx_and_sroll(0);
+        self.set_char_idx_and_scroll(0);
     }
 
     pub fn move_cursor_down(&mut self) {
         let (x, mut y) = self.cursor_position();
         y = y.saturating_add(1);
         let cursor_moved_down = self.find_char_idx((x, y));
-        self.set_char_idx_and_sroll(cursor_moved_down);
+        self.set_char_idx_and_scroll(cursor_moved_down);
     }
 
     pub fn move_cursor_up(&mut self) {
         let (x, mut y) = self.cursor_position();
         y = y.saturating_sub(1);
         let cursor_moved_up = self.find_char_idx((x, y));
-        self.set_char_idx_and_sroll(cursor_moved_up);
+        self.set_char_idx_and_scroll(cursor_moved_up);
     }
 
     pub fn move_cursor_left(&mut self) {
         let cursor_moved_left = self.char_idx.saturating_sub(1);
-        self.set_char_idx_and_sroll(cursor_moved_left);
+        self.set_char_idx_and_scroll(cursor_moved_left);
     }
 
     pub fn move_cursor_right(&mut self) {
         let cursor_moved_right = self.char_idx.saturating_add(1);
-        self.set_char_idx_and_sroll(cursor_moved_right);
+        self.set_char_idx_and_scroll(cursor_moved_right);
     }
 
     /// Returns current cursor byte idx.
@@ -313,7 +313,7 @@ impl Editor {
     }
 
     /// Updates `char_idx` and scrolls so that cursor is visible.
-    fn set_char_idx_and_sroll(&mut self, char_idx: usize) {
+    fn set_char_idx_and_scroll(&mut self, char_idx: usize) {
         self.char_idx = char_idx.clamp(0, self.input.chars().count());
         let (_, y) = self.cursor_position();
         let mut height: usize = self.paragraphs.iter().map(|p| p.lines.len()).sum();

@@ -15,11 +15,12 @@ pub trait Scrollable {
 
     /// Scrolls just enough so that `line` is visible given current visual `height`.
     fn ensure_visible(&mut self, line: usize, height: usize) {
+        tracing::trace!("ensure {line} visible with height {height}");
         self.scroll_state().ensure_visible(line, height);
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ScrollState {
     pub vertical_scroll_offset: usize,
     pub vertical_scroll_bar_state: ScrollbarState,
