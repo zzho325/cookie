@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::model::Model;
 use crate::app::model::scroll::Scrollable as _;
-use crate::app::{Message, model::session::Session, update::Update};
+use crate::app::{Message, update::Update};
 
 pub fn handle_session_key_event(
     model: &mut Model,
@@ -30,7 +30,16 @@ pub fn handle_session_key_event(
         }
     } else {
         match code {
-            KeyCode::Char('q') => model.should_quit = true,
+            KeyCode::Char('q') => model.quit(),
+            KeyCode::Char('s') => {
+                model.toggle_sidebar();
+                model.shift_focus();
+            }
+            KeyCode::Tab => {
+                if model.show_sidebar {
+                    model.shift_focus()
+                }
+            }
             KeyCode::Char('i') => model.session.is_editing = true,
             KeyCode::Down => session.messages.scroll_down(),
             KeyCode::Up => session.messages.scroll_up(),

@@ -46,17 +46,53 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
     (None, None)
 }
 
-// TODO: clean this up
 fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
     match model.focused {
         Focused::Session => {
             return session::handle_session_key_event(model, keyevent);
         }
         Focused::SessionManager => match keyevent.code {
-            KeyCode::Char('q') => model.should_quit = true,
+            KeyCode::Char('q') => model.quit(),
+            KeyCode::Char('s') => model.toggle_sidebar(),
+            KeyCode::Tab => model.shift_focus(),
             _ => {}
         },
     }
-
     (None, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use crossterm::event::KeyCode;
+
+    use crate::app::{
+        model::{Focused, Model},
+        update::handle_key_event,
+    };
+
+    #[test]
+    fn navigation() {
+        let mut model = Model::new(crate::models::LlmSettings::default());
+
+        handle_key_event(&mut model, KeyCode::Tab.into());
+        assert_eq!(
+            model.focused,
+            Focused::Session,
+            "key tab does not navigate focus when sidebar is hidden"
+        );
+
+        handle_key_event(&mut model, KeyCode::Esc.into());
+        assert!(!model.session.is_editing, "key Esc toggles editing");
+
+        handle_key_event(&mut model, KeyCode::Char('s').into());
+        assert!(model.show_sidebar, "key s toggles sidebar");
+        assert_eq!(
+            model.focused,
+            Focused::SessionManager,
+            "key s navigates to sidebar"
+        );
+
+        handle_key_event(&mut model, KeyCode::Tab.into());
+        assert_eq!(model.focused, Focused::Session, "tab nagivates to session");
+    }
 }

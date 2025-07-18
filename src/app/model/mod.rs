@@ -9,6 +9,7 @@ use crate::{
     models::LlmSettings,
 };
 
+#[derive(Debug, PartialEq)]
 pub enum Focused {
     SessionManager,
     Session,
@@ -34,5 +35,20 @@ impl Model {
             show_sidebar: false,
             should_quit: false,
         }
+    }
+
+    pub fn quit(&mut self) {
+        self.should_quit = true;
+    }
+
+    pub fn shift_focus(&mut self) {
+        match self.focused {
+            Focused::SessionManager => self.focused = Focused::Session,
+            Focused::Session => self.focused = Focused::SessionManager,
+        }
+    }
+
+    pub fn toggle_sidebar(&mut self) {
+        self.show_sidebar = !self.show_sidebar;
     }
 }
