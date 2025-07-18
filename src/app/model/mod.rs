@@ -57,6 +57,11 @@ impl Model {
     }
 
     pub fn toggle_sidebar(&mut self) {
+        if !self.show_sidebar {
+            self.shift_focus_to(Focused::SessionManager);
+        } else {
+            self.shift_focus_to(Focused::Session);
+        }
         self.show_sidebar = !self.show_sidebar;
     }
 }
