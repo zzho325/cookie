@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::model::Model;
 use crate::app::model::scroll::Scrollable as _;
+use crate::app::model::{Focused, Model};
 use crate::app::{Message, update::Update};
 
 pub fn handle_session_key_event(
@@ -34,6 +34,9 @@ pub fn handle_session_key_event(
             KeyCode::Char('s') => {
                 model.toggle_sidebar();
                 model.shift_focus();
+            }
+            KeyCode::Char('n') => {
+                model.session.reset(model.configs.derive_llm_settings());
             }
             KeyCode::Tab => {
                 if model.show_sidebar {

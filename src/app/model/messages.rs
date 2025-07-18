@@ -38,6 +38,12 @@ impl Messages {
         self.pending.as_ref()
     }
 
+    pub fn reset(&mut self) {
+        self.history_messages.clear();
+        self.pending = None;
+        self.scroll_state.reset();
+    }
+
     #[cfg(test)]
     #[doc(hidden)]
     pub fn set_history_messages(&mut self, history_messages: Vec<ChatMessage>) {

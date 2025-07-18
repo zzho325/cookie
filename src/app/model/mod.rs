@@ -52,6 +52,10 @@ impl Model {
         }
     }
 
+    pub fn shift_focus_to(&mut self, new_focused: Focused) {
+        self.focused = new_focused;
+    }
+
     pub fn toggle_sidebar(&mut self) {
         self.show_sidebar = !self.show_sidebar;
     }

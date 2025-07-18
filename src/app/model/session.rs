@@ -65,4 +65,13 @@ impl Session {
             _ => {}
         }
     }
+
+    pub fn reset(&mut self, settings: LlmSettings) {
+        self.session_id = None;
+        self.llm_settings = settings;
+        self.is_editing = true;
+
+        self.messages.reset();
+        self.input_editor.clear();
+    }
 }

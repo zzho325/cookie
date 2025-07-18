@@ -54,6 +54,10 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
         Focused::SessionManager => match keyevent.code {
             KeyCode::Char('q') => model.quit(),
             KeyCode::Char('s') => model.toggle_sidebar(),
+            KeyCode::Char('n') => {
+                model.session.reset(model.configs.derive_llm_settings());
+                model.shift_focus_to(Focused::Session);
+            }
             KeyCode::Tab => model.shift_focus(),
             _ => {}
         },
