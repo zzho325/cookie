@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     app::model::scroll::{ScrollState, Scrollable},
     models::{ChatMessage, LlmSettings},
@@ -7,20 +5,12 @@ use crate::{
 
 #[derive(Default)]
 pub struct Messages {
-    pub llm_settings: Arc<LlmSettings>,
     pub history_messages: Vec<ChatMessage>,
     pub pending: Option<(ChatMessage, LlmSettings)>,
     pub scroll_state: ScrollState,
 }
 
 impl Messages {
-    pub fn new(settings: Arc<LlmSettings>) -> Self {
-        Self {
-            llm_settings: settings,
-            ..Self::default()
-        }
-    }
-
     pub fn receive_response(&mut self, assistant_message: ChatMessage) {
         if let Some((user_message, _)) = self.pending.take() {
             self.history_messages.push(user_message);
@@ -32,8 +22,8 @@ impl Messages {
         }
     }
 
-    pub fn send_question(&mut self, user_chat_message: ChatMessage) {
-        self.pending = Some((user_chat_message, (*self.llm_settings).clone()));
+    pub fn send_question(&mut self, user_chat_message: ChatMessage, llm_settings: LlmSettings) {
+        self.pending = Some((user_chat_message, llm_settings));
     }
 
     pub fn is_pending_resp(&self) -> bool {

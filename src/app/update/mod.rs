@@ -65,14 +65,17 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
 mod tests {
     use crossterm::event::KeyCode;
 
-    use crate::app::{
-        model::{Focused, Model},
-        update::handle_key_event,
+    use crate::{
+        app::{
+            model::{Focused, Model},
+            update::handle_key_event,
+        },
+        models::configs::Configs,
     };
 
     #[test]
     fn navigation() {
-        let mut model = Model::new(crate::models::LlmSettings::default());
+        let mut model = Model::new(Configs::default());
 
         handle_key_event(&mut model, KeyCode::Tab.into());
         assert_eq!(

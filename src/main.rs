@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     app::App,
-    models::{LlmSettings, ServiceReq, ServiceResp, configs::Configs},
+    models::{ServiceReq, ServiceResp, configs::Configs},
     service::ServiceBuilder,
 };
 
@@ -16,35 +16,22 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     let _guard = init_logging();
 
-    // TODO: handle error better
-    let cfg = Configs::load().wrap_err_with(|| "load config")?;
-    let mut default_llm_settings = cfg.derive_llm_settings();
-
-    // #[cfg(debug_assertions)]
-    {
-        let args: Vec<String> = std::env::args().collect();
-        let use_mock = args.iter().any(|a| a == "--mock");
-
-        if use_mock {
-            default_llm_settings = LlmSettings::Mock {
-                latency: std::time::Duration::ZERO,
-            }
-        }
-    }
-
     // frontend <> backend channels
     let (req_tx, req_rx) = mpsc::unbounded_channel::<ServiceReq>();
     let (resp_tx, resp_rx) = mpsc::unbounded_channel::<ServiceResp>();
 
     // spawn backend service and tui app, both *should* only return on irrecoverable error
     let svc_fut = async move {
+        // TODO: use configs to build router in service builder
         let service = ServiceBuilder::new(req_rx, resp_tx).build();
         service.run().await
     };
 
+    // TODO: handle error better
+    let configs = Configs::load().wrap_err_with(|| "load config")?;
     let app_fut = async move {
         let mut app = App::new(req_tx, resp_rx)?;
-        app.run(default_llm_settings).await
+        app.run(configs).await
         // req_tx is dropped here and will shutdown backend service
     };
 

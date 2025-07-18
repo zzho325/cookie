@@ -4,9 +4,11 @@ pub mod scroll;
 pub mod session;
 pub mod session_manager;
 
+use std::default;
+
 use crate::{
     app::model::{session::Session, session_manager::SessionManager},
-    models::LlmSettings,
+    models::{LlmSettings, configs::Configs},
 };
 
 #[derive(Debug, PartialEq)]
@@ -16,7 +18,7 @@ pub enum Focused {
 }
 
 pub struct Model {
-    pub default_llm_settings: LlmSettings,
+    pub configs: Configs,
     pub session: Session,
     pub session_manager: SessionManager,
 
@@ -26,9 +28,11 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(default_llm_settings: LlmSettings) -> Self {
+    pub fn new(configs: Configs) -> Self {
+        // FIXME: fix config usage
+        let default_llm_settings = configs.derive_llm_settings();
         Self {
-            default_llm_settings: default_llm_settings.clone(),
+            configs,
             session: Session::new(default_llm_settings),
             session_manager: SessionManager::default(),
             focused: Focused::Session,

@@ -13,7 +13,11 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{ServiceReq, ServiceResp, app::model::Model, models::LlmSettings};
+use crate::{
+    ServiceReq, ServiceResp,
+    app::model::Model,
+    models::{LlmSettings, configs::Configs},
+};
 
 pub struct App {
     // frontend <> backend channels
@@ -30,9 +34,9 @@ impl App {
     }
 
     /// Runs the application's main loop until the user quits.
-    pub async fn run(&mut self, default_llm_settings: LlmSettings) -> Result<()> {
+    pub async fn run(&mut self, cfg: Configs) -> Result<()> {
         let mut terminal = ratatui::init();
-        let mut model = Model::new(default_llm_settings);
+        let mut model = Model::new(cfg);
 
         let mut event_reader = EventStream::new();
 

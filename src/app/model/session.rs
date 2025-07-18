@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
@@ -11,19 +10,18 @@ use crate::{
 
 pub struct Session {
     pub session_id: Option<Uuid>,
-    pub llm_settings: Arc<LlmSettings>,
+    pub llm_settings: LlmSettings,
     pub messages: Messages,
     pub input_editor: Editor,
     pub is_editing: bool,
 }
 
 impl Session {
-    pub fn new(default_llm_settings: LlmSettings) -> Self {
-        let shared_llm_settings = Arc::new(default_llm_settings);
+    pub fn new(llm_settings: LlmSettings) -> Self {
         Self {
             session_id: None,
-            llm_settings: shared_llm_settings.clone(),
-            messages: Messages::new(shared_llm_settings),
+            llm_settings,
+            messages: Messages::default(),
             input_editor: Editor::new(String::new(), WrapMode::default()),
             // by default editting
             is_editing: true,
@@ -41,13 +39,14 @@ impl Session {
 
         let session_id = self.session_id.unwrap_or_else(Uuid::new_v4);
         let user_message = ChatMessage::new(session_id, crate::models::Role::User, msg_);
-        self.messages.send_question(user_message.clone());
+        self.messages
+            .send_question(user_message.clone(), self.llm_settings.clone());
         let req = match self.session_id {
             Some(_) => ServiceReq::ChatMessage(user_message.clone()),
             None => {
                 self.session_id = Some(session_id);
                 ServiceReq::NewSession {
-                    settings: (*self.llm_settings).clone(),
+                    settings: self.llm_settings.clone(),
                     user_message,
                 }
             }
