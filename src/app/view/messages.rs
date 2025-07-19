@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-    app::{model::messages::Messages, view::components::scroll::Scrollable as _},
+    app::model::messages::Messages,
     models::{ChatMessage, LlmSettings},
 };
 
@@ -87,7 +87,7 @@ impl Widget for &Messages {
             messages.extend(tui_markdown::from_str(&assistant_message.msg));
             messages.extend(Text::from(""));
         }
-        if let Some((user_message, settings)) = self.pending_question() {
+        if let Some((user_message, settings)) = self.pending() {
             let prefix = Messages::prefix(settings, None);
             let lines = prefix
                 .iter()
@@ -105,7 +105,7 @@ impl Widget for &Messages {
 
         Paragraph::new(messages)
             .wrap(Wrap { trim: false })
-            .scroll(self.scroll_offset())
+            .scroll(self.scroll_state().scroll_offset())
             .render(area, buf);
     }
 }

@@ -3,18 +3,17 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Padding, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, Borders, Padding, StatefulWidget, Widget},
 };
 
 use crate::{
     app::{
         model::{editor::Editor, messages::Messages},
         view::{
-            components::scroll::Scrollable as _,
             constants::{
-                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_CONTENT_HEIGHT,
-                MIN_INPUT_HEIGHT,
+                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
             },
+            widgets::scroll::AutoScroll,
         },
     },
     models::LlmSettings,
@@ -38,17 +37,13 @@ impl StatefulWidget for ChatView<'_> {
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ChatState) {
         let input_content_width = area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
-        self.input_editor.set_width(input_content_width);
+        self.input_editor.set_viewport_width(input_content_width);
+
         let max_input_height = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
-        let max_input_content_height = max_input_height - BORDER_THICKNESS_SIDE;
-        self.input_editor.set_max_height(max_input_content_height);
 
         let lines = self.input_editor.lines();
-        let input_content_height = lines
-            .len()
-            .clamp(MIN_INPUT_CONTENT_HEIGHT, max_input_content_height);
-        let input_height = (input_content_height + BORDER_THICKNESS_SIDE)
-            .clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
+        let input_height =
+            (lines.len() + BORDER_THICKNESS_SIDE).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
         let message_height = area.height.saturating_sub(input_height);
 
         let layout = Layout::default()
@@ -82,33 +77,28 @@ impl StatefulWidget for ChatView<'_> {
             Span::raw(" "),
         ]);
 
+        let scrollable = AutoScroll::from(text).block(
+            Block::new()
+                .borders(Borders::TOP)
+                .padding(Padding::horizontal(1))
+                .title(title.left_aligned()),
+        );
+        scrollable.render(layout[1], buf, self.input_editor.scroll_state());
+
         // set cursor position if editing
-        if self.is_editing {
-            let cursor_position = self.input_editor.cursor_position();
-            let (x, y) = cursor_position;
-
+        state.cursor_position = if self.is_editing {
             self.input_editor
-                .scroll_state
-                .ensure_visible(y as usize, input_content_height);
-            let (y_scroll_offset, _) = self.input_editor.scroll_offset();
-            state.cursor_position = Some((
-                x + BORDER_THICKNESS_SIDE as u16,
-                y + message_height + BORDER_THICKNESS_SIDE as u16 - y_scroll_offset,
-            ));
+                .scroll_state()
+                .cursor_viewport_position()
+                .map(|(x, y)| {
+                    (
+                        x + BORDER_THICKNESS_SIDE as u16,
+                        y + message_height + BORDER_THICKNESS_SIDE as u16,
+                    )
+                })
         } else {
-            state.cursor_position = None;
-        }
-
-        let scroll_offset = self.input_editor.scroll_offset();
-        Paragraph::new(text)
-            .block(
-                Block::new()
-                    .borders(Borders::TOP)
-                    .padding(Padding::horizontal(1))
-                    .title(title.left_aligned()),
-            )
-            .scroll(scroll_offset)
-            .render(layout[1], buf);
+            None
+        };
     }
 }
 

@@ -3,10 +3,7 @@ use textwrap::{Options, WordSeparator, wrap};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::view::{
-    components::scroll::{ScrollState, Scrollable as _},
-    constants::MIN_INPUT_CONTENT_HEIGHT,
-};
+use crate::app::view::widgets::scroll::ScrollState;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum WrapMode {
@@ -138,15 +135,11 @@ pub struct Editor {
     /// Wrap mode, should not change after bootstrap.
     wrap_mode: WrapMode,
 
-    pub scroll_state: ScrollState,
+    scroll_state: ScrollState,
     /// Available visual width.
-    view_width: usize,
-    /// Max available visual height.
-    max_view_height: usize,
+    viewport_width: usize,
     /// Current paragraphs holding visual lines wrapped with view_width.
     paragraphs: Vec<Paragraph>,
-    /// If paragraphs are up-to-date with `input`, `view_width`.
-    needs_reflow: bool,
 }
 
 impl Editor {
@@ -156,7 +149,7 @@ impl Editor {
             input,
             char_idx,
             wrap_mode,
-            max_view_height: 1,
+            scroll_state: ScrollState::default().with_cursor(),
             ..Editor::default()
         }
     }
@@ -166,11 +159,72 @@ impl Editor {
         &self.input
     }
 
-    /// Recalculates `self.paragraphs` if it's not up-to-date for the current `input`, `view_width`.
-    pub fn maybe_reflow(&mut self) {
-        if !self.needs_reflow {
-            return;
+    pub fn scroll_state(&mut self) -> &mut ScrollState {
+        &mut self.scroll_state
+    }
+
+    // pub fn scroll_offset(&self) -> (u16, u16) {
+    //     self.scroll_state.scroll_offset()
+    // }
+    //
+    //
+    /// Returns current cursor position.
+    pub fn cursor_position(&self) -> (u16 /*x*/, u16 /*y*/) {
+        self.scroll_state
+            .cursor_position()
+            .unwrap_or_else(|| (0, 0))
+    }
+
+    pub fn set_viewport_width(&mut self, viewport_width: usize) {
+        if viewport_width != self.viewport_width {
+            self.viewport_width = viewport_width;
+            self.reflow();
+            self.update_cursor_position();
         }
+    }
+
+    /// Returns current cursor byte idx.
+    ///
+    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
+    /// the byte idx based on the idx of the character.
+    fn byte_idx(&self) -> usize {
+        self.input
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(self.char_idx)
+            .unwrap_or(self.input.len())
+    }
+
+    /// Returns visual lines given a view_width.
+    pub fn lines(&mut self) -> Vec<String> {
+        let mut lines = Vec::new();
+        for paragraph in &self.paragraphs {
+            lines.extend(paragraph.lines.clone());
+        }
+        lines
+    }
+
+    /// Recalculates current cursor position and update `self.scroll_state`.
+    pub fn update_cursor_position(&mut self) {
+        let cursor_byte_idx = self.byte_idx();
+        for paragraph in &self.paragraphs {
+            // if cursor is in this paragrah, find its line and find cursor
+            // inclusive on the right side to take account for \n
+            if cursor_byte_idx >= paragraph.byte_offset
+                && cursor_byte_idx <= paragraph.byte_offset + paragraph.input.len()
+            {
+                let (mut x, y) = paragraph.find_cursor_position(cursor_byte_idx);
+                x = x.clamp(0, self.viewport_width as u16);
+                self.scroll_state.set_cursor_position((x, y));
+                return;
+            }
+        }
+        tracing::warn!("cursor position not found");
+    }
+
+    /// Recalculates `self.paragraphs`.
+    pub fn reflow(&mut self) {
+        tracing::debug!("reflow ");
         let input = &self.input;
         let mut paragraphs = Vec::new();
 
@@ -180,7 +234,7 @@ impl Editor {
         for paragraph_input in input.split('\n') {
             let mut paragraph =
                 Paragraph::new(paragraph_input.to_string(), byte_offset, line_offset);
-            paragraph.reflow(self.view_width, self.wrap_mode);
+            paragraph.reflow(self.viewport_width, self.wrap_mode);
 
             byte_offset += paragraph_input.len() + 1; // count for '\n'
             line_offset += paragraph.lines.len();
@@ -189,51 +243,11 @@ impl Editor {
         }
 
         self.paragraphs = paragraphs;
-        self.needs_reflow = false;
-    }
-
-    pub fn set_width(&mut self, width: usize) {
-        if width != self.view_width {
-            self.view_width = width;
-            self.needs_reflow = true;
-        }
-    }
-
-    pub fn set_max_height(&mut self, height: usize) {
-        self.max_view_height = height;
-    }
-
-    /// Returns visual lines given a view_width.
-    pub fn lines(&mut self) -> Vec<String> {
-        self.maybe_reflow();
-        let mut lines = Vec::new();
-        for paragraph in &self.paragraphs {
-            lines.extend(paragraph.lines.clone());
-        }
-        lines
-    }
-
-    /// Returns current cursor position.
-    pub fn cursor_position(&mut self) -> (u16 /*x*/, u16 /*y*/) {
-        self.maybe_reflow();
-        let cursor_byte_idx = self.byte_idx();
-        for paragraph in &self.paragraphs {
-            // if cursor is in this paragrah, find its line and find cursor
-            // inclusive on the right side to take account for \n
-            if cursor_byte_idx >= paragraph.byte_offset
-                && cursor_byte_idx <= paragraph.byte_offset + paragraph.input.len()
-            {
-                let (x, y) = paragraph.find_cursor_position(cursor_byte_idx);
-                return (x.min(self.view_width as u16), y);
-            }
-        }
-        tracing::warn!("cursor position not found");
-        (0u16, 0u16)
     }
 
     /// Returns cursor char idx given a position.
     fn find_char_idx(&mut self, cursor_position: (u16 /*x*/, u16 /*y*/)) -> usize {
-        self.maybe_reflow();
+        self.reflow();
         let (_, y) = cursor_position;
         let mut paragraph_idx = self.paragraphs.partition_point(|p| {
             // first partition: {paragraphs before cursor}
@@ -249,7 +263,8 @@ impl Editor {
     pub fn enter_char(&mut self, new_char: char) {
         let idx = self.byte_idx();
         self.input.insert(idx, new_char);
-        self.needs_reflow = true;
+        self.reflow();
+
         self.move_cursor_right();
     }
 
@@ -264,7 +279,7 @@ impl Editor {
 
             // put all characters together except the selected one
             self.input = before_char_to_delete.chain(after_char_to_delete).collect();
-            self.needs_reflow = true;
+            self.reflow();
             self.move_cursor_left();
         }
     }
@@ -272,64 +287,38 @@ impl Editor {
     /// Clears input.
     pub fn clear(&mut self) {
         self.input = String::new();
-        self.needs_reflow = true;
-        self.set_char_idx_and_scroll(0);
+        self.reflow();
+        self.char_idx = 0;
+        self.update_cursor_position();
     }
 
     pub fn move_cursor_down(&mut self) {
         let (x, mut y) = self.cursor_position();
         y = y.saturating_add(1);
-        let cursor_moved_down = self.find_char_idx((x, y));
-        self.set_char_idx_and_scroll(cursor_moved_down);
+        let char_idx = self.find_char_idx((x, y));
+        self.char_idx = char_idx.clamp(0, self.input.chars().count());
+        self.update_cursor_position();
     }
 
     pub fn move_cursor_up(&mut self) {
         let (x, mut y) = self.cursor_position();
         y = y.saturating_sub(1);
-        let cursor_moved_up = self.find_char_idx((x, y));
-        self.set_char_idx_and_scroll(cursor_moved_up);
+
+        let char_idx = self.find_char_idx((x, y));
+        self.char_idx = char_idx.clamp(0, self.input.chars().count());
+        self.update_cursor_position();
     }
 
     pub fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.char_idx.saturating_sub(1);
-        self.set_char_idx_and_scroll(cursor_moved_left);
+        let char_idx = self.char_idx.saturating_sub(1);
+        self.char_idx = char_idx.clamp(0, self.input.chars().count());
+        self.update_cursor_position();
     }
 
     pub fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.char_idx.saturating_add(1);
-        self.set_char_idx_and_scroll(cursor_moved_right);
-    }
-
-    /// Returns current cursor byte idx.
-    ///
-    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
-    /// the byte idx based on the idx of the character.
-    fn byte_idx(&self) -> usize {
-        self.input
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(self.char_idx)
-            .unwrap_or(self.input.len())
-    }
-
-    /// Updates `char_idx` and scrolls so that cursor is visible.
-    fn set_char_idx_and_scroll(&mut self, char_idx: usize) {
+        let char_idx = self.char_idx.saturating_add(1);
         self.char_idx = char_idx.clamp(0, self.input.chars().count());
-        let (_, y) = self.cursor_position();
-        let mut height: usize = self.paragraphs.iter().map(|p| p.lines.len()).sum();
-        height = height.clamp(MIN_INPUT_CONTENT_HEIGHT, self.max_view_height);
-
-        self.ensure_visible(y as usize, height);
-    }
-}
-
-impl crate::app::view::components::scroll::Scrollable for Editor {
-    fn scroll_offset(&self) -> (u16, u16) {
-        self.scroll_state.scroll_offset()
-    }
-
-    fn scroll_state(&mut self) -> &mut ScrollState {
-        &mut self.scroll_state
+        self.update_cursor_position();
     }
 }
 
@@ -432,7 +421,7 @@ mod tests {
             let mut editor = Editor::new(case.input.to_string(), WrapMode::Character);
             editor.char_idx = case.char_idx;
 
-            editor.set_width(case.view_width);
+            editor.set_viewport_width(case.view_width);
             let lines = editor.lines();
             let cursor_position = editor.cursor_position();
             assert_eq!(lines, case.lines, "{} lines", case.description,);
@@ -574,7 +563,7 @@ mod tests {
             let mut editor = Editor::new(case.input.to_string(), WrapMode::Word);
             editor.char_idx = case.char_idx;
 
-            editor.set_width(case.view_width);
+            editor.set_viewport_width(case.view_width);
             let lines = editor.lines();
             let cursor_position = editor.cursor_position();
             assert_eq!(lines, case.lines, "{} lines", case.description,);
@@ -649,8 +638,8 @@ mod tests {
         for case in cases {
             let mut editor = Editor::new(case.input.to_string(), WrapMode::Character);
             editor.char_idx = case.char_idx;
-            editor.set_max_height(10);
-            editor.set_width(case.view_width);
+            // editor.set_max_height(10);
+            editor.set_viewport_width(case.view_width);
             let mut char_indices: Vec<usize> = Vec::new();
             let mut positions: Vec<(u16, u16)> = Vec::new();
 

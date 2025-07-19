@@ -1,8 +1,8 @@
 mod chat;
-pub mod components;
 pub mod constants;
 mod messages;
 mod session_manager;
+pub mod widgets;
 
 use crate::app::model::Model;
 use ratatui::{
@@ -11,7 +11,6 @@ use ratatui::{
 };
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
-    let input_editor = &mut model.session.input_editor;
     let chat_state = &mut chat::ChatState {
         cursor_position: None,
     };
@@ -27,7 +26,7 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
             chat::ChatView {
                 is_editing: model.session.is_editing,
                 messages: &model.session.messages,
-                input_editor,
+                input_editor: &mut model.session.input_editor,
                 llm_settings: &model.session.llm_settings,
             },
             layout[1],

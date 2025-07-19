@@ -1,5 +1,5 @@
 use crate::{
-    app::view::components::scroll::{ScrollState, Scrollable},
+    app::view::widgets::scroll::ScrollState,
     models::{ChatMessage, LlmSettings},
 };
 
@@ -30,11 +30,11 @@ impl Messages {
         self.pending.is_some()
     }
 
-    pub fn history_messages(&self) -> &Vec<ChatMessage> {
+    pub fn history_messages(&self) -> &[ChatMessage] {
         &self.history_messages
     }
 
-    pub fn pending_question(&self) -> Option<&(ChatMessage, LlmSettings)> {
+    pub fn pending(&self) -> Option<&(ChatMessage, LlmSettings)> {
         self.pending.as_ref()
     }
 
@@ -44,19 +44,21 @@ impl Messages {
         self.scroll_state.reset();
     }
 
+    pub fn scroll_down(&mut self) {
+        self.scroll_state.scroll_down();
+    }
+
+    pub fn scroll_up(&mut self) {
+        self.scroll_state.scroll_up();
+    }
+
     #[cfg(test)]
     #[doc(hidden)]
     pub fn set_history_messages(&mut self, history_messages: Vec<ChatMessage>) {
         self.history_messages = history_messages;
     }
-}
 
-impl Scrollable for Messages {
-    fn scroll_offset(&self) -> (u16, u16) {
-        self.scroll_state.scroll_offset()
-    }
-
-    fn scroll_state(&mut self) -> &mut ScrollState {
-        &mut self.scroll_state
+    pub fn scroll_state(&self) -> &ScrollState {
+        &self.scroll_state
     }
 }
