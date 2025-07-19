@@ -54,7 +54,6 @@ impl ScrollState {
     /// Scrolls just enough so that cursor is visible.
     pub fn ensure_cursor_visible(&mut self, height: usize) {
         if let Some((_, y)) = self.cursor_position {
-            tracing::debug!("ensure {y} visible in height {height}");
             let line = y as usize;
             if line < self.vertical_scroll_offset {
                 self.vertical_scroll_offset = line;

@@ -224,7 +224,6 @@ impl Editor {
 
     /// Recalculates `self.paragraphs`.
     pub fn reflow(&mut self) {
-        tracing::debug!("reflow ");
         let input = &self.input;
         let mut paragraphs = Vec::new();
 

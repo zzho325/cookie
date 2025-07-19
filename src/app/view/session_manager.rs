@@ -36,7 +36,6 @@ impl Widget for &mut SessionManager {
             })
             .collect();
 
-        tracing::debug!("{items:?}");
         // Create a List from all list items and highlight the currently selected one
         let list = List::new(items)
             .block(block)

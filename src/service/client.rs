@@ -75,8 +75,6 @@ impl LlmClient for OpenAIClientImpl {
             _ => return Err(eyre!("Client and settings do not match")),
         };
 
-        tracing::debug!("open ai req!!!!");
-
         let req = ResponsesReq {
             model,
             input: vec![InputItem {
