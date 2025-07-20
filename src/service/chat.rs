@@ -41,7 +41,7 @@ impl Session {
             updated_at: chrono::Utc::now(),
             previous_response_id: None,
             settings,
-            summary: "".to_string(),
+            title: "".to_string(),
         }
     }
 
@@ -160,7 +160,7 @@ impl Service {
                 let guard = session.read().await;
                 SessionSummary {
                     id: guard.id,
-                    summary: guard.summary.clone(),
+                    title: guard.title.clone(),
                     updated_at: guard.updated_at,
                 }
             };

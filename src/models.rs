@@ -50,13 +50,13 @@ pub struct Session {
     // FIXME: we shouldn't use previous id to support other providers
     pub previous_response_id: Option<String>,
     pub settings: LlmSettings,
-    pub summary: String,
+    pub title: String,
 }
 
 #[derive(Debug)]
 pub struct SessionSummary {
     pub id: uuid::Uuid,
-    pub summary: String,
+    pub title: String,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -65,7 +65,7 @@ impl From<Session> for SessionSummary {
         SessionSummary {
             id: session.id,
             updated_at: session.updated_at,
-            summary: session.summary,
+            title: session.title,
         }
     }
 }

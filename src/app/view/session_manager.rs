@@ -9,10 +9,10 @@ use crate::{app::model::session_manager::SessionManager, models::SessionSummary}
 
 impl From<&SessionSummary> for ListItem<'_> {
     fn from(value: &SessionSummary) -> Self {
-        let summary = if value.summary == "" {
+        let summary = if value.title == "" {
             "New Chat".to_string()
         } else {
-            value.summary.clone()
+            value.title.clone()
         };
 
         let line = Line::from(format!("{}", summary));
@@ -30,10 +30,7 @@ impl Widget for &mut SessionManager {
             .session_summaries()
             .iter()
             .enumerate()
-            .map(|(i, session_summary)| {
-                // let color = alternate_colors(i);
-                ListItem::from(session_summary)
-            })
+            .map(|(_, title)| ListItem::from(title))
             .collect();
 
         // Create a List from all list items and highlight the currently selected one
