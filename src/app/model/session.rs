@@ -5,7 +5,7 @@ use crate::{
         editor::{Editor, WrapMode},
         messages::Messages,
     },
-    models::{ChatMessage, LlmSettings, ServiceReq},
+    models::{self, ChatMessage, LlmSettings, ServiceReq},
 };
 
 pub struct Session {
@@ -77,5 +77,13 @@ impl Session {
 
         self.messages.reset();
         self.input_editor.clear();
+    }
+
+    pub fn load_session(&mut self, session: models::Session) {
+        self.session_id = Some(session.id);
+        self.llm_settings = session.settings;
+
+        self.messages.reset();
+        self.messages.set_chat_messages(session.chat_messages);
     }
 }

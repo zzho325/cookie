@@ -93,7 +93,7 @@ impl Service {
         )))
     }
 
-    fn get_session(&mut self, session_id: &Uuid) -> Result<Option<&mut SharedSession>> {
+    fn shared_session(&mut self, session_id: &Uuid) -> Result<Option<&mut SharedSession>> {
         if let Some(session) = self.sessions.get_mut(session_id) {
             Ok(Some(session))
         } else {
@@ -105,7 +105,7 @@ impl Service {
         }
     }
 
-    fn get_session_worker(
+    fn session_worker(
         &mut self,
         session_id: &Uuid,
     ) -> Result<Option<&mut UnboundedSender<ChatMessage>>> {
@@ -121,9 +121,22 @@ impl Service {
     }
 
     pub fn handle_user_message(&mut self, user_message: ChatMessage) -> Result<()> {
-        if let Some(chat_tx) = self.get_session_worker(&(user_message.session_id))? {
+        if let Some(chat_tx) = self.session_worker(&(user_message.session_id))? {
             chat_tx.send(user_message)?;
         }
+        Ok(())
+    }
+
+    pub async fn handle_get_session(&mut self, session_id: &Uuid) -> Result<()> {
+        let shared_session = match self.shared_session(session_id)? {
+            Some(shared_session) => shared_session.clone(),
+            None => return Ok(()),
+        };
+        let session = {
+            let guard = shared_session.read().await;
+            (*guard).clone()
+        };
+        self.resp_tx.send(ServiceResp::Session(session))?;
         Ok(())
     }
 
@@ -132,7 +145,7 @@ impl Service {
         session_id: &Uuid,
         settings: LlmSettings,
     ) -> Result<()> {
-        if let Some(session) = self.get_session(session_id)? {
+        if let Some(session) = self.shared_session(session_id)? {
             let mut guard = session.write().await;
             guard.settings = settings;
         }
@@ -143,15 +156,14 @@ impl Service {
         tracing::debug!("sending sessions");
         let mut summaries: Vec<SessionSummary> = Vec::new();
         for session in self.sessions.values() {
-            let session_summary;
-            {
+            let session_summary = {
                 let guard = session.read().await;
-                session_summary = SessionSummary {
+                SessionSummary {
                     id: guard.id,
                     summary: guard.summary.clone(),
                     updated_at: guard.updated_at,
                 }
-            }
+            };
             summaries.push(session_summary);
         }
         self.resp_tx.send(ServiceResp::Sessions(summaries))?;
@@ -167,13 +179,10 @@ impl Service {
         // TODO: close worker after inactivity
         while let Some(user_message) = chat_rx.recv().await {
             // load settings and the last ID
-            let settings;
-            let previous_response_id;
-            {
+            let (settings, previous_response_id) = {
                 let guard = session.read().await;
-                settings = guard.settings.clone();
-                previous_response_id = guard.previous_response_id.clone();
-            }
+                (guard.settings.clone(), guard.previous_response_id.clone())
+            };
             let llm_req = LlmReq {
                 msg: user_message.msg.clone(),
                 previous_response_id,

@@ -12,6 +12,7 @@ pub enum ServiceReq {
         settings: LlmSettings,
         user_message: ChatMessage,
     },
+    GetSession(uuid::Uuid),
     UpdateSettings {
         session_id: Uuid,
         settings: LlmSettings,
@@ -21,6 +22,7 @@ pub enum ServiceReq {
 pub enum ServiceResp {
     ChatMessage(ChatMessage),
     Sessions(Vec<SessionSummary>),
+    Session(Session),
     Error(String),
 }
 
@@ -39,6 +41,7 @@ pub struct ChatMessage {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+#[derive(Clone)]
 pub struct Session {
     pub id: Uuid,
     pub chat_messages: Vec<ChatMessage>,

@@ -74,6 +74,9 @@ impl Service {
                         Some(ServiceReq::ChatMessage (chat_message)) => {
                             self.handle_user_message(chat_message)?;
                         }
+                        Some(ServiceReq::GetSession(session_id)) => {
+                           self.handle_get_session(&session_id).await?
+                        }
                         Some(ServiceReq::UpdateSettings{session_id, settings}) => {
                             tracing::debug!("receive update {settings:?}");
                             self.handle_update_settings(&session_id, settings).await?;

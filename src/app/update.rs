@@ -7,7 +7,7 @@ use crate::{
         Command, Message,
         model::{Focused, Model},
     },
-    models::ServiceResp,
+    models::{ServiceReq, ServiceResp},
 };
 
 pub type Update = (Option<Message>, Option<Command>);
@@ -25,7 +25,9 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
                 return (None, Some(Command::ServiceReq(req)));
             }
         }
-        Message::GetSession(id) => {}
+        Message::GetSession(id) => {
+            return (None, Some(Command::ServiceReq(ServiceReq::GetSession(id))));
+        }
         Message::CrosstermClose => {
             model.should_quit = true;
         }
@@ -38,10 +40,14 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
         ServiceResp::ChatMessage(assistant_message) => {
             model.session.handle_assistant_message(assistant_message)
         }
-
         ServiceResp::Sessions(session_summaries) => model
             .session_manager
             .handle_sessions_update(session_summaries, model.session.session_id()),
+        ServiceResp::Session(session) => {
+            if model.session_manager.selected() == Some(session.id) {
+                model.session.load_session(session);
+            }
+        }
         _ => todo!(),
     }
     (None, None)

@@ -34,7 +34,13 @@ impl SessionManager {
     }
 
     pub fn select_next(&mut self) {
-        self.list_state.select_next();
+        if self
+            .list_state
+            .selected()
+            .is_some_and(|i| i.saturating_add(1) < self.session_summaries.len())
+        {
+            self.list_state.select_next();
+        }
     }
 
     pub fn select_previous(&mut self) {

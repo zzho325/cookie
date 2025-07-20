@@ -5,7 +5,7 @@ use crate::{
 
 #[derive(Default)]
 pub struct Messages {
-    history_messages: Vec<ChatMessage>,
+    chat_messages: Vec<ChatMessage>,
     pending: Option<(ChatMessage, LlmSettings)>,
     scroll_state: ScrollState,
 }
@@ -13,8 +13,8 @@ pub struct Messages {
 impl Messages {
     pub fn receive_response(&mut self, assistant_message: ChatMessage) {
         if let Some((user_message, _)) = self.pending.take() {
-            self.history_messages.push(user_message);
-            self.history_messages.push(assistant_message);
+            self.chat_messages.push(user_message);
+            self.chat_messages.push(assistant_message);
             self.pending = None;
         } else {
             // TODO: report error
@@ -30,8 +30,12 @@ impl Messages {
         self.pending.is_some()
     }
 
-    pub fn history_messages(&self) -> &[ChatMessage] {
-        &self.history_messages
+    pub fn chat_messages(&self) -> &[ChatMessage] {
+        &self.chat_messages
+    }
+
+    pub fn set_chat_messages(&mut self, chat_messages: Vec<ChatMessage>) {
+        self.chat_messages = chat_messages;
     }
 
     pub fn pending(&self) -> Option<&(ChatMessage, LlmSettings)> {
@@ -39,7 +43,7 @@ impl Messages {
     }
 
     pub fn reset(&mut self) {
-        self.history_messages.clear();
+        self.chat_messages.clear();
         self.pending = None;
         self.scroll_state.reset();
     }
@@ -50,12 +54,6 @@ impl Messages {
 
     pub fn scroll_up(&mut self) {
         self.scroll_state.scroll_up();
-    }
-
-    #[cfg(test)]
-    #[doc(hidden)]
-    pub fn set_history_messages(&mut self, history_messages: Vec<ChatMessage>) {
-        self.history_messages = history_messages;
     }
 
     pub fn scroll_state(&self) -> &ScrollState {
