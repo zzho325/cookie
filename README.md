@@ -29,7 +29,10 @@ cargo build --release
 ```
 
 * Type your prompt, `Enter` to send.
-* `i` / `Esc` to toggle input mode, `q` to quit.
+* `i` / `Esc` to toggle input mode, `q` to quit. 
+* `s` to toggle side bar, `j` / `k` or `Down` / `Up` to navigate sessions.
+* `Tab` to shift focus.
+* `n` to start new session.
 
 ## 🛣️ Roadmap
 
@@ -48,9 +51,10 @@ cargo build --release
   * [ ] Mouse event.
   * [ ] [Input box] Embed nvim.
 * App:
+  * [ ] Indicate current focused widget.
+  * [ ] Help and Keymaps.
   * [ ] Load config properly.
   * [ ] Update settings at run time.
-  * [ ] Help and Keymaps.
   * [ ] Error popup.
 * Chat Engine:
   * [x] Retain context across chats.
@@ -58,7 +62,11 @@ cargo build --release
   * [ ] Streaming.
   * [ ] Track token usage.
   * [ ] Search.
-* Session Management: persist chat session history and support global search.
+* Session Management: 
+  * [x] sessions.
+     * [ ] generate title.
+  * [ ] persist sessions to db.
+  * [ ] global search.
 * Multi-Provider Support: other LLM backend.
 
 ### ⚠️ Limitations
