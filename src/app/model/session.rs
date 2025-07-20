@@ -10,6 +10,7 @@ use crate::{
 
 pub struct Session {
     pub session_id: Option<Uuid>,
+    pub title: Option<String>,
     pub llm_settings: LlmSettings,
     pub messages: Messages,
     pub input_editor: Editor,
@@ -20,6 +21,7 @@ impl Session {
     pub fn new(llm_settings: LlmSettings) -> Self {
         Self {
             session_id: None,
+            title: None,
             llm_settings,
             messages: Messages::default(),
             input_editor: Editor::new(String::new(), WrapMode::default()),
@@ -72,6 +74,7 @@ impl Session {
 
     pub fn reset(&mut self, settings: LlmSettings) {
         self.session_id = None;
+        self.title = None;
         self.llm_settings = settings;
         self.is_editing = true;
 
@@ -81,6 +84,7 @@ impl Session {
 
     pub fn load_session(&mut self, session: models::Session) {
         self.session_id = Some(session.id);
+        self.title = Some(session.title);
         self.llm_settings = session.settings;
 
         self.messages.reset();

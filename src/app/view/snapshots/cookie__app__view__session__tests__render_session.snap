@@ -2,7 +2,7 @@
 source: src/app/view/session.rs
 expression: terminal.backend()
 ---
-"                    "
+"    Awesome chat    "
 "┌─> openAI on 4o    "
 "[2s]                "
 "└─> history question"

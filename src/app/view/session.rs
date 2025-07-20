@@ -1,7 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Padding, StatefulWidget, Widget},
 };
@@ -24,6 +24,10 @@ impl StatefulWidget for &mut Session {
     /// Renders chat session with input block starting with MIN_INPUT_HEIGHT including border and
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut SessionState) {
+        let title = self.title.as_deref().unwrap_or("New chat");
+        let block = Block::new().title(Line::from(title.fg(tailwind::ROSE.c200).bold()).centered());
+        block.render(area, buf);
+
         let input_content_width = area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
         self.input_editor.set_viewport_width(input_content_width);
 
@@ -139,6 +143,7 @@ mod tests {
 
         let mut session = super::Session {
             session_id: None,
+            title: Some("Awesome chat".to_string()),
             llm_settings,
             messages,
             input_editor: Editor::new("repeat this".repeat(3), WrapMode::default()),
