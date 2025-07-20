@@ -12,7 +12,7 @@ use crate::{
 
 pub type Update = (Option<Message>, Option<Command>);
 
-/// Updates model with message and optionally create next message for chained update and command
+/// Updates model with message and optionally creates next message for chained update and command
 /// for side effect.
 pub fn update(model: &mut Model, msg: Message) -> Update {
     match msg {
@@ -25,6 +25,7 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
                 return (None, Some(Command::ServiceReq(req)));
             }
         }
+        Message::GetSession(id) => {}
         Message::CrosstermClose => {
             model.should_quit = true;
         }
@@ -40,7 +41,7 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
 
         ServiceResp::Sessions(session_summaries) => model
             .session_manager
-            .handle_sessions_update(session_summaries),
+            .handle_sessions_update(session_summaries, model.session.session_id()),
         _ => todo!(),
     }
     (None, None)
@@ -57,6 +58,22 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             KeyCode::Char('n') => {
                 model.session.reset(model.configs.derive_llm_settings());
                 model.shift_focus_to(Focused::Session);
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                model.session_manager.select_next();
+                let maybe_msg = model
+                    .session_manager
+                    .selected()
+                    .map(|id| Message::GetSession(id));
+                return (maybe_msg, None);
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                model.session_manager.select_previous();
+                let maybe_msg = model
+                    .session_manager
+                    .selected()
+                    .map(|id| Message::GetSession(id));
+                return (maybe_msg, None);
             }
             KeyCode::Tab => model.shift_focus(),
             _ => {}

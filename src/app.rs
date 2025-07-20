@@ -96,6 +96,7 @@ pub enum Message {
     Key(KeyEvent),
     ServiceResp(ServiceResp),
     Send,
+    GetSession(uuid::Uuid),
     CrosstermClose,
 }
 

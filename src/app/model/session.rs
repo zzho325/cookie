@@ -28,6 +28,10 @@ impl Session {
         }
     }
 
+    pub fn session_id(&self) -> Option<Uuid> {
+        self.session_id
+    }
+
     pub fn handle_user_message(&mut self) -> Option<ServiceReq> {
         // only send response if not waiting
         // TODO: implement timeout for pending resp
