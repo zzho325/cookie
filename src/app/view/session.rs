@@ -6,36 +6,24 @@ use ratatui::{
     widgets::{Block, Borders, Padding, StatefulWidget, Widget},
 };
 
-use crate::{
-    app::{
-        model::{editor::Editor, messages::Messages},
-        view::{
-            constants::{
-                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
-            },
-            widgets::scroll::AutoScroll,
-        },
+use crate::app::{
+    model::session::Session,
+    view::{
+        constants::{BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT},
+        widgets::scroll::AutoScroll,
     },
-    models::LlmSettings,
 };
 
-pub struct ChatState {
+pub struct SessionState {
     pub cursor_position: Option<(u16, u16)>,
 }
 
-pub struct ChatView<'a> {
-    pub is_editing: bool,
-    pub messages: &'a Messages,
-    pub input_editor: &'a mut Editor,
-    pub llm_settings: &'a LlmSettings,
-}
+impl StatefulWidget for &mut Session {
+    type State = SessionState;
 
-impl StatefulWidget for ChatView<'_> {
-    type State = ChatState;
-
-    /// Renders chat pane with input block starting with MIN_INPUT_HEIGHT including border and
+    /// Renders chat session with input block starting with MIN_INPUT_HEIGHT including border and
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut ChatState) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut SessionState) {
         let input_content_width = area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
         self.input_editor.set_viewport_width(input_content_width);
 
@@ -113,13 +101,13 @@ mod tests {
                 editor::{Editor, WrapMode},
                 messages::Messages,
             },
-            view::chat::ChatState,
+            view::session::SessionState,
         },
         models::{ChatMessage, Role},
     };
 
     #[test]
-    fn render_chat() {
+    fn render_session() {
         let user_message_created_at = chrono::Utc.with_ymd_and_hms(2025, 7, 10, 0, 0, 0).unwrap();
         let assistant_message_created_at =
             user_message_created_at + std::time::Duration::from_secs(2);
@@ -131,7 +119,7 @@ mod tests {
         let session_id = Uuid::new_v4();
 
         let mut messages = Messages::default();
-        let history_messages: Vec<ChatMessage> = vec![
+        let chat_messages: Vec<ChatMessage> = vec![
             ChatMessage {
                 id: Uuid::new_v4(),
                 session_id,
@@ -147,23 +135,24 @@ mod tests {
                 created_at: assistant_message_created_at,
             },
         ];
-        messages.set_history_messages(history_messages);
+        messages.set_chat_messages(chat_messages);
 
-        let chat = super::ChatView {
+        let mut session = super::Session {
+            session_id: None,
+            llm_settings,
+            messages,
+            input_editor: Editor::new("repeat this".repeat(3), WrapMode::default()),
             is_editing: false,
-            messages: &messages,
-            input_editor: &mut Editor::new("repeat this".repeat(3), WrapMode::default()),
-            llm_settings: &llm_settings,
         };
 
-        let chat_state = &mut ChatState {
+        let session_state = &mut SessionState {
             cursor_position: None,
         };
 
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(20, 20)).unwrap();
         terminal
-            .draw(|frame| frame.render_stateful_widget(chat, frame.area(), chat_state))
+            .draw(|frame| frame.render_stateful_widget(&mut session, frame.area(), session_state))
             .unwrap();
         insta::assert_snapshot!(terminal.backend());
     }

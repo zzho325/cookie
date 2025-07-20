@@ -1,6 +1,6 @@
-mod chat;
-pub mod constants;
+mod constants;
 mod messages;
+mod session;
 mod session_manager;
 pub mod widgets;
 
@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
-    let chat_state = &mut chat::ChatState {
+    let session_state = &mut session::SessionState {
         cursor_position: None,
     };
     if model.show_sidebar {
@@ -22,34 +22,16 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
 
         frame.render_widget(&mut model.session_manager, layout[0]);
 
-        frame.render_stateful_widget(
-            chat::ChatView {
-                is_editing: model.session.is_editing,
-                messages: &model.session.messages,
-                input_editor: &mut model.session.input_editor,
-                llm_settings: &model.session.llm_settings,
-            },
-            layout[1],
-            chat_state,
-        );
+        frame.render_stateful_widget(&mut model.session, layout[1], session_state);
 
-        if let Some((mut x, y)) = chat_state.cursor_position {
+        if let Some((mut x, y)) = session_state.cursor_position {
             x += layout[0].width;
             frame.set_cursor_position(Position::new(x, y));
         }
     } else {
-        frame.render_stateful_widget(
-            chat::ChatView {
-                is_editing: model.session.is_editing,
-                messages: &model.session.messages,
-                input_editor: &mut model.session.input_editor,
-                llm_settings: &model.session.llm_settings,
-            },
-            frame.area(),
-            chat_state,
-        );
+        frame.render_stateful_widget(&mut model.session, frame.area(), session_state);
 
-        if let Some((x, y)) = chat_state.cursor_position {
+        if let Some((x, y)) = session_state.cursor_position {
             frame.set_cursor_position(Position::new(x, y));
         }
     }
