@@ -13,23 +13,6 @@ use crate::{
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-pub struct SessionWorker {
-    pub chat_tx: UnboundedSender<ChatMessage>,
-    pub settings_tx: UnboundedSender<LlmSettings>,
-}
-
-impl SessionWorker {
-    pub fn send_message(&mut self, chat_message: ChatMessage) -> Result<()> {
-        self.chat_tx.send(chat_message)?;
-        Ok(())
-    }
-
-    pub fn update_settings(&mut self, settings: LlmSettings) -> Result<()> {
-        self.settings_tx.send(settings.clone())?;
-        Ok(())
-    }
-}
-
 pub type SharedSession = Arc<RwLock<Session>>;
 
 impl Session {
