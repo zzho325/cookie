@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{
-    model::session::Session,
+    model::{focus::Focusable, session::Session},
     view::{
         constants::{BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT},
         widgets::scroll::AutoScroll,
@@ -24,8 +24,13 @@ impl StatefulWidget for &mut Session {
     /// Renders chat session with input block starting with MIN_INPUT_HEIGHT including border and
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut SessionState) {
-        let title = self.title.as_deref().unwrap_or("New chat");
-        let block = Block::new().title(Line::from(title.fg(tailwind::ROSE.c200).bold()).centered());
+        let title = self.title().map(String::as_str).unwrap_or("New chat");
+        let styled_title = if self.is_focused() {
+            title.fg(tailwind::AMBER.c400).bold()
+        } else {
+            title.fg(tailwind::AMBER.c300)
+        };
+        let block = Block::new().title(Line::from(styled_title).centered());
         block.render(area, buf);
 
         let input_content_width = area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
@@ -141,15 +146,10 @@ mod tests {
         ];
         messages.set_chat_messages(chat_messages);
 
-        let mut session = super::Session {
-            session_id: None,
-            title: Some("Awesome chat".to_string()),
-            llm_settings,
-            messages,
-            input_editor: Editor::new("repeat this".repeat(3), WrapMode::default()),
-            is_editing: false,
-        };
-
+        let mut session = super::Session::new(llm_settings);
+        session.set_title(Some("Awesome chat".to_string()));
+        session.set_messages(messages);
+        *session.input_editor.input_mut() = "repeat this".repeat(3);
         let session_state = &mut SessionState {
             cursor_position: None,
         };

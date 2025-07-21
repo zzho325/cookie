@@ -1,18 +1,17 @@
 pub mod editor;
+pub mod focus;
 pub mod messages;
 pub mod session;
 pub mod session_manager;
 
 use crate::{
-    app::model::{session::Session, session_manager::SessionManager},
+    app::model::{
+        focus::{Focusable, Focused},
+        session::Session,
+        session_manager::SessionManager,
+    },
     models::configs::Configs,
 };
-
-#[derive(Debug, PartialEq)]
-pub enum Focused {
-    SessionManager,
-    Session,
-}
 
 pub struct Model {
     pub configs: Configs,
@@ -21,6 +20,7 @@ pub struct Model {
 
     pub show_sidebar: bool,
     pub focused: Focused,
+    focus_order: Vec<fn(&mut Model) -> &mut dyn Focusable>,
     pub should_quit: bool,
 }
 
@@ -28,29 +28,25 @@ impl Model {
     pub fn new(configs: Configs) -> Self {
         // FIXME: fix config usage
         let default_llm_settings = configs.derive_llm_settings();
-        Self {
+
+        let mut this = Self {
             configs,
             session: Session::new(default_llm_settings),
             session_manager: SessionManager::default(),
-            focused: Focused::Session,
             show_sidebar: false,
             should_quit: false,
-        }
+            focused: Focused::Session,
+            focus_order: Vec::new(),
+        };
+
+        this.focus_order.push(|m| &mut m.session);
+        this.focus_order.push(|m| &mut m.session_manager);
+        this.focus_order[0](&mut this).set_focus(true);
+        this
     }
 
     pub fn quit(&mut self) {
         self.should_quit = true;
-    }
-
-    pub fn shift_focus(&mut self) {
-        match self.focused {
-            Focused::SessionManager => self.focused = Focused::Session,
-            Focused::Session => self.focused = Focused::SessionManager,
-        }
-    }
-
-    pub fn shift_focus_to(&mut self, new_focused: Focused) {
-        self.focused = new_focused;
     }
 
     pub fn toggle_sidebar(&mut self) {

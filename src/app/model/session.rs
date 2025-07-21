@@ -3,6 +3,7 @@ use uuid::Uuid;
 use crate::{
     app::model::{
         editor::{Editor, WrapMode},
+        focus::Focusable,
         messages::Messages,
     },
     models::{self, ChatMessage, LlmSettings, ServiceReq},
@@ -10,12 +11,15 @@ use crate::{
 
 pub struct Session {
     pub session_id: Option<Uuid>,
-    pub title: Option<String>,
+    title: Option<String>,
     pub llm_settings: LlmSettings,
     pub messages: Messages,
     pub input_editor: Editor,
     pub is_editing: bool,
+    focused: bool,
 }
+
+crate::impl_focusable!(Session);
 
 impl Session {
     pub fn new(llm_settings: LlmSettings) -> Self {
@@ -27,6 +31,7 @@ impl Session {
             input_editor: Editor::new(String::new(), WrapMode::default()),
             // by default editting
             is_editing: true,
+            focused: false,
         }
     }
 
@@ -89,5 +94,17 @@ impl Session {
 
         self.messages.reset();
         self.messages.set_chat_messages(session.chat_messages);
+    }
+
+    pub fn title(&self) -> Option<&String> {
+        self.title.as_ref()
+    }
+
+    pub fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
+    }
+
+    pub fn set_messages(&mut self, messages: Messages) {
+        self.messages = messages;
     }
 }

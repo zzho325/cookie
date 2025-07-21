@@ -319,6 +319,10 @@ impl Editor {
         self.char_idx = char_idx.clamp(0, self.input.chars().count());
         self.update_cursor_position();
     }
+
+    pub fn input_mut(&mut self) -> &mut String {
+        &mut self.input
+    }
 }
 
 #[cfg(test)]

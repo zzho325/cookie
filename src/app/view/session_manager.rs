@@ -6,7 +6,10 @@ use ratatui::{
     widgets::{Block, Borders, HighlightSpacing, List, ListItem, StatefulWidget, Widget},
 };
 
-use crate::{app::model::session_manager::SessionManager, models::SessionSummary};
+use crate::{
+    app::model::{focus::Focusable, session_manager::SessionManager},
+    models::SessionSummary,
+};
 
 impl From<&SessionSummary> for ListItem<'_> {
     fn from(value: &SessionSummary) -> Self {
@@ -24,9 +27,14 @@ impl From<&SessionSummary> for ListItem<'_> {
 
 impl Widget for &mut SessionManager {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let styled_title = if self.is_focused() {
+            "Sessions".fg(tailwind::AMBER.c400).bold()
+        } else {
+            "Sessions".fg(tailwind::AMBER.c300)
+        };
         let block = Block::new()
             .borders(Borders::RIGHT)
-            .title(Line::from("Sessions".fg(tailwind::ROSE.c200).bold()).centered());
+            .title(Line::from(styled_title).centered());
 
         // Iterate through all elements in the `items` and stylize them.
         let items: Vec<ListItem> = self

@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use crate::{
     app::{
         Command, Message,
-        model::{Focused, Model},
+        model::{Model, focus::Focused},
     },
     models::{ServiceReq, ServiceResp},
 };
@@ -94,7 +94,7 @@ mod tests {
 
     use crate::{
         app::{
-            model::{Focused, Model},
+            model::{Model, focus::Focused},
             update::handle_key_event,
         },
         models::configs::Configs,

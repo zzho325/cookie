@@ -1,13 +1,17 @@
-use ratatui::widgets::ListState;
-
+use ratatui::widgets::ListState; 
 use crate::models::SessionSummary;
+use crate::app::model::focus::Focusable;
 
 #[derive(Default)]
 pub struct SessionManager {
     session_summaries: Vec<SessionSummary>,
     list_state: ListState,
+    focused: bool,
 }
 
+crate::impl_focusable!(SessionManager);
+
+// impl_focusable!(Session);
 impl SessionManager {
     pub fn session_summaries(&self) -> &[SessionSummary] {
         &self.session_summaries
