@@ -67,18 +67,12 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 model.session_manager.select_next();
-                let maybe_msg = model
-                    .session_manager
-                    .selected()
-                    .map(|id| Message::GetSession(id));
+                let maybe_msg = model.session_manager.selected().map(Message::GetSession);
                 return (maybe_msg, None);
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 model.session_manager.select_previous();
-                let maybe_msg = model
-                    .session_manager
-                    .selected()
-                    .map(|id| Message::GetSession(id));
+                let maybe_msg = model.session_manager.selected().map(Message::GetSession);
                 return (maybe_msg, None);
             }
             KeyCode::Tab => model.shift_focus(),

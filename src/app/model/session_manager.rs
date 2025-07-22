@@ -21,7 +21,7 @@ impl SessionManager {
         &mut self.list_state
     }
 
-    /// Set `session_summaries` and optionally set summary with id `session_id` as selected.
+    /// Sets `session_summaries` and optionally set summary with id `session_id` as selected.
     pub fn handle_sessions_update(
         &mut self,
         session_summaries: Vec<SessionSummary>,

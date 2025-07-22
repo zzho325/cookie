@@ -42,6 +42,18 @@ pub struct ChatMessage {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+impl ChatMessage {
+    pub fn new(session_id: uuid::Uuid, role: Role, msg: String) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4(),
+            session_id,
+            role,
+            msg,
+            created_at: chrono::Utc::now(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Session {
     pub id: Uuid,
@@ -67,18 +79,6 @@ impl From<Session> for SessionSummary {
             id: session.id,
             updated_at: session.updated_at,
             title: session.title,
-        }
-    }
-}
-
-impl ChatMessage {
-    pub fn new(session_id: uuid::Uuid, role: Role, msg: String) -> Self {
-        Self {
-            id: uuid::Uuid::new_v4(),
-            session_id,
-            role,
-            msg,
-            created_at: chrono::Utc::now(),
         }
     }
 }

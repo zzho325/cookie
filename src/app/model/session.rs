@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub struct Session {
+    /// Session Id of current session. None for new session before sending first message.
     pub session_id: Option<Uuid>,
     title: Option<String>,
     pub llm_settings: LlmSettings,
