@@ -42,7 +42,7 @@ pub struct Service {
 
     llm_router: LlmClientRouter,
     sessions: HashMap<Uuid, SharedSession>,
-    session_workers: HashMap<Uuid, UnboundedSender<ChatMessage>>,
+    sessions_chat_tx: HashMap<Uuid, UnboundedSender<ChatMessage>>,
 }
 
 impl Service {
@@ -56,7 +56,7 @@ impl Service {
             resp_tx,
             llm_router,
             sessions: HashMap::new(),
-            session_workers: HashMap::new(),
+            sessions_chat_tx: HashMap::new(),
         }
     }
 
@@ -68,7 +68,7 @@ impl Service {
                     match maybe_req {
                         None => break,
                         Some(ServiceReq::NewSession { settings, user_message })=>{
-                            let chat_handle = self.new_session(settings, user_message).await?;
+                            let chat_handle = self.handle_new_session(settings, user_message).await?;
                             chat_handles.push(chat_handle);
                         }
                         Some(ServiceReq::ChatMessage (chat_message)) => {

@@ -6,13 +6,13 @@ use ratatui::{
     widgets::{Block, Borders, Padding, StatefulWidget, Widget},
 };
 
-use crate::app::{
+use crate::{app::{
     model::{focus::Focusable, session::Session},
     view::{
         constants::{BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT},
         widgets::scroll::AutoScroll,
     },
-};
+}, models::constants::NEW_SESSION_TITLE};
 
 pub struct SessionState {
     pub cursor_position: Option<(u16, u16)>,
@@ -24,7 +24,7 @@ impl StatefulWidget for &mut Session {
     /// Renders chat session with input block starting with MIN_INPUT_HEIGHT including border and
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut SessionState) {
-        let title = self.title().map(String::as_str).unwrap_or("New chat");
+        let title = self.title().map(String::as_str).unwrap_or(NEW_SESSION_TITLE);
         let styled_title = if self.is_focused() {
             title.fg(tailwind::AMBER.c400).bold()
         } else {

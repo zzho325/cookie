@@ -1,4 +1,5 @@
 pub mod configs;
+pub mod constants;
 
 use serde::Deserialize;
 use uuid::Uuid;

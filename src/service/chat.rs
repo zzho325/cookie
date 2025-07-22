@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::eyre};
 use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
 
 use crate::{
-    models::{ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary},
+    models::{
+        ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary,
+        constants::NEW_SESSION_TITLE,
+    },
     service::{
         Service,
         client::{LlmClient, LlmClientRouter, LlmReq},
@@ -24,7 +27,7 @@ impl Session {
             updated_at: chrono::Utc::now(),
             previous_response_id: None,
             settings,
-            title: "".to_string(),
+            title: NEW_SESSION_TITLE.to_string(),
         }
     }
 
@@ -49,7 +52,31 @@ impl Session {
 }
 
 impl Service {
-    pub async fn new_session(
+    // ----------------------------------------------------------------
+    // Internal session management, maybe should move out
+    // ----------------------------------------------------------------
+
+    /// Gets shared session.
+    fn shared_session(&mut self, session_id: &Uuid) -> Result<&mut SharedSession> {
+        self.sessions
+            .get_mut(session_id)
+            .ok_or_else(|| eyre!("session {} not found", session_id))
+    }
+
+    /// Gets session chat sender.
+    fn session_chat_tx(&mut self, session_id: &Uuid) -> Result<&mut UnboundedSender<ChatMessage>> {
+        self.sessions_chat_tx
+            .get_mut(session_id)
+            .ok_or_else(|| eyre!("session {} not found", session_id))
+    }
+
+    // ----------------------------------------------------------------
+    // TUI request handling
+    // ----------------------------------------------------------------
+
+    /// Creates new session and its chat sender, sends update sessions to tui; spawns session
+    /// worker and sends and first message.
+    pub async fn handle_new_session(
         &mut self,
         settings: LlmSettings,
         user_message: ChatMessage,
@@ -63,7 +90,7 @@ impl Service {
         // create session channel and send initial message
         let (chat_tx, chat_rx) = mpsc::unbounded_channel::<ChatMessage>();
         chat_tx.send(user_message)?;
-        self.session_workers.insert(session_id, chat_tx);
+        self.sessions_chat_tx.insert(session_id, chat_tx);
 
         // spawn chat
         let llm_router = self.llm_router.clone();
@@ -76,65 +103,58 @@ impl Service {
         )))
     }
 
-    fn shared_session(&mut self, session_id: &Uuid) -> Result<Option<&mut SharedSession>> {
-        if let Some(session) = self.sessions.get_mut(session_id) {
-            Ok(Some(session))
-        } else {
-            self.resp_tx.send(ServiceResp::Error(format!(
-                "chat session {} not found",
-                session_id
-            )))?;
-            Ok(None)
-        }
-    }
-
-    fn session_worker(
-        &mut self,
-        session_id: &Uuid,
-    ) -> Result<Option<&mut UnboundedSender<ChatMessage>>> {
-        if let Some(session_worker) = self.session_workers.get_mut(session_id) {
-            Ok(Some(session_worker))
-        } else {
-            self.resp_tx.send(ServiceResp::Error(format!(
-                "chat session worker {} not found",
-                session_id
-            )))?;
-            Ok(None)
-        }
-    }
-
+    /// Finds session chat sender for session of `user_message` and dispatch message. Send error
+    /// message to tui if session chat sender not found.
     pub fn handle_user_message(&mut self, user_message: ChatMessage) -> Result<()> {
-        if let Some(chat_tx) = self.session_worker(&(user_message.session_id))? {
-            chat_tx.send(user_message)?;
-        }
+        let session_id = &(user_message.session_id);
+        match self.session_chat_tx(session_id) {
+            Ok(chat_tx) => {
+                chat_tx.send(user_message)?;
+            }
+            Err(e) => {
+                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+            }
+        };
+
         Ok(())
     }
 
+    /// Sends `session` of `session_id` to tui. Send error message to tui if session not found.
     pub async fn handle_get_session(&mut self, session_id: &Uuid) -> Result<()> {
-        let shared_session = match self.shared_session(session_id)? {
-            Some(shared_session) => shared_session.clone(),
-            None => return Ok(()),
+        match self.shared_session(session_id) {
+            Ok(shared_session) => {
+                let session = {
+                    let guard = shared_session.read().await;
+                    (*guard).clone()
+                };
+                self.resp_tx.send(ServiceResp::Session(session))?;
+            }
+            Err(e) => {
+                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+            }
         };
-        let session = {
-            let guard = shared_session.read().await;
-            (*guard).clone()
-        };
-        self.resp_tx.send(ServiceResp::Session(session))?;
         Ok(())
     }
 
+    /// Updates session settings. Send error message to tui if session not found.
     pub async fn handle_update_settings(
         &mut self,
         session_id: &Uuid,
         settings: LlmSettings,
     ) -> Result<()> {
-        if let Some(session) = self.shared_session(session_id)? {
-            let mut guard = session.write().await;
-            guard.settings = settings;
-        }
+        match self.shared_session(session_id) {
+            Ok(shared_session) => {
+                let mut guard = shared_session.write().await;
+                guard.settings = settings;
+            }
+            Err(e) => {
+                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+            }
+        };
         Ok(())
     }
 
+    /// Sends sessions in memory to tui.
     async fn send_sessions(&mut self) -> Result<()> {
         tracing::debug!("sending sessions");
         let mut summaries: Vec<SessionSummary> = Vec::new();
@@ -153,6 +173,8 @@ impl Service {
         Ok(())
     }
 
+    /// Polls chat messages from `chat_rx` and for `session`, gets chat response from `llm_router`,
+    /// saves to memory and send to tui.
     pub async fn chat(
         mut chat_rx: UnboundedReceiver<ChatMessage>,
         session: SharedSession,
@@ -168,6 +190,7 @@ impl Service {
             };
             let llm_req = LlmReq {
                 msg: user_message.msg.clone(),
+                instructions: None,
                 previous_response_id,
                 settings: settings.clone(),
             };

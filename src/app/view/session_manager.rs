@@ -13,13 +13,7 @@ use crate::{
 
 impl From<&SessionSummary> for ListItem<'_> {
     fn from(value: &SessionSummary) -> Self {
-        let title = if value.title.is_empty() {
-            "New Chat".to_string()
-        } else {
-            value.title.clone()
-        };
-
-        let line = Line::from(title);
+        let line = Line::from(value.title.clone());
 
         ListItem::new(line)
     }
