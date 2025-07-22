@@ -21,6 +21,7 @@ pub struct LlmReq {
     pub msg: String,
     pub previous_response_id: Option<String>,
     pub settings: LlmSettings,
+    pub instructions: Option<String>,
 }
 
 pub struct LlmResp {
@@ -77,6 +78,7 @@ impl LlmClient for OpenAIClientImpl {
 
         let req = ResponsesReq {
             model,
+            instructions: llm_req.instructions,
             input: vec![InputItem {
                 role: OpenAIRole::User,
                 content: llm_req.msg,

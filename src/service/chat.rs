@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::format, sync::Arc};
 
 use color_eyre::{Result, eyre::eyre};
 use tokio::sync::{RwLock, mpsc};
@@ -89,18 +89,28 @@ impl Service {
 
         // create session channel and send initial message
         let (chat_tx, chat_rx) = mpsc::unbounded_channel::<ChatMessage>();
-        chat_tx.send(user_message)?;
+        chat_tx.send(user_message.clone())?;
         self.sessions_chat_tx.insert(session_id, chat_tx);
 
         // spawn chat
         let llm_router = self.llm_router.clone();
         let resp_tx = self.resp_tx.clone();
-        Ok(tokio::spawn(Self::chat(
+        let handle = tokio::spawn(Self::chat(
             chat_rx,
             session.clone(),
+            llm_router.clone(),
+            resp_tx.clone(),
+        ));
+
+        tokio::spawn(Self::try_update_session_title(
+            user_message,
+            session,
             llm_router,
             resp_tx,
-        )))
+        ));
+
+        // ge
+        Ok(handle)
     }
 
     /// Finds session chat sender for session of `user_message` and dispatch message. Send error
@@ -210,5 +220,63 @@ impl Service {
             }
         }
         Ok(())
+    }
+
+    // Attempts to generate title with LLM and send to tui.
+    pub async fn try_update_session_title(
+        user_message: ChatMessage,
+        session: SharedSession,
+        llm_router: LlmClientRouter,
+        resp_tx: UnboundedSender<ServiceResp>,
+    ) {
+        let title =
+            match Self::generate_session_title(user_message, session.clone(), llm_router).await {
+                Ok(title) => title,
+                Err(e) => {
+                    tracing::error!("failed to generate title with LLM {e}");
+                    return;
+                }
+            };
+
+        let session_snapshot = {
+            let mut guard = session.write().await;
+            guard.title = title;
+            guard.updated_at = chrono::Utc::now();
+            (*guard).clone()
+        };
+        if let Err(e) = resp_tx.send(ServiceResp::Session(session_snapshot)) {
+            tracing::error!("failed to send updated session: {}", e);
+        }
+    }
+
+    /// Requests LLM to generate session title.
+    pub async fn generate_session_title(
+        user_message: ChatMessage,
+        session: SharedSession,
+        llm_router: LlmClientRouter,
+    ) -> Result<String> {
+        let  instructions= format!(
+            "You are an AI assistant that generates a concise title for a chat session based on the user's message.
+            Generate a title that captures the essence of the conversation, ideally in 3ish words.
+
+            Here is the user's message: {}
+
+            Only reply with the title, without any additional text or explanation. This is very important.",
+            user_message.msg,
+        ).to_string();
+
+        // load settings
+        let settings = {
+            let guard = session.read().await;
+            guard.settings.clone()
+        };
+        let llm_req = LlmReq {
+            msg: user_message.msg.clone(),
+            instructions: Some(instructions),
+            previous_response_id: None,
+            settings: settings,
+        };
+        let resp = llm_router.responses(llm_req).await?;
+        Ok(resp.msg)
     }
 }
