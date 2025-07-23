@@ -58,16 +58,9 @@ impl Widget for &Messages {
         for chunk in self.chat_messages().chunks_exact(2) {
             let user_message: &ChatMessage = &chunk[0];
             let assistant_message: &ChatMessage = &chunk[1];
-            let settings = match &assistant_message.role {
-                crate::models::Role::Assistant(settings) => settings,
-                _ => {
-                    tracing::error!("messages out of order, skipping");
-                    continue;
-                }
-            };
 
             let prefix = Messages::prefix(
-                settings,
+                &user_message.llm_settings,
                 Some((user_message.created_at, assistant_message.created_at)),
             );
             let lines = prefix

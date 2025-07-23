@@ -67,19 +67,16 @@ impl Service {
                 maybe_req = self.req_rx.recv() => {
                     match maybe_req {
                         None => break,
-                        Some(ServiceReq::NewSession { settings, user_message })=>{
-                            let chat_handle = self.handle_new_session(settings, user_message).await?;
-                            chat_handles.push(chat_handle);
-                        }
-                        Some(ServiceReq::ChatMessage (chat_message)) => {
-                            self.handle_user_message(chat_message)?;
+                        Some(ServiceReq::ChatMessage ( user_message )) => {
+                            if self.sessions.contains_key(&user_message.session_id) {
+                                self.handle_user_message(user_message)?;
+                            } else {
+                                let chat_handle = self.handle_new_session(user_message).await?;
+                                chat_handles.push(chat_handle);
+                            };
                         }
                         Some(ServiceReq::GetSession(session_id)) => {
                            self.handle_get_session(&session_id).await?
-                        }
-                        Some(ServiceReq::UpdateSettings{session_id, settings}) => {
-                            tracing::debug!("receive update {settings:?}");
-                            self.handle_update_settings(&session_id, settings).await?;
                         }
                     }
                 }

@@ -41,7 +41,7 @@ impl Session {
     }
 
     /// If not already pending response, and input editor is not empty, sends user message to
-    /// service, as new session if this is a draft chat, i.e., session_id not populated.
+    /// service, create session_id if this is a draft chat, i.e., session_id not populated.
     pub fn handle_user_message(&mut self) -> Option<ServiceReq> {
         // only send response if not waiting
         // TODO: implement timeout for pending resp
@@ -53,25 +53,20 @@ impl Session {
         if msg.is_empty() {
             return None;
         }
-        let msg_ = msg.clone();
 
+        let msg_ = msg.clone();
         let session_id = self.session_id.unwrap_or_else(Uuid::new_v4);
-        let user_message = ChatMessage::new(session_id, crate::models::Role::User, msg_);
+        self.session_id = Some(session_id);
+        let user_message = ChatMessage::new(
+            session_id,
+            crate::models::Role::User,
+            self.llm_settings.clone(),
+            msg_,
+        );
         self.messages
             .send_question(user_message.clone(), self.llm_settings.clone());
-        let req = match self.session_id {
-            Some(_) => ServiceReq::ChatMessage(user_message.clone()),
-            None => {
-                self.session_id = Some(session_id);
-                ServiceReq::NewSession {
-                    settings: self.llm_settings.clone(),
-                    user_message,
-                }
-            }
-        };
-
         self.input_editor.clear();
-        Some(req)
+        Some(ServiceReq::ChatMessage(user_message.clone()))
     }
 
     pub fn handle_assistant_message(&mut self, assistant_message: ChatMessage) {
@@ -96,7 +91,7 @@ impl Session {
     pub fn load_session(&mut self, session: models::Session) {
         self.session_id = Some(session.id);
         self.title = Some(session.title);
-        self.llm_settings = session.settings;
+        self.llm_settings = session.llm_settings;
 
         self.messages.reset();
         self.messages.set_chat_messages(session.chat_messages);

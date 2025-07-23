@@ -1,4 +1,4 @@
-use std::{fmt::format, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::{Result, eyre::eyre};
 use tokio::sync::{RwLock, mpsc};
@@ -26,25 +26,28 @@ impl Session {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             previous_response_id: None,
-            settings,
+            llm_settings: settings,
             title: NEW_SESSION_TITLE.to_string(),
         }
     }
 
+    /// Saves user message and LLM response to session. Update llm settings with user_message
+    /// settings.
     pub fn persist_messages(
         &mut self,
         user_message: ChatMessage,
         assistant_msg: String,
-        settings: LlmSettings,
     ) -> ChatMessage {
         let assistant_message = ChatMessage::new(
             user_message.session_id,
-            Role::Assistant(settings),
+            Role::Assistant,
+            user_message.llm_settings.clone(),
             assistant_msg,
         );
 
         self.chat_messages.push(user_message.clone());
         self.chat_messages.push(assistant_message.clone());
+        self.llm_settings = user_message.llm_settings;
         self.updated_at = chrono::Utc::now();
 
         assistant_message
@@ -78,12 +81,12 @@ impl Service {
     /// worker and sends and first message.
     pub async fn handle_new_session(
         &mut self,
-        settings: LlmSettings,
         user_message: ChatMessage,
     ) -> Result<tokio::task::JoinHandle<Result<()>>> {
         // create session
         let session_id = user_message.session_id;
-        let session = SharedSession::new(RwLock::new(Session::new(session_id, settings.clone())));
+        let llm_settings = user_message.llm_settings.clone();
+        let session = SharedSession::new(RwLock::new(Session::new(session_id, llm_settings)));
         self.sessions.insert(session_id, session.clone());
         self.send_sessions().await?;
 
@@ -146,24 +149,6 @@ impl Service {
         Ok(())
     }
 
-    /// Updates session settings. Send error message to tui if session not found.
-    pub async fn handle_update_settings(
-        &mut self,
-        session_id: &Uuid,
-        settings: LlmSettings,
-    ) -> Result<()> {
-        match self.shared_session(session_id) {
-            Ok(shared_session) => {
-                let mut guard = shared_session.write().await;
-                guard.settings = settings;
-            }
-            Err(e) => {
-                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
-            }
-        };
-        Ok(())
-    }
-
     /// Sends sessions in memory to tui.
     async fn send_sessions(&mut self) -> Result<()> {
         tracing::debug!("sending sessions");
@@ -193,16 +178,17 @@ impl Service {
     ) -> Result<()> {
         // TODO: close worker after inactivity
         while let Some(user_message) = chat_rx.recv().await {
-            // load settings and the last ID
-            let (settings, previous_response_id) = {
+            // load the last ID
+            let previous_response_id = {
                 let guard = session.read().await;
-                (guard.settings.clone(), guard.previous_response_id.clone())
+                guard.previous_response_id.clone()
             };
+            let llm_settings = user_message.llm_settings.clone();
             let llm_req = LlmReq {
                 msg: user_message.msg.clone(),
                 instructions: None,
                 previous_response_id,
-                settings: settings.clone(),
+                settings: llm_settings,
             };
             match llm_router.responses(llm_req).await {
                 Ok(resp) => {
@@ -210,8 +196,7 @@ impl Service {
                     tracing::debug!("sending message {:?}", resp.msg);
                     let mut guard = session.write().await;
                     guard.previous_response_id = Some(resp.id);
-                    let assistant_message =
-                        (*guard).persist_messages(user_message, resp.msg, settings);
+                    let assistant_message = (*guard).persist_messages(user_message, resp.msg);
                     resp_tx.send(ServiceResp::ChatMessage(assistant_message))?;
                 }
                 Err(_) => {
@@ -268,13 +253,13 @@ impl Service {
         // load settings
         let settings = {
             let guard = session.read().await;
-            guard.settings.clone()
+            guard.llm_settings.clone()
         };
         let llm_req = LlmReq {
             msg: user_message.msg.clone(),
             instructions: Some(instructions),
             previous_response_id: None,
-            settings: settings,
+            settings,
         };
         let resp = llm_router.responses(llm_req).await?;
         Ok(resp.msg)

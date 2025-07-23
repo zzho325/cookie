@@ -9,15 +9,7 @@ use crate::service::client::api::OpenAIModel;
 #[derive(Debug)]
 pub enum ServiceReq {
     ChatMessage(ChatMessage),
-    NewSession {
-        settings: LlmSettings,
-        user_message: ChatMessage,
-    },
     GetSession(uuid::Uuid),
-    UpdateSettings {
-        session_id: Uuid,
-        settings: LlmSettings,
-    },
 }
 
 pub enum ServiceResp {
@@ -30,23 +22,25 @@ pub enum ServiceResp {
 #[derive(Debug, Clone)]
 pub enum Role {
     User,
-    Assistant(LlmSettings),
+    Assistant,
 }
 
 #[derive(Debug, Clone)]
 pub struct ChatMessage {
     pub id: uuid::Uuid,
     pub session_id: uuid::Uuid,
+    pub llm_settings: LlmSettings,
     pub role: Role,
     pub msg: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl ChatMessage {
-    pub fn new(session_id: uuid::Uuid, role: Role, msg: String) -> Self {
+    pub fn new(session_id: uuid::Uuid, role: Role, llm_settings: LlmSettings, msg: String) -> Self {
         Self {
             id: uuid::Uuid::new_v4(),
             session_id,
+            llm_settings,
             role,
             msg,
             created_at: chrono::Utc::now(),
@@ -62,7 +56,7 @@ pub struct Session {
     pub updated_at: chrono::DateTime<chrono::Utc>,
     // FIXME: we shouldn't use previous id to support other providers
     pub previous_response_id: Option<String>,
-    pub settings: LlmSettings,
+    pub llm_settings: LlmSettings,
     pub title: String,
 }
 

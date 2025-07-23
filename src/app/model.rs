@@ -91,16 +91,27 @@ mod tests {
 
         let mut messages = Messages::default();
         messages.send_question(
-            ChatMessage::new(session_id, Role::User, "history question".to_string()),
+            ChatMessage::new(
+                session_id,
+                Role::User,
+                llm_settings.clone(),
+                "history question".to_string(),
+            ),
             llm_settings.clone(),
         );
         messages.receive_response(ChatMessage::new(
             session_id,
-            Role::Assistant(llm_settings.clone()),
+            Role::Assistant,
+            llm_settings.clone(),
             "history reponse".to_string(),
         ));
         messages.send_question(
-            ChatMessage::new(session_id, Role::User, "pending question".to_string()),
+            ChatMessage::new(
+                session_id,
+                Role::User,
+                llm_settings.clone(),
+                "pending question".to_string(),
+            ),
             llm_settings.clone(),
         );
         messages.scroll_down();
