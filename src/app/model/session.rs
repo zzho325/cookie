@@ -40,6 +40,8 @@ impl Session {
         self.session_id
     }
 
+    /// If not already pending response, and input editor is not empty, sends user message to
+    /// service, as new session if this is a draft chat, i.e., session_id not populated.
     pub fn handle_user_message(&mut self) -> Option<ServiceReq> {
         // only send response if not waiting
         // TODO: implement timeout for pending resp
@@ -47,6 +49,10 @@ impl Session {
             return None;
         }
         let msg = self.input_editor.input().to_string();
+        // early return if input is empty.
+        if msg.is_empty() {
+            return None;
+        }
         let msg_ = msg.clone();
 
         let session_id = self.session_id.unwrap_or_else(Uuid::new_v4);
