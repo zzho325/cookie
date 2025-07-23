@@ -25,6 +25,9 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
                 return (None, Some(Command::ServiceReq(req)));
             }
         }
+        Message::NewChat => {
+            model.new_draft_chat();
+        }
         Message::GetSession(id) => {
             return (None, Some(Command::ServiceReq(ServiceReq::GetSession(id))));
         }
@@ -44,6 +47,8 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
             .session_manager
             .handle_sessions_update(session_summaries, model.session.session_id()),
         ServiceResp::Session(session) => {
+            // FIXME: chagne to verify session's id for this
+            // so give session_id to session on nagivation
             if model.session_manager.selected() == Some(session.id) {
                 model.session.load_session(session);
             }
@@ -61,10 +66,7 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
         Focused::SessionManager => match keyevent.code {
             KeyCode::Char('q') => model.quit(),
             KeyCode::Char('s') => model.toggle_sidebar(),
-            KeyCode::Char('n') => {
-                model.session.reset(model.configs.derive_llm_settings());
-                model.shift_focus_to(Focused::Session);
-            }
+            KeyCode::Char('n') => return (Some(Message::NewChat), None),
             KeyCode::Down | KeyCode::Char('j') => {
                 model.session_manager.select_next();
                 let maybe_msg = model.session_manager.selected().map(Message::GetSession);

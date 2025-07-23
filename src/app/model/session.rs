@@ -84,14 +84,13 @@ impl Session {
         }
     }
 
+    /// Clears everything except for editor input with given settings.
     pub fn reset(&mut self, settings: LlmSettings) {
         self.session_id = None;
         self.title = None;
         self.llm_settings = settings;
-        self.is_editing = true;
 
         self.messages.reset();
-        self.input_editor.clear();
     }
 
     pub fn load_session(&mut self, session: models::Session) {

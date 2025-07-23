@@ -31,7 +31,7 @@ pub fn handle_session_key_event(
         match code {
             KeyCode::Char('q') => model.quit(),
             KeyCode::Char('s') => model.toggle_sidebar(),
-            KeyCode::Char('n') => model.session.reset(model.configs.derive_llm_settings()),
+            KeyCode::Char('n') => return (Some(Message::NewChat), None),
             KeyCode::Tab => {
                 if model.show_sidebar {
                     model.shift_focus()

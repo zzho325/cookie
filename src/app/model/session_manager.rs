@@ -1,6 +1,6 @@
-use ratatui::widgets::ListState; 
-use crate::models::SessionSummary;
 use crate::app::model::focus::Focusable;
+use crate::models::SessionSummary;
+use ratatui::widgets::ListState;
 
 #[derive(Default)]
 pub struct SessionManager {
@@ -32,9 +32,7 @@ impl SessionManager {
         self.session_summaries
             .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-        let selected =
-            session_id.and_then(|id| self.session_summaries.iter().position(|s| s.id == id));
-        self.list_state.select(selected);
+        self.set_selected(session_id);
     }
 
     pub fn select_next(&mut self) {
@@ -55,5 +53,12 @@ impl SessionManager {
         self.list_state
             .selected()
             .map(|i| self.session_summaries[i].id)
+    }
+
+    /// Updates selected list item to item of session_id if exists, and None otherwise.
+    pub fn set_selected(&mut self, session_id: Option<uuid::Uuid>) {
+        let selected =
+            session_id.and_then(|id| self.session_summaries.iter().position(|s| s.id == id));
+        self.list_state.select(selected);
     }
 }

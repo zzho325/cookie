@@ -96,6 +96,8 @@ pub enum Message {
     Key(KeyEvent),
     ServiceResp(ServiceResp),
     Send,
+    /// Starts new empty chat at tui.
+    NewChat,
     GetSession(uuid::Uuid),
     CrosstermClose,
 }
