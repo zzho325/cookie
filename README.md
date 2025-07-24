@@ -5,7 +5,7 @@
 
 A lightweight, terminal-based chat client for large language models (LLMs), built in Rust. Chat with OpenAI’s ChatGPT or any provider directly from your terminal.
 
-<img width="1000" alt="Snapshots" src="https://github.com/user-attachments/assets/13f6bd63-4276-4150-86ee-8871f1eff2d5" />
+<img width="1000" alt="Snapshot" src="https://github.com/user-attachments/assets/507b6d26-22da-4ef4-a6e0-56edb06448dd" />
 
 ## 🛠️ Getting Started
 
@@ -64,7 +64,6 @@ cargo build --release
   * [ ] Search.
 * Session Management: 
   * [x] sessions.
-     * [ ] generate title.
   * [ ] persist sessions to db.
   * [ ] global search.
 * Multi-Provider Support: other LLM backend.
