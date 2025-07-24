@@ -35,6 +35,10 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         Message::NewChat => {
             model.new_draft_chat();
         }
+        Message::Editing => {
+            model.shift_focus_to(Focused::Session);
+            model.session.is_editing = true;
+        }
         Message::GetSession(id) => {
             return (None, Some(Command::ServiceReq(ServiceReq::GetSession(id))));
         }
@@ -82,6 +86,7 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             KeyCode::Char('q') => model.quit(),
             KeyCode::Char('s') => model.toggle_sidebar(),
             KeyCode::Char('n') => return (Some(Message::NewChat), None),
+            KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Down | KeyCode::Char('j') => {
                 model.selected_session_id = model.session_manager.select_next();
                 let maybe_msg = model.selected_session_id.map(Message::GetSession);
@@ -121,6 +126,7 @@ mod tests {
             key_event: KeyEvent,
             expected_focused: Focused,
             expected_show_sidebar: bool,
+            expected_is_editing: bool,
         }
 
         let cases = vec![
@@ -132,6 +138,7 @@ mod tests {
                 key_event: KeyCode::Tab.into(),
                 expected_focused: Focused::Session,
                 expected_show_sidebar: false,
+                expected_is_editing: false,
             },
             Case {
                 description: "key s opens and navigates to sidebar",
@@ -141,6 +148,7 @@ mod tests {
                 key_event: KeyCode::Char('s').into(),
                 expected_focused: Focused::SessionManager,
                 expected_show_sidebar: true,
+                expected_is_editing: false,
             },
             Case {
                 description: "key s closes and navigates away from sidebar",
@@ -150,6 +158,7 @@ mod tests {
                 key_event: KeyCode::Char('s').into(),
                 expected_focused: Focused::Session,
                 expected_show_sidebar: false,
+                expected_is_editing: false,
             },
             Case {
                 description: "Tab navigates from session manager to session",
@@ -159,6 +168,17 @@ mod tests {
                 key_event: KeyCode::Tab.into(),
                 expected_focused: Focused::Session,
                 expected_show_sidebar: true,
+                expected_is_editing: false,
+            },
+            Case {
+                description: "key i navigates from session manager to session and enter editing",
+                focused: Focused::SessionManager,
+                show_sidebar: true,
+                is_editing: false,
+                key_event: KeyCode::Char('i').into(),
+                expected_focused: Focused::Session,
+                expected_show_sidebar: true,
+                expected_is_editing: true,
             },
         ];
 
@@ -176,6 +196,11 @@ mod tests {
             assert_eq!(
                 model.show_sidebar, case.expected_show_sidebar,
                 "{} show_sidebar",
+                case.description
+            );
+            assert_eq!(
+                model.session.is_editing, case.expected_is_editing,
+                "{} is_editing",
                 case.description
             );
         }

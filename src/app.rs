@@ -95,9 +95,12 @@ fn handle_crossterm_event(
 pub enum Message {
     Key(KeyEvent),
     ServiceResp(ServiceResp),
+    /// Sends message.
     Send,
     /// Starts new empty chat at tui.
     NewChat,
+    /// Editing input.
+    Editing,
     GetSession(uuid::Uuid),
     CrosstermClose,
 }

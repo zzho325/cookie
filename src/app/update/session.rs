@@ -37,7 +37,7 @@ pub fn handle_session_key_event(
                     model.shift_focus()
                 }
             }
-            KeyCode::Char('i') => model.session.is_editing = true,
+            KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Down => session.messages.scroll_down(),
             KeyCode::Up => session.messages.scroll_up(),
             // KeyCode::Right => {
