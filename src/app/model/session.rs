@@ -68,7 +68,8 @@ impl Session {
 
     /// If not already pending response, and input editor is not empty, sends user message to
     /// service, create session_id if this is a draft chat, i.e., session_id not populated.
-    pub fn handle_user_message(&mut self) -> Option<ServiceReq> {
+    /// Returns he user message.
+    pub fn handle_send(&mut self) -> Option<ChatMessage> {
         // only send response if not waiting
         // TODO: implement timeout for pending resp
         if self.messages.is_pending_resp() {
@@ -92,7 +93,7 @@ impl Session {
         self.messages
             .send_question(user_message.clone(), self.llm_settings.clone());
         self.input_editor.clear();
-        Some(ServiceReq::ChatMessage(user_message.clone()))
+        Some(user_message)
     }
 
     pub fn handle_assistant_message(&mut self, assistant_message: ChatMessage) {

@@ -18,6 +18,10 @@ pub struct Model {
     /// Current session.
     pub session: Session,
     pub session_manager: SessionManager,
+    /// Source of truth for selected session id.
+    /// It might not be in session_summaries for newly created session.
+    /// It might not be the same as id in session while waiting for fetching selected session.
+    pub selected_session_id: Option<uuid::Uuid>,
 
     pub show_sidebar: bool,
     pub focused: Focused,
@@ -34,6 +38,7 @@ impl Model {
             configs,
             session: Session::new(default_llm_settings),
             session_manager: SessionManager::default(),
+            selected_session_id: None,
             show_sidebar: false,
             should_quit: false,
             focused: Focused::Session,
@@ -62,6 +67,7 @@ impl Model {
     /// Opens an new empty chat and enables editing.
     pub fn new_draft_chat(&mut self) {
         self.session.reset(self.configs.derive_llm_settings());
+        self.selected_session_id = None;
         self.session_manager.set_selected(None);
         self.shift_focus_to(Focused::Session);
         self.session.is_editing = true;
@@ -121,14 +127,16 @@ mod tests {
         model.session.set_messages(messages);
         model.session.is_editing = false;
         *model.session.input_editor.input_mut() = "repeat this".repeat(3);
+        model.selected_session_id = Some(session_id);
 
-        model
-            .session_manager
-            .handle_session_summaries(vec![SessionSummary {
+        model.session_manager.handle_session_summaries(
+            vec![SessionSummary {
                 id: session_id,
                 title,
                 updated_at: chrono::Utc::now(),
-            }]);
+            }],
+            model.selected_session_id,
+        );
 
         // ----------------------------------------------------------------
         // Verify new chat behavior.
@@ -153,7 +161,11 @@ mod tests {
 
         // Session manager reset.
         assert!(
-            model.session_manager.selected().is_none(),
+            model.selected_session_id.is_none(),
+            "model selected session id is reset"
+        );
+        assert!(
+            model.session_manager.list_state().selected().is_none(),
             "session manager selected is reset"
         );
 

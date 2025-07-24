@@ -20,9 +20,16 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         Message::ServiceResp(resp) => {
             return handle_service_resp(model, resp);
         }
+        // TODO: add a unit test for sending message and create session.
         Message::Send => {
-            if let Some(req) = model.session.handle_user_message() {
-                return (None, Some(Command::ServiceReq(req)));
+            if let Some(user_message) = model.session.handle_send() {
+                model.selected_session_id = Some(user_message.session_id);
+                return (
+                    None,
+                    Some(Command::ServiceReq(ServiceReq::ChatMessage(
+                        user_message.clone(),
+                    ))),
+                );
             }
         }
         Message::NewChat => {
@@ -45,16 +52,18 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
         }
         ServiceResp::Sessions(session_summaries) => model
             .session_manager
-            .handle_session_summaries(session_summaries),
+            .handle_session_summaries(session_summaries, model.selected_session_id),
         ServiceResp::Session(session) => {
-            if model.session_manager.selected() == Some(session.id) {
+            if model.selected_session_id == Some(session.id) {
                 model.session.handle_session(session);
             }
         }
         ServiceResp::SessionSummary(session_summary) => {
-            model
-                .session
-                .handle_session_summary(session_summary.clone());
+            if model.selected_session_id == Some(session_summary.id) {
+                model
+                    .session
+                    .handle_session_summary(session_summary.clone());
+            }
             model
                 .session_manager
                 .handle_session_summary(session_summary);
@@ -74,13 +83,13 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             KeyCode::Char('s') => model.toggle_sidebar(),
             KeyCode::Char('n') => return (Some(Message::NewChat), None),
             KeyCode::Down | KeyCode::Char('j') => {
-                model.session_manager.select_next();
-                let maybe_msg = model.session_manager.selected().map(Message::GetSession);
+                model.selected_session_id = model.session_manager.select_next();
+                let maybe_msg = model.selected_session_id.map(Message::GetSession);
                 return (maybe_msg, None);
             }
             KeyCode::Up | KeyCode::Char('k') => {
-                model.session_manager.select_previous();
-                let maybe_msg = model.session_manager.selected().map(Message::GetSession);
+                model.selected_session_id = model.session_manager.select_previous();
+                let maybe_msg = model.selected_session_id.map(Message::GetSession);
                 return (maybe_msg, None);
             }
             KeyCode::Tab => model.shift_focus(),

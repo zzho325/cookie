@@ -20,31 +20,31 @@ impl SessionManager {
         &mut self.list_state
     }
 
-    pub fn select_next(&mut self) {
-        if self
-            .list_state
-            .selected()
-            .is_some_and(|i| i.saturating_add(1) < self.session_summaries.len())
-        {
-            self.list_state.select_next();
+    pub fn select_next(&mut self) -> Option<uuid::Uuid> {
+        match self.list_state.selected() {
+            Some(i) if i + 1 < self.session_summaries.len() => {
+                self.list_state.select_next();
+                self.session_summaries.get(i + 1).map(|s| s.id)
+            }
+            _ => None,
         }
     }
 
-    pub fn select_previous(&mut self) {
-        self.list_state().select_previous();
+    pub fn select_previous(&mut self) -> Option<uuid::Uuid> {
+        match self.list_state.selected() {
+            Some(i) if i > 0 => {
+                self.list_state.select_previous();
+                self.session_summaries.get(i - 1).map(|s| s.id)
+            }
+            _ => None,
+        }
     }
 
-    pub fn selected(&self) -> Option<uuid::Uuid> {
-        self.list_state
-            .selected()
-            .map(|i| self.session_summaries[i].id)
-    }
-
-    /// Updates selected list item to item of session_id if exists, and None otherwise.
+    /// Selects the list item with id `session_id` if provided, and None otherwise.
     pub fn set_selected(&mut self, session_id: Option<uuid::Uuid>) {
-        let selected =
+        let selected_list_idx =
             session_id.and_then(|id| self.session_summaries.iter().position(|s| s.id == id));
-        self.list_state.select(selected);
+        self.list_state.select(selected_list_idx);
     }
 
     // ----------------------------------------------------------------
@@ -52,19 +52,20 @@ impl SessionManager {
     // ----------------------------------------------------------------
 
     /// Replaces current `session_summaries` with updated list while keeping sorted order and
-    /// current `session_id` selection.
-    pub fn handle_session_summaries(&mut self, session_summaries: Vec<SessionSummary>) {
-        tracing::debug!("sessions {session_summaries:?}");
-        let selected_id = self.selected();
-
+    /// select item with id `selected_session_id`.
+    pub fn handle_session_summaries(
+        &mut self,
+        session_summaries: Vec<SessionSummary>,
+        session_id: Option<uuid::Uuid>,
+    ) {
         self.session_summaries = session_summaries;
         self.session_summaries
             .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
 
-        self.set_selected(selected_id);
+        self.set_selected(session_id);
     }
 
-    /// Updates title of given session summa.ry
+    /// Updates title of given session summary.
     pub fn handle_session_summary(&mut self, session_summary: SessionSummary) {
         tracing::debug!("updating session manager with {session_summary:?}");
         if let Some(current) = self
