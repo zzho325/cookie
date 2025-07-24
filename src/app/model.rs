@@ -122,14 +122,13 @@ mod tests {
         model.session.is_editing = false;
         *model.session.input_editor.input_mut() = "repeat this".repeat(3);
 
-        model.session_manager.handle_sessions_update(
-            vec![SessionSummary {
+        model
+            .session_manager
+            .handle_session_summaries(vec![SessionSummary {
                 id: session_id,
                 title,
                 updated_at: chrono::Utc::now(),
-            }],
-            Some(session_id),
-        );
+            }]);
 
         // ----------------------------------------------------------------
         // Verify new chat behavior.

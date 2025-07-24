@@ -15,6 +15,9 @@ pub enum ServiceReq {
 pub enum ServiceResp {
     ChatMessage(ChatMessage),
     Sessions(Vec<SessionSummary>),
+    /// Summary for one session to update title async.
+    SessionSummary(SessionSummary),
+    /// Fetch full session data when navigating to new session.
     Session(Session),
     Error(String),
 }
@@ -60,7 +63,7 @@ pub struct Session {
     pub title: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionSummary {
     pub id: uuid::Uuid,
     pub title: String,

@@ -6,7 +6,7 @@ use crate::{
         focus::Focusable,
         messages::Messages,
     },
-    models::{self, ChatMessage, LlmSettings, ServiceReq},
+    models::{self, ChatMessage, LlmSettings, ServiceReq, SessionSummary},
 };
 
 pub struct Session {
@@ -39,6 +39,32 @@ impl Session {
     pub fn session_id(&self) -> Option<Uuid> {
         self.session_id
     }
+
+    pub fn title(&self) -> Option<&String> {
+        self.title.as_ref()
+    }
+
+    #[cfg(test)]
+    pub fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
+    }
+
+    pub fn set_messages(&mut self, messages: Messages) {
+        self.messages = messages;
+    }
+
+    /// Clears everything except for editor input with given settings.
+    pub fn reset(&mut self, settings: LlmSettings) {
+        self.session_id = None;
+        self.title = None;
+        self.llm_settings = settings;
+
+        self.messages.reset();
+    }
+
+    // ----------------------------------------------------------------
+    // Event handlers.
+    // ----------------------------------------------------------------
 
     /// If not already pending response, and input editor is not empty, sends user message to
     /// service, create session_id if this is a draft chat, i.e., session_id not populated.
@@ -79,16 +105,8 @@ impl Session {
         }
     }
 
-    /// Clears everything except for editor input with given settings.
-    pub fn reset(&mut self, settings: LlmSettings) {
-        self.session_id = None;
-        self.title = None;
-        self.llm_settings = settings;
-
-        self.messages.reset();
-    }
-
-    pub fn load_session(&mut self, session: models::Session) {
+    /// Replaces current content with given session except for editor input.
+    pub fn handle_session(&mut self, session: models::Session) {
         self.session_id = Some(session.id);
         self.title = Some(session.title);
         self.llm_settings = session.llm_settings;
@@ -97,15 +115,12 @@ impl Session {
         self.messages.set_chat_messages(session.chat_messages);
     }
 
-    pub fn title(&self) -> Option<&String> {
-        self.title.as_ref()
-    }
-
-    pub fn set_title(&mut self, title: Option<String>) {
-        self.title = title;
-    }
-
-    pub fn set_messages(&mut self, messages: Messages) {
-        self.messages = messages;
+    // Updates title if `session_summary` is for current session.
+    pub fn handle_session_summary(&mut self, session_summary: SessionSummary) {
+        if let Some(session_id) = self.session_id {
+            if session_id == session_summary.id {
+                self.title = Some(session_summary.title)
+            }
+        }
     }
 }

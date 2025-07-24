@@ -11,7 +11,6 @@ pub struct SessionManager {
 
 crate::impl_focusable!(SessionManager);
 
-// impl_focusable!(Session);
 impl SessionManager {
     pub fn session_summaries(&self) -> &[SessionSummary] {
         &self.session_summaries
@@ -19,20 +18,6 @@ impl SessionManager {
 
     pub fn list_state(&mut self) -> &mut ListState {
         &mut self.list_state
-    }
-
-    /// Sets `session_summaries` and optionally set summary with id `session_id` as selected.
-    pub fn handle_sessions_update(
-        &mut self,
-        session_summaries: Vec<SessionSummary>,
-        session_id: Option<uuid::Uuid>,
-    ) {
-        tracing::debug!("sessions {session_summaries:?}");
-        self.session_summaries = session_summaries;
-        self.session_summaries
-            .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-
-        self.set_selected(session_id);
     }
 
     pub fn select_next(&mut self) {
@@ -60,5 +45,34 @@ impl SessionManager {
         let selected =
             session_id.and_then(|id| self.session_summaries.iter().position(|s| s.id == id));
         self.list_state.select(selected);
+    }
+
+    // ----------------------------------------------------------------
+    // Event handlers.
+    // ----------------------------------------------------------------
+
+    /// Replaces current `session_summaries` with updated list while keeping sorted order and
+    /// current `session_id` selection.
+    pub fn handle_session_summaries(&mut self, session_summaries: Vec<SessionSummary>) {
+        tracing::debug!("sessions {session_summaries:?}");
+        let selected_id = self.selected();
+
+        self.session_summaries = session_summaries;
+        self.session_summaries
+            .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+        self.set_selected(selected_id);
+    }
+
+    /// Updates title of given session summa.ry
+    pub fn handle_session_summary(&mut self, session_summary: SessionSummary) {
+        tracing::debug!("updating session manager with {session_summary:?}");
+        if let Some(current) = self
+            .session_summaries
+            .iter_mut()
+            .find(|s| s.id == session_summary.id)
+        {
+            current.title = session_summary.title;
+        }
     }
 }

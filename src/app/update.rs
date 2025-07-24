@@ -45,13 +45,19 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
         }
         ServiceResp::Sessions(session_summaries) => model
             .session_manager
-            .handle_sessions_update(session_summaries, model.session.session_id()),
+            .handle_session_summaries(session_summaries),
         ServiceResp::Session(session) => {
-            // FIXME: chagne to verify session's id for this
-            // so give session_id to session on nagivation
             if model.session_manager.selected() == Some(session.id) {
-                model.session.load_session(session);
+                model.session.handle_session(session);
             }
+        }
+        ServiceResp::SessionSummary(session_summary) => {
+            model
+                .session
+                .handle_session_summary(session_summary.clone());
+            model
+                .session_manager
+                .handle_session_summary(session_summary);
         }
         _ => todo!(),
     }

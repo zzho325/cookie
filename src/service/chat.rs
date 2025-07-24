@@ -223,13 +223,13 @@ impl Service {
                 }
             };
 
-        let session_snapshot = {
+        let session_summary: SessionSummary = {
             let mut guard = session.write().await;
             guard.title = title;
             guard.updated_at = chrono::Utc::now();
-            (*guard).clone()
+            (*guard).clone().into()
         };
-        if let Err(e) = resp_tx.send(ServiceResp::Session(session_snapshot)) {
+        if let Err(e) = resp_tx.send(ServiceResp::SessionSummary(session_summary)) {
             tracing::error!("failed to send updated session: {}", e);
         }
     }
