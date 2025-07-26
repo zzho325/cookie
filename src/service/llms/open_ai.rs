@@ -10,7 +10,7 @@ use crate::{
         utils,
     },
 };
-use api::{ContentItem, InputItem, OutputItem, ResponsesReq, ResponsesResp, Role};
+use api::{ContentItem, InputItem, OutputItem, ResponsesReq, ResponsesResp};
 
 pub struct OpenAIClientImpl {
     client: reqwest::Client,
@@ -27,11 +27,7 @@ impl LlmClient for OpenAIClientImpl {
         let req = ResponsesReq {
             model,
             instructions: llm_req.instructions,
-            input: vec![InputItem::Message {
-                role: Role::User,
-                content: llm_req.msg,
-            }],
-            previous_response_id: llm_req.previous_response_id.clone(),
+            input: llm_req.input.iter().map(InputItem::from).collect(),
             tools: vec![],
         };
 

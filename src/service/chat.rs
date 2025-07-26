@@ -6,10 +6,12 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        constants::NEW_SESSION_TITLE, ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary
+        ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary,
+        constants::NEW_SESSION_TITLE,
     },
     service::{
-        llms::{LlmClient, LlmClientRouter, LlmReq}, Service
+        Service,
+        llms::{LlmClient, LlmClientRouter, LlmReq},
     },
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -20,10 +22,9 @@ impl Session {
     fn new(id: Uuid, settings: LlmSettings) -> Self {
         Self {
             id,
-            chat_messages: Vec::new(),
+            chat_events: Vec::new(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
-            previous_response_id: None,
             llm_settings: settings,
             title: NEW_SESSION_TITLE.to_string(),
         }
@@ -43,8 +44,8 @@ impl Session {
             assistant_msg,
         );
 
-        self.chat_messages.push(user_message.clone());
-        self.chat_messages.push(assistant_message.clone());
+        self.chat_events.push(user_message.clone().into());
+        self.chat_events.push(assistant_message.clone().into());
         self.llm_settings = user_message.llm_settings;
         self.updated_at = chrono::Utc::now();
 
@@ -176,16 +177,17 @@ impl Service {
     ) -> Result<()> {
         // TODO: close worker after inactivity
         while let Some(user_message) = chat_rx.recv().await {
-            // load the last ID
-            let previous_response_id = {
+            // load history events
+            let mut chat_events = {
                 let guard = session.read().await;
-                guard.previous_response_id.clone()
+                guard.chat_events.clone()
             };
+            // append user message
+            chat_events.push(user_message.clone().into());
             let llm_settings = user_message.llm_settings.clone();
             let llm_req = LlmReq {
-                msg: user_message.msg.clone(),
+                input: chat_events,
                 instructions: None,
-                previous_response_id,
                 settings: llm_settings,
             };
             match llm_router.request(llm_req).await {
@@ -193,7 +195,6 @@ impl Service {
                     // send response and update session
                     tracing::debug!("sending message {:?}", resp.msg);
                     let mut guard = session.write().await;
-                    guard.previous_response_id = Some(resp.id);
                     let assistant_message = (*guard).persist_messages(user_message, resp.msg);
                     resp_tx.send(ServiceResp::ChatMessage(assistant_message))?;
                 }
@@ -238,25 +239,21 @@ impl Service {
         session: SharedSession,
         llm_router: LlmClientRouter,
     ) -> Result<String> {
-        let instructions = format!(
-            "You are an AI assistant that generates a concise title for a chat session based on the user's message.
-            Generate a title that captures the essence of the conversation, ideally in 3ish words.
+        let prompt = "You are an AI assistant that generates a concise title for a chat session \
+        based on the user's message. Generate a title that captures the essence of the \
+        conversation, ideally in 3ish words. Only reply with the title, without any additional \
+        punctuation, text or explanation. This is very important."
+            .to_string();
 
-            Here is the user's message: {}
-
-            Only reply with the title, without any additional text or explanation. This is very important.",
-            user_message.msg,
-        ).to_string();
-
+        tracing::debug!("{prompt}");
         // load settings
         let settings = {
             let guard = session.read().await;
             guard.llm_settings.clone()
         };
         let llm_req = LlmReq {
-            msg: user_message.msg.clone(),
-            instructions: Some(instructions),
-            previous_response_id: None,
+            input: vec![user_message.clone().into()],
+            instructions: Some(prompt),
             settings,
         };
         let resp = llm_router.request(llm_req).await?;

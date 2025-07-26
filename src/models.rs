@@ -1,7 +1,7 @@
 pub mod configs;
 pub mod constants;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::service::llms::open_ai::api::OpenAIModel;
@@ -22,10 +22,22 @@ pub enum ServiceResp {
     Error(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum Role {
     User,
     Assistant,
+}
+
+#[derive(Debug, Clone)]
+pub enum ChatEvent {
+    ChatMessage(ChatMessage),
+}
+
+impl From<ChatMessage> for ChatEvent {
+    fn from(value: ChatMessage) -> Self {
+        Self::ChatMessage(value)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -54,11 +66,9 @@ impl ChatMessage {
 #[derive(Clone)]
 pub struct Session {
     pub id: Uuid,
-    pub chat_messages: Vec<ChatMessage>,
+    pub chat_events: Vec<ChatEvent>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
-    // FIXME: we shouldn't use previous id to support other providers
-    pub previous_response_id: Option<String>,
     pub llm_settings: LlmSettings,
     pub title: String,
 }

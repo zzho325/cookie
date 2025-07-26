@@ -5,7 +5,10 @@ use async_trait::async_trait;
 use color_eyre::eyre::Result;
 use std::sync::Arc;
 
-use crate::{models::LlmSettings, service::llms::open_ai::OpenAIClientImpl};
+use crate::{
+    models::{ChatEvent, LlmSettings},
+    service::llms::open_ai::OpenAIClientImpl,
+};
 
 #[async_trait]
 pub trait LlmClient {
@@ -14,8 +17,7 @@ pub trait LlmClient {
 
 #[derive(Debug, Clone)]
 pub struct LlmReq {
-    pub msg: String,
-    pub previous_response_id: Option<String>,
+    pub input: Vec<ChatEvent>,
     pub settings: LlmSettings,
     pub instructions: Option<String>,
 }

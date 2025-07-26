@@ -1,25 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+use crate::{models::Role, service::llms::ChatEvent};
+
 // TODO: handle error response and timeout
 #[derive(Serialize, Default)]
 pub struct ResponsesReq {
     pub model: OpenAIModel,
     /// A system (or developer) message inserted into model's context.
-    /// Not carried over to next response when using previous_response_id.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructions: Option<String>,
     pub input: Vec<InputItem>,
-    /// ID of the previous response to the model. Use for multi-turn conversations.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_response_id: Option<String>,
     pub tools: Vec<Tool>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum Role {
-    User,
-    Assistant,
 }
 
 #[derive(Serialize)]
@@ -39,6 +30,20 @@ pub enum InputItem {
         call_id: String,
         output: String,
     },
+}
+
+impl From<&ChatEvent> for InputItem {
+    fn from(value: &ChatEvent) -> Self {
+        match value {
+            ChatEvent::ChatMessage(message) => InputItem::Message {
+                role: message.role.clone(),
+                content: message.msg.clone(),
+            },
+            _ => {
+                todo!()
+            }
+        }
+    }
 }
 
 #[derive(Serialize)]

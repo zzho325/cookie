@@ -1,6 +1,6 @@
 use crate::{
     app::view::widgets::scroll::ScrollState,
-    models::{ChatMessage, LlmSettings},
+    models::{ChatEvent, ChatMessage, LlmSettings},
 };
 
 #[derive(Default)]
@@ -34,8 +34,17 @@ impl Messages {
         &self.chat_messages
     }
 
-    pub fn set_chat_messages(&mut self, chat_messages: Vec<ChatMessage>) {
-        self.chat_messages = chat_messages;
+    pub fn set_chat_messages(&mut self, chat_events: Vec<ChatEvent>) {
+        self.chat_messages = chat_events
+            .iter()
+            .filter_map(|event| {
+                if let ChatEvent::ChatMessage(message) = event {
+                    Some(message.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
     }
 
     pub fn pending(&self) -> Option<&(ChatMessage, LlmSettings)> {

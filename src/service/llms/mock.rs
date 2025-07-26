@@ -66,12 +66,14 @@ pub struct MockLlmClientImpl {}
 #[cfg(debug_assertions)]
 impl LlmClient for MockLlmClientImpl {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
-        let msg = match llm_req.msg.as_str() {
-            "long" => "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100),
-            "markdown" => MARKDOWN_RESP.to_string(),
-            _ => llm_req.msg,
+        let msg = if let Some(item) = llm_req.input.last() {
+            use crate::service::llms::ChatEvent;
+            match item {
+                ChatEvent::ChatMessage(message) => message.msg.clone(),
+            }
+        } else {
+            "empty history".to_string()
         };
-
         Ok(LlmResp {
             msg,
             id: "mock-response-id".to_string(),

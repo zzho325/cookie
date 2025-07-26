@@ -113,7 +113,7 @@ impl Session {
         self.llm_settings = session.llm_settings;
 
         self.messages.reset();
-        self.messages.set_chat_messages(session.chat_messages);
+        self.messages.set_chat_messages(session.chat_events);
     }
 
     // Updates title if `session_summary` is for current session.
