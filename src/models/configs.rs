@@ -4,7 +4,7 @@ use color_eyre::{
 };
 use serde::Deserialize;
 
-use crate::{models::LlmSettings, service::client::api::OpenAIModel};
+use crate::{models::LlmSettings, service::llms::open_ai::api::OpenAIModel};
 
 #[derive(Deserialize)]
 pub struct OpenAIConfig {

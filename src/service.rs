@@ -1,5 +1,6 @@
 mod chat;
-pub mod client;
+pub mod llms;
+mod utils;
 
 use color_eyre::{Result, eyre::eyre};
 use futures_util::StreamExt;
@@ -13,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     models::{ChatMessage, ServiceReq, ServiceResp},
-    service::{chat::SharedSession, client::LlmClientRouter},
+    service::{chat::SharedSession, llms::LlmClientRouter},
 };
 
 pub struct ServiceBuilder {

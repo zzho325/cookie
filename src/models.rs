@@ -4,7 +4,7 @@ pub mod constants;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::service::client::api::OpenAIModel;
+use crate::service::llms::open_ai::api::OpenAIModel;
 
 #[derive(Debug)]
 pub enum ServiceReq {

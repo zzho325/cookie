@@ -6,7 +6,7 @@ use crate::{
         focus::Focusable,
         messages::Messages,
     },
-    models::{self, ChatMessage, LlmSettings, ServiceReq, SessionSummary},
+    models::{self, ChatMessage, LlmSettings, SessionSummary},
 };
 
 pub struct Session {

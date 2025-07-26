@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use color_eyre::Result;
 
-use crate::service::client::{LlmClient, LlmReq, LlmResp};
+use crate::service::llms::{LlmClient, LlmReq, LlmResp};
 
 const MARKDOWN_RESP: &str = "
 # Heading Level 1
@@ -65,7 +65,7 @@ pub struct MockLlmClientImpl {}
 #[async_trait]
 #[cfg(debug_assertions)]
 impl LlmClient for MockLlmClientImpl {
-    async fn responses(&self, llm_req: LlmReq) -> Result<LlmResp> {
+    async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
         let msg = match llm_req.msg.as_str() {
             "long" => "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100),
             "markdown" => MARKDOWN_RESP.to_string(),

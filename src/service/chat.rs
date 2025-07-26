@@ -6,12 +6,10 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary,
-        constants::NEW_SESSION_TITLE,
+        constants::NEW_SESSION_TITLE, ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary
     },
     service::{
-        Service,
-        client::{LlmClient, LlmClientRouter, LlmReq},
+        llms::{LlmClient, LlmClientRouter, LlmReq}, Service
     },
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -190,7 +188,7 @@ impl Service {
                 previous_response_id,
                 settings: llm_settings,
             };
-            match llm_router.responses(llm_req).await {
+            match llm_router.request(llm_req).await {
                 Ok(resp) => {
                     // send response and update session
                     tracing::debug!("sending message {:?}", resp.msg);
@@ -240,7 +238,7 @@ impl Service {
         session: SharedSession,
         llm_router: LlmClientRouter,
     ) -> Result<String> {
-        let  instructions= format!(
+        let instructions = format!(
             "You are an AI assistant that generates a concise title for a chat session based on the user's message.
             Generate a title that captures the essence of the conversation, ideally in 3ish words.
 
@@ -261,7 +259,7 @@ impl Service {
             previous_response_id: None,
             settings,
         };
-        let resp = llm_router.responses(llm_req).await?;
+        let resp = llm_router.request(llm_req).await?;
         Ok(resp.msg)
     }
 }

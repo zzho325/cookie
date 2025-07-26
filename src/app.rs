@@ -4,7 +4,7 @@ mod view;
 
 use color_eyre::{
     Result,
-    eyre::{Context as _, bail},
+    eyre::{Context, bail},
 };
 use crossterm::event::{Event, EventStream, KeyEvent, KeyEventKind};
 use futures_util::stream::StreamExt;
@@ -13,11 +13,7 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{
-    ServiceReq, ServiceResp,
-    app::model::Model,
-    models::{LlmSettings, configs::Configs},
-};
+use crate::{ServiceReq, ServiceResp, app::model::Model, models::configs::Configs};
 
 pub struct App {
     // frontend <> backend channels
