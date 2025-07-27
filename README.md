@@ -51,21 +51,21 @@ cargo build --release
   * [ ] Mouse event.
   * [ ] [Input box] Embed nvim.
 * App:
-  * [ ] Indicate current focused widget.
+  * [x] Indicate current focused widget.
   * [ ] Help and Keymaps.
-  * [ ] Load config properly.
-  * [ ] Update settings at run time.
+  * [x] Load config properly.
+  * [ ] UI to update settings.
   * [ ] Error popup.
 * Chat Engine:
   * [x] Retain context across chats.
-  * [ ] Web: optional search and crawl.
+  * [x] Web: optional search and crawl.
+    * [ ] Support other web search provider.
   * [ ] Streaming.
   * [ ] Track token usage.
-  * [ ] Search.
 * Session Management: 
-  * [x] sessions.
-  * [ ] persist sessions to db.
-  * [ ] global search.
+  * [x] Sessions.
+  * [ ] Persist sessions to db.
+  * [ ] Global search.
 * Multi-Provider Support: other LLM backend.
 
 ### ⚠️ Limitations
