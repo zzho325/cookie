@@ -47,7 +47,6 @@ impl LlmClientRouter {
 #[async_trait]
 impl LlmClient for LlmClientRouter {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
-        tracing::debug!("router handle request {:?}", llm_req);
         match llm_req.settings {
             LlmSettings::OpenAI { .. } => return self.open_ai.request(llm_req).await,
             LlmSettings::Mock { .. } => {
