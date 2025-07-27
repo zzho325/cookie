@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use color_eyre::eyre::{Result, WrapErr, eyre};
 
 use crate::{
-    models::{ChatEventPayload, LlmSettings, MessagePayload, ToolEventPayload},
+    models::{ChatEventPayload, MessagePayload, ToolEventPayload, settings::LlmSettings},
     service::{
         llms::{LlmClient, LlmReq, LlmResp, open_ai::api::Tool},
         utils,

@@ -6,7 +6,7 @@ use color_eyre::eyre::Result;
 use std::sync::Arc;
 
 use crate::{
-    models::{ChatEventPayload, LlmSettings},
+    models::{settings::LlmSettings, ChatEventPayload},
     service::llms::open_ai::OpenAIClientImpl,
 };
 

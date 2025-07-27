@@ -6,8 +6,8 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        ChatEvent, ChatEventPayload, ChatMessage, LlmSettings, ServiceResp, Session,
-        SessionSummary, constants::NEW_SESSION_TITLE,
+        ChatEvent, ChatEventPayload, ChatMessage, ServiceResp, Session, SessionSummary,
+        constants::NEW_SESSION_TITLE, settings::LlmSettings,
     },
     service::{
         Service,
