@@ -60,8 +60,11 @@ impl Widget for &Messages {
             let assistant_message: &ChatMessage = &chunk[1];
 
             let prefix = Messages::prefix(
-                &user_message.llm_settings,
-                Some((user_message.created_at, assistant_message.created_at)),
+                &user_message.llm_settings(),
+                Some((
+                    user_message.created_at().clone(),
+                    assistant_message.created_at().clone(),
+                )),
             );
             let lines = prefix
                 .iter()
@@ -69,7 +72,7 @@ impl Widget for &Messages {
                 .map(|(i, base)| {
                     let mut spans = base.clone();
                     if i == 1 {
-                        spans.push(Span::raw(&user_message.msg));
+                        spans.push(Span::raw(user_message.payload().msg.clone()));
                     }
                     Line::from(spans)
                 })
@@ -77,7 +80,7 @@ impl Widget for &Messages {
             messages.extend(Text::from(lines));
 
             // llm response
-            messages.extend(tui_markdown::from_str(&assistant_message.msg));
+            messages.extend(tui_markdown::from_str(&assistant_message.payload().msg));
             messages.extend(Text::from(""));
         }
         if let Some((user_message, settings)) = self.pending() {
@@ -88,7 +91,7 @@ impl Widget for &Messages {
                 .map(|(i, base)| {
                     let mut spans = base.clone();
                     if i == 1 {
-                        spans.push(Span::raw(&user_message.msg));
+                        spans.push(Span::raw(user_message.payload().msg.clone()));
                     }
                     Line::from(spans)
                 })

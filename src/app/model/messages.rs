@@ -36,14 +36,8 @@ impl Messages {
 
     pub fn set_chat_messages(&mut self, chat_events: Vec<ChatEvent>) {
         self.chat_messages = chat_events
-            .iter()
-            .filter_map(|event| {
-                if let ChatEvent::ChatMessage(message) = event {
-                    Some(message.clone())
-                } else {
-                    None
-                }
-            })
+            .into_iter()
+            .filter_map(|event| event.maybe_into_chat_message())
             .collect();
     }
 

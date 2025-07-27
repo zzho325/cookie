@@ -69,7 +69,7 @@ impl Service {
                     match maybe_req {
                         None => break,
                         Some(ServiceReq::ChatMessage ( user_message )) => {
-                            if self.sessions.contains_key(&user_message.session_id) {
+                            if self.sessions.contains_key(&user_message.session_id()) {
                                 self.handle_user_message(user_message)?;
                             } else {
                                 let chat_handle = self.handle_new_session(user_message).await?;

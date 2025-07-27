@@ -86,8 +86,8 @@ impl Session {
         self.session_id = Some(session_id);
         let user_message = ChatMessage::new(
             session_id,
-            crate::models::Role::User,
             self.llm_settings.clone(),
+            crate::models::Role::User,
             msg_,
         );
         self.messages
@@ -99,7 +99,7 @@ impl Session {
     pub fn handle_assistant_message(&mut self, assistant_message: ChatMessage) {
         // assign session with session id
         match self.session_id {
-            Some(session_id) if session_id == assistant_message.session_id => {
+            Some(session_id) if session_id == assistant_message.session_id() => {
                 self.messages.receive_response(assistant_message);
             }
             _ => {}

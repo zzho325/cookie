@@ -33,6 +33,5 @@ async fn handle_resp<T: DeserializeOwned>(resp: reqwest::Response) -> Result<T> 
     let result: T = serde_json::from_str(&body)
         .wrap_err_with(|| format!("could not deserialize response body:\n{}", body))?;
 
-    tracing::debug!(body);
     Ok(result)
 }

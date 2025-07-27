@@ -9,6 +9,7 @@ use crate::{models::LlmSettings, service::llms::open_ai::api::OpenAIModel};
 #[derive(Deserialize)]
 pub struct OpenAIConfig {
     pub model: OpenAIModel,
+    pub web_search: bool,
 }
 
 /// Boot time static configs.
@@ -22,6 +23,7 @@ impl Default for Configs {
         Self {
             open_ai: OpenAIConfig {
                 model: OpenAIModel::default(),
+                web_search: true,
             },
         }
     }
@@ -57,7 +59,7 @@ impl Configs {
     pub fn derive_llm_settings(&self) -> LlmSettings {
         LlmSettings::OpenAI {
             model: self.open_ai.model.clone(),
-            web_search: false,
+            web_search: self.open_ai.web_search,
         }
     }
 }

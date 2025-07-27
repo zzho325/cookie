@@ -6,8 +6,8 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        ChatMessage, LlmSettings, Role, ServiceResp, Session, SessionSummary,
-        constants::NEW_SESSION_TITLE,
+        ChatEvent, ChatEventPayload, ChatMessage, LlmSettings, ServiceResp, Session,
+        SessionSummary, constants::NEW_SESSION_TITLE,
     },
     service::{
         Service,
@@ -30,26 +30,36 @@ impl Session {
         }
     }
 
-    /// Saves user message and LLM response to session. Update llm settings with user_message
-    /// settings.
-    pub fn persist_messages(
-        &mut self,
-        user_message: ChatMessage,
-        assistant_msg: String,
-    ) -> ChatMessage {
-        let assistant_message = ChatMessage::new(
-            user_message.session_id,
-            Role::Assistant,
-            user_message.llm_settings.clone(),
-            assistant_msg,
-        );
+    /// Persists user message and updates llm settings.
+    pub fn persist_user_message(&mut self, user_messge: ChatMessage) {
+        self.llm_settings = user_messge.llm_settings().clone();
+        self.chat_events.push(user_messge.into());
+        self.updated_at = chrono::Utc::now();
+    }
 
-        self.chat_events.push(user_message.clone().into());
-        self.chat_events.push(assistant_message.clone().into());
-        self.llm_settings = user_message.llm_settings;
+    /// Saves chat events payload to session and returns chat message if exists.
+    pub fn persist_events(&mut self, events_payload: Vec<ChatEventPayload>) -> Option<ChatMessage> {
+        let maybe_assistant_message = events_payload.iter().find_map(|payload| {
+            if let ChatEventPayload::Message(m) = payload {
+                Some(ChatMessage::new(
+                    self.id,
+                    self.llm_settings.clone(),
+                    m.role.clone(),
+                    m.msg.clone(),
+                ))
+            } else {
+                None
+            }
+        });
+
+        let mut events: Vec<ChatEvent> = events_payload
+            .into_iter()
+            .map(|p| ChatEvent::new(self.id, self.llm_settings.clone(), p))
+            .collect();
+        self.chat_events.append(&mut events);
         self.updated_at = chrono::Utc::now();
 
-        assistant_message
+        maybe_assistant_message
     }
 }
 
@@ -83,8 +93,8 @@ impl Service {
         user_message: ChatMessage,
     ) -> Result<tokio::task::JoinHandle<Result<()>>> {
         // create session
-        let session_id = user_message.session_id;
-        let llm_settings = user_message.llm_settings.clone();
+        let session_id = user_message.session_id();
+        let llm_settings = user_message.llm_settings().clone();
         let session = SharedSession::new(RwLock::new(Session::new(session_id, llm_settings)));
         self.sessions.insert(session_id, session.clone());
         self.send_sessions().await?;
@@ -118,7 +128,7 @@ impl Service {
     /// Finds session chat sender for session of `user_message` and dispatch message. Send error
     /// message to tui if session chat sender not found.
     pub fn handle_user_message(&mut self, user_message: ChatMessage) -> Result<()> {
-        let session_id = &(user_message.session_id);
+        let session_id = &(user_message.session_id());
         match self.session_chat_tx(session_id) {
             Ok(chat_tx) => {
                 chat_tx.send(user_message)?;
@@ -177,26 +187,44 @@ impl Service {
     ) -> Result<()> {
         // TODO: close worker after inactivity
         while let Some(user_message) = chat_rx.recv().await {
+            // persist user message
+            {
+                let mut guard = session.write().await;
+                (*guard).persist_user_message(user_message.clone());
+            }
+
+            // ----------------------------------------------------------------
+            // Prepare llm request.
+            // ----------------------------------------------------------------
             // load history events
-            let mut chat_events = {
+            let mut input: Vec<ChatEventPayload> = {
                 let guard = session.read().await;
-                guard.chat_events.clone()
+                guard
+                    .chat_events
+                    .iter()
+                    .map(|event| event.payload().clone())
+                    .collect()
             };
             // append user message
-            chat_events.push(user_message.clone().into());
-            let llm_settings = user_message.llm_settings.clone();
+            input.push(user_message.payload().clone().into());
+            let llm_settings = user_message.llm_settings().clone();
             let llm_req = LlmReq {
-                input: chat_events,
+                input,
                 instructions: None,
                 settings: llm_settings,
             };
+
+            // ----------------------------------------------------------------
+            // Send llm request and persist response.
+            // ----------------------------------------------------------------
             match llm_router.request(llm_req).await {
                 Ok(resp) => {
-                    // send response and update session
-                    tracing::debug!("sending message {:?}", resp.msg);
+                    // update session
                     let mut guard = session.write().await;
-                    let assistant_message = (*guard).persist_messages(user_message, resp.msg);
-                    resp_tx.send(ServiceResp::ChatMessage(assistant_message))?;
+                    let maybe_assistant_message = (*guard).persist_events(resp.output);
+                    if let Some(assistant_message) = maybe_assistant_message {
+                        resp_tx.send(ServiceResp::ChatMessage(assistant_message))?;
+                    }
                 }
                 Err(_) => {
                     // TODO: send error as response
@@ -252,11 +280,19 @@ impl Service {
             guard.llm_settings.clone()
         };
         let llm_req = LlmReq {
-            input: vec![user_message.clone().into()],
+            input: vec![user_message.payload().clone().into()],
             instructions: Some(prompt),
             settings,
         };
         let resp = llm_router.request(llm_req).await?;
-        Ok(resp.msg)
+
+        let maybe_title = resp.output.iter().find_map(|payload| {
+            if let ChatEventPayload::Message(m) = payload {
+                Some(m.msg.clone())
+            } else {
+                None
+            }
+        });
+        maybe_title.ok_or(eyre!("Llm response has not title"))
     }
 }

@@ -66,16 +66,25 @@ pub struct MockLlmClientImpl {}
 #[cfg(debug_assertions)]
 impl LlmClient for MockLlmClientImpl {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
+        use crate::models::MessagePayload;
+
         let msg = if let Some(item) = llm_req.input.last() {
-            use crate::service::llms::ChatEvent;
+            use crate::models::ChatEventPayload;
             match item {
-                ChatEvent::ChatMessage(message) => message.msg.clone(),
+                ChatEventPayload::Message(payload) => payload.msg.clone(),
+                _ => "".to_string(),
             }
         } else {
             "empty history".to_string()
         };
         Ok(LlmResp {
-            msg,
+            output: vec![
+                MessagePayload {
+                    role: crate::models::Role::Assistant,
+                    msg,
+                }
+                .into(),
+            ],
             id: "mock-response-id".to_string(),
         })
     }

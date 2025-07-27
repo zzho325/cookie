@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{models::Role, service::llms::ChatEvent};
+use crate::models::{ChatEventPayload, Role, ToolEventPayload};
 
 // TODO: handle error response and timeout
 #[derive(Serialize, Default)]
@@ -13,12 +13,17 @@ pub struct ResponsesReq {
     pub tools: Vec<Tool>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum InputItem {
     Message {
         role: Role,
         content: String,
+    },
+    WebSearchCall {
+        action: serde_json::Value,
+        id: String,
+        status: String,
     },
     FunctionCall {
         name: String,
@@ -32,16 +37,22 @@ pub enum InputItem {
     },
 }
 
-impl From<&ChatEvent> for InputItem {
-    fn from(value: &ChatEvent) -> Self {
+impl From<&ChatEventPayload> for InputItem {
+    fn from(value: &ChatEventPayload) -> Self {
         match value {
-            ChatEvent::ChatMessage(message) => InputItem::Message {
-                role: message.role.clone(),
-                content: message.msg.clone(),
+            ChatEventPayload::Message(payload) => InputItem::Message {
+                role: payload.role.clone(),
+                content: payload.msg.clone(),
             },
-            _ => {
-                todo!()
-            }
+            ChatEventPayload::ToolEvent(payload) => match payload {
+                ToolEventPayload::WebSearchCall { action, id, status } => {
+                    InputItem::WebSearchCall {
+                        action: action.clone(),
+                        id: id.clone(),
+                        status: status.clone(),
+                    }
+                }
+            },
         }
     }
 }
@@ -98,6 +109,11 @@ pub enum OutputItem {
         role: Role,
         content: Vec<ContentItem>,
     },
+    WebSearchCall {
+        action: serde_json::Value,
+        id: String,
+        status: String,
+    },
     FunctionCall {
         name: String,
         call_id: String,
@@ -108,12 +124,24 @@ pub enum OutputItem {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentItem {
-    #[serde(rename = "output_text")]
     OutputText {
         text: String,
-        // TODO: should we handle annotations?
-        // annotations: Vec<serde_json::Value>,
+        annotations: Vec<Annotation>,
     },
-    #[serde(rename = "refusal")]
-    Refusal { refusal: String },
+    Refusal {
+        refusal: String,
+    },
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Annotation {
+    UrlCitation {
+        /// The index of the last character of the URL citation in the message.
+        end_index: u64,
+        /// The index of the first character of the URL citation in the message.
+        start_index: u64,
+        title: String,
+        url: String,
+    },
 }
