@@ -44,7 +44,7 @@ impl Model {
         self.focus_order[new_idx](self).set_focus(true);
     }
 
-    // Shift focus to new Focused.
+    // Shift focus to new focused.
     pub fn shift_focus_to(&mut self, new: Focused) {
         // turn off old
         let old_idx = self.focused as usize;

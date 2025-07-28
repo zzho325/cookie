@@ -131,6 +131,12 @@ impl ChatMessage {
         }
     }
 
+    #[cfg(test)]
+    pub fn with_created_at(mut self, created_at: DateTime<Utc>) -> Self {
+        self.base.created_at = created_at;
+        self
+    }
+
     pub fn session_id(&self) -> uuid::Uuid {
         self.base.session_id
     }

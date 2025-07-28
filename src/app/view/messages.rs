@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     app::model::messages::Messages,
-    models::{settings::LlmSettings, ChatMessage },
+    models::{ChatMessage, settings::LlmSettings},
 };
 
 impl Messages {

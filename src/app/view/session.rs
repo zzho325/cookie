@@ -123,30 +123,28 @@ mod tests {
         let assistant_message_created_at =
             user_message_created_at + std::time::Duration::from_secs(2);
 
-        let llm_settings = crate::models::LlmSettings::OpenAI {
-            model: crate::service::client::api::OpenAIModel::Gpt4o,
+        let llm_settings = crate::models::settings::LlmSettings::OpenAI {
+            model: crate::service::llms::open_ai::api::OpenAIModel::Gpt4o,
             web_search: false,
         };
         let session_id = Uuid::new_v4();
 
         let mut messages = Messages::default();
         let chat_messages: Vec<ChatMessage> = vec![
-            ChatMessage {
-                id: Uuid::new_v4(),
+            ChatMessage::new(
                 session_id,
-                role: Role::User,
-                llm_settings: llm_settings.clone(),
-                msg: "history question".to_string(),
-                created_at: user_message_created_at,
-            },
-            ChatMessage {
-                id: Uuid::new_v4(),
+                llm_settings.clone(),
+                Role::User,
+                "history question".to_string(),
+            )
+            .with_created_at(user_message_created_at),
+            ChatMessage::new(
                 session_id,
-                role: Role::Assistant,
-                llm_settings: llm_settings.clone(),
-                msg: "history answer".to_string(),
-                created_at: assistant_message_created_at,
-            },
+                llm_settings.clone(),
+                Role::Assistant,
+                "history answer".to_string(),
+            )
+            .with_created_at(assistant_message_created_at),
         ];
         messages.set_chat_messages(chat_messages);
 

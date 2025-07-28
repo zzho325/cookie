@@ -34,7 +34,11 @@ impl Messages {
         &self.chat_messages
     }
 
-    pub fn set_chat_messages(&mut self, chat_events: Vec<ChatEvent>) {
+    pub fn set_chat_messages(&mut self, chat_messages: Vec<ChatMessage>) {
+        self.chat_messages = chat_messages;
+    }
+
+    pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
         self.chat_messages = chat_events
             .into_iter()
             .filter_map(|event| event.maybe_into_chat_message())

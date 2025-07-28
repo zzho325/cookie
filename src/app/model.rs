@@ -3,6 +3,7 @@ pub mod focus;
 pub mod messages;
 pub mod session;
 pub mod session_manager;
+pub mod setting_manager;
 
 use crate::{
     app::model::{
@@ -23,6 +24,7 @@ pub struct Model {
     /// It might not be the same as id in session while waiting for fetching selected session.
     pub selected_session_id: Option<uuid::Uuid>,
 
+    // pub setting: SettingManager,
     pub show_sidebar: bool,
     pub focused: Focused,
     focus_order: Vec<fn(&mut Model) -> &mut dyn Focusable>,
@@ -88,8 +90,8 @@ mod tests {
         // ----------------------------------------------------------------
         // Setup model.
         // ----------------------------------------------------------------
-        let llm_settings = crate::models::LlmSettings::OpenAI {
-            model: crate::service::client::api::OpenAIModel::Gpt4o,
+        let llm_settings = crate::models::settings::LlmSettings::OpenAI {
+            model: crate::service::llms::open_ai::api::OpenAIModel::Gpt4o,
             web_search: false,
         };
         let session_id = Uuid::new_v4();
@@ -99,23 +101,23 @@ mod tests {
         messages.send_question(
             ChatMessage::new(
                 session_id,
-                Role::User,
                 llm_settings.clone(),
+                Role::User,
                 "history question".to_string(),
             ),
             llm_settings.clone(),
         );
         messages.receive_response(ChatMessage::new(
             session_id,
-            Role::Assistant,
             llm_settings.clone(),
+            Role::Assistant,
             "history reponse".to_string(),
         ));
         messages.send_question(
             ChatMessage::new(
                 session_id,
-                Role::User,
                 llm_settings.clone(),
+                Role::User,
                 "pending question".to_string(),
             ),
             llm_settings.clone(),

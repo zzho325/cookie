@@ -111,7 +111,7 @@ mod tests {
     use crate::{
         app::{
             model::{Model, focus::Focused},
-            update::handle_key_event,
+            update::{self, handle_key_event},
         },
         models::configs::Configs,
     };
@@ -187,7 +187,10 @@ mod tests {
             model.session.is_editing = case.is_editing;
             model.shift_focus_to(case.focused);
             model.show_sidebar = case.show_sidebar;
-            handle_key_event(&mut model, case.key_event);
+            let (maybe_msg, _) = handle_key_event(&mut model, case.key_event);
+            if let Some(msg) = maybe_msg {
+                update::update(&mut model, msg);
+            }
             assert_eq!(
                 model.focused, case.expected_focused,
                 "{} focused",
