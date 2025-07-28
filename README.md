@@ -30,7 +30,7 @@ cargo build --release
 
 * Type your prompt, `Enter` to send.
 * `i` / `Esc` to toggle input mode, `q` to quit. 
-* `s` to toggle side bar, `j` / `k` or `Down` / `Up` to navigate sessions.
+* `e` to toggle side bar, `j` / `k` or `Down` / `Up` to navigate sessions.
 * `Tab` to shift focus.
 * `n` to start new session.
 

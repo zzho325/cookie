@@ -84,7 +84,7 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
         }
         Focused::SessionManager => match keyevent.code {
             KeyCode::Char('q') => model.quit(),
-            KeyCode::Char('s') => model.toggle_sidebar(),
+            KeyCode::Char('e') => model.toggle_sidebar(),
             KeyCode::Char('n') => return (Some(Message::NewChat), None),
             KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Down | KeyCode::Char('j') => {
@@ -141,21 +141,21 @@ mod tests {
                 expected_is_editing: false,
             },
             Case {
-                description: "key s opens and navigates to sidebar",
+                description: "key e opens and navigates to sidebar",
                 focused: Focused::Session,
                 show_sidebar: false,
                 is_editing: false,
-                key_event: KeyCode::Char('s').into(),
+                key_event: KeyCode::Char('e').into(),
                 expected_focused: Focused::SessionManager,
                 expected_show_sidebar: true,
                 expected_is_editing: false,
             },
             Case {
-                description: "key s closes and navigates away from sidebar",
+                description: "key e closes and navigates away from sidebar",
                 focused: Focused::SessionManager,
                 show_sidebar: true,
                 is_editing: false,
-                key_event: KeyCode::Char('s').into(),
+                key_event: KeyCode::Char('e').into(),
                 expected_focused: Focused::Session,
                 expected_show_sidebar: false,
                 expected_is_editing: false,

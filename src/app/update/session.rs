@@ -30,7 +30,7 @@ pub fn handle_session_key_event(
     } else {
         match code {
             KeyCode::Char('q') => model.quit(),
-            KeyCode::Char('s') => model.toggle_sidebar(),
+            KeyCode::Char('e') => model.toggle_sidebar(),
             KeyCode::Char('n') => return (Some(Message::NewChat), None),
             KeyCode::Tab => {
                 if model.show_sidebar {
