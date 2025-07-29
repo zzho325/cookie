@@ -3,7 +3,7 @@ use ratatui::widgets::ListState;
 use crate::{models::settings::LlmSettings, service::llms::open_ai::api::OPENAI_MODELS};
 
 pub struct SettingManager {
-    pub llm_settings: LlmSettings,
+    llm_settings: LlmSettings,
     list_state: ListState,
 }
 
@@ -28,14 +28,27 @@ impl SettingManager {
         }
     }
 
+    pub fn llm_settings(&self) -> &LlmSettings {
+        &self.llm_settings
+    }
+
     pub fn list_state_mut(&mut self) -> &mut ListState {
         &mut self.list_state
     }
 
+    // TODO: refactor this and next when implementing other providers
     pub fn select_next(&mut self) {
         if let Some(i) = self.list_state.selected() {
             if i + 1 < OPENAI_MODELS.len() {
-                self.list_state.select_next();
+                if let LlmSettings::OpenAI { model, .. } = &mut self.llm_settings {
+                    self.list_state.select_next();
+                    *model = OPENAI_MODELS[i + 1].clone();
+                } else {
+                    tracing::error!(
+                        "current provider {} does not match",
+                        self.llm_settings.provider_name()
+                    )
+                }
             }
         }
     }
@@ -43,7 +56,15 @@ impl SettingManager {
     pub fn select_previous(&mut self) {
         if let Some(i) = self.list_state.selected() {
             if i > 0 {
-                self.list_state.select_previous();
+                if let LlmSettings::OpenAI { model, .. } = &mut self.llm_settings {
+                    self.list_state.select_previous();
+                    *model = OPENAI_MODELS[i - 1].clone();
+                } else {
+                    tracing::error!(
+                        "current provider {} does not match",
+                        self.llm_settings.provider_name()
+                    )
+                }
             }
         }
     }

@@ -128,4 +128,8 @@ impl Session {
     pub fn llm_settings(&self) -> &LlmSettings {
         &self.llm_settings
     }
+
+    pub fn set_llm_settings(&mut self, llm_settings: LlmSettings) {
+        self.llm_settings = llm_settings;
+    }
 }

@@ -35,7 +35,7 @@ impl LlmClient for OpenAIClientImpl {
             input: llm_req.input.iter().map(InputItem::from).collect(),
             tools,
         };
-        tracing::debug!("req {:?}", req.input);
+        tracing::debug!("requesting {} {:?}", req.model.display_name(), req.input);
         let resp = self.responses(req).await?;
 
         let mut chat_events: Vec<ChatEventPayload> = Vec::new();

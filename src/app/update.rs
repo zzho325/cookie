@@ -43,10 +43,18 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
             model.shift_focus_to(Focused::Session);
             model.session.is_editing = true;
         }
-        Message::Setting => {
-            model.setting_manager_popup =
-                Some(SettingManager::new(model.session.llm_settings().clone()));
-        }
+        Message::Setting => match &mut model.setting_manager_popup {
+            None => {
+                model.setting_manager_popup =
+                    Some(SettingManager::new(model.session.llm_settings().clone()))
+            }
+            Some(setting_manager) => {
+                model
+                    .session
+                    .set_llm_settings(setting_manager.llm_settings().clone());
+                model.setting_manager_popup = None;
+            }
+        },
         Message::GetSession(id) => {
             return (None, Some(Command::ServiceReq(ServiceReq::GetSession(id))));
         }
@@ -97,6 +105,7 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
                 return (None, None);
             }
             KeyCode::Esc => model.setting_manager_popup = None,
+            KeyCode::Enter => return (Some(Message::Setting), None),
             _ => {}
         }
         return (None, None);
