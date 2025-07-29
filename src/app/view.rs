@@ -19,7 +19,7 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
     if model.show_sidebar {
         let layout = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(20), Constraint::Percentage(90)])
+            .constraints([Constraint::Min(30), Constraint::Percentage(90)])
             .split(frame.area());
 
         frame.render_widget(&mut model.session_manager, layout[0]);
