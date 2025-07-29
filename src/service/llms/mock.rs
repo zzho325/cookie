@@ -68,7 +68,7 @@ impl LlmClient for MockLlmClientImpl {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
         use crate::models::MessagePayload;
 
-        let msg = if let Some(item) = llm_req.input.last() {
+        let msg = if let Some(item) = llm_req.events.last() {
             use crate::models::ChatEventPayload;
             match item {
                 ChatEventPayload::Message(payload) => payload.msg.clone(),

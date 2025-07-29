@@ -6,7 +6,7 @@ use color_eyre::eyre::Result;
 use std::sync::Arc;
 
 use crate::{
-    models::{settings::LlmSettings, ChatEventPayload},
+    models::{ChatEventPayload, settings::LlmSettings},
     service::llms::open_ai::OpenAIClientImpl,
 };
 
@@ -17,7 +17,7 @@ pub trait LlmClient {
 
 #[derive(Debug, Clone)]
 pub struct LlmReq {
-    pub input: Vec<ChatEventPayload>,
+    pub events: Vec<ChatEventPayload>,
     pub settings: LlmSettings,
     pub instructions: Option<String>,
 }

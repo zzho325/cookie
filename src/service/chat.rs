@@ -197,7 +197,7 @@ impl Service {
             // Prepare llm request.
             // ----------------------------------------------------------------
             // load history events
-            let mut input: Vec<ChatEventPayload> = {
+            let events: Vec<ChatEventPayload> = {
                 let guard = session.read().await;
                 guard
                     .chat_events
@@ -205,11 +205,9 @@ impl Service {
                     .map(|event| event.payload().clone())
                     .collect()
             };
-            // append user message
-            input.push(user_message.payload().clone().into());
             let llm_settings = user_message.llm_settings().clone();
             let llm_req = LlmReq {
-                input,
+                events,
                 instructions: None,
                 settings: llm_settings,
             };
@@ -280,7 +278,7 @@ impl Service {
             guard.llm_settings.clone()
         };
         let llm_req = LlmReq {
-            input: vec![user_message.payload().clone().into()],
+            events: vec![user_message.payload().clone().into()],
             instructions: Some(prompt),
             settings,
         };

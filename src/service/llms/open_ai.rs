@@ -32,7 +32,7 @@ impl LlmClient for OpenAIClientImpl {
         let req = ResponsesReq {
             model,
             instructions: llm_req.instructions,
-            input: llm_req.input.iter().map(InputItem::from).collect(),
+            input: llm_req.events.iter().map(InputItem::from).collect(),
             tools,
         };
         tracing::debug!("requesting {} {:?}", req.model.display_name(), req.input);
