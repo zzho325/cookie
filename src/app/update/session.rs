@@ -38,19 +38,9 @@ pub fn handle_session_key_event(
                 }
             }
             KeyCode::Char('i') => return (Some(Message::Editing), None),
+            KeyCode::Char('s') => return (Some(Message::Setting), None),
             KeyCode::Down => session.messages.scroll_down(),
             KeyCode::Up => session.messages.scroll_up(),
-            // KeyCode::Right => {
-            //     // for now for test
-            //     let llm_settings = LlmSettings::OpenAI {
-            //         model: OpenAImodel::Gpt4oMini,
-            //         web_search: false,
-            //     };
-            //     tracing::debug!("send setting update");
-            //     let req = crate::models::ServiceReq::UpdateSettings(llm_settings);
-            //     let cmd = Command::ServiceReq(req);
-            //     return (None, Some(cmd));
-            // }
             _ => {}
         }
     }

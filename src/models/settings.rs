@@ -32,7 +32,7 @@ impl LlmSettings {
     }
 
     /// Returns the model display name.
-    pub fn model_name(&self) -> &str {
+    pub fn model_name(&self) -> &'static str {
         match self {
             LlmSettings::OpenAI { model, .. } => model.display_name(),
             LlmSettings::Mock { .. } => "—",

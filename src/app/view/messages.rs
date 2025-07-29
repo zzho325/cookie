@@ -60,11 +60,8 @@ impl Widget for &Messages {
             let assistant_message: &ChatMessage = &chunk[1];
 
             let prefix = Messages::prefix(
-                &user_message.llm_settings(),
-                Some((
-                    user_message.created_at().clone(),
-                    assistant_message.created_at().clone(),
-                )),
+                user_message.llm_settings(),
+                Some((*user_message.created_at(), *assistant_message.created_at())),
             );
             let lines = prefix
                 .iter()
