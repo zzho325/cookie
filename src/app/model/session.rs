@@ -13,7 +13,7 @@ pub struct Session {
     /// Session Id of current session. None for new session before sending first message.
     pub session_id: Option<Uuid>,
     title: Option<String>,
-    pub llm_settings: LlmSettings,
+    llm_settings: LlmSettings,
     pub messages: Messages,
     pub input_editor: Editor,
     pub is_editing: bool,
@@ -123,5 +123,9 @@ impl Session {
                 self.title = Some(session_summary.title)
             }
         }
+    }
+
+    pub fn llm_settings(&self) -> &LlmSettings {
+        &self.llm_settings
     }
 }

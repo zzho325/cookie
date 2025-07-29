@@ -44,6 +44,6 @@ impl Widget for &mut SessionManager {
             .highlight_symbol(">")
             .highlight_spacing(HighlightSpacing::Always);
 
-        StatefulWidget::render(list, area, buf, self.list_state());
+        StatefulWidget::render(list, area, buf, self.list_state_mut());
     }
 }

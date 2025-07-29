@@ -16,7 +16,7 @@ impl SessionManager {
         &self.session_summaries
     }
 
-    pub fn list_state(&mut self) -> &mut ListState {
+    pub fn list_state_mut(&mut self) -> &mut ListState {
         &mut self.list_state
     }
 

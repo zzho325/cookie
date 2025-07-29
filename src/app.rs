@@ -97,6 +97,8 @@ pub enum Message {
     NewChat,
     /// Editing input.
     Editing,
+    /// Open setting manager.
+    Setting,
     GetSession(uuid::Uuid),
     CrosstermClose,
 }

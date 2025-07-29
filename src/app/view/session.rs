@@ -67,8 +67,8 @@ impl StatefulWidget for &mut Session {
 
         // construct title
         // TODO: centralize style here and prompt style
-        let provider = self.llm_settings.provider_name();
-        let model = self.llm_settings.model_name();
+        let provider = self.llm_settings().provider_name();
+        let model = self.llm_settings().model_name();
         let title: Line = Line::from(vec![
             Span::raw("─ "),
             Span::styled(

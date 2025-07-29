@@ -5,7 +5,11 @@ use crossterm::event::{KeyCode, KeyEvent};
 use crate::{
     app::{
         Command, Message,
-        model::{Model, focus::Focused},
+        model::{
+            Model,
+            focus::Focused,
+            setting_manager::{self, SettingManager},
+        },
     },
     models::{ServiceReq, ServiceResp},
 };
@@ -38,6 +42,10 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         Message::Editing => {
             model.shift_focus_to(Focused::Session);
             model.session.is_editing = true;
+        }
+        Message::Setting => {
+            model.setting_manager_popup =
+                Some(SettingManager::new(model.session.llm_settings().clone()));
         }
         Message::GetSession(id) => {
             return (None, Some(Command::ServiceReq(ServiceReq::GetSession(id))));
@@ -78,6 +86,22 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
 }
 
 fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
+    if let Some(setting_manager) = &mut model.setting_manager_popup {
+        match keyevent.code {
+            KeyCode::Down | KeyCode::Char('j') => {
+                setting_manager.select_next();
+                return (None, None);
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                setting_manager.select_previous();
+                return (None, None);
+            }
+            KeyCode::Esc => model.setting_manager_popup = None,
+            _ => {}
+        }
+        return (None, None);
+    }
+
     match model.focused {
         Focused::Session => {
             return session::handle_session_key_event(model, keyevent);
@@ -87,6 +111,7 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             KeyCode::Char('e') => model.toggle_sidebar(),
             KeyCode::Char('n') => return (Some(Message::NewChat), None),
             KeyCode::Char('i') => return (Some(Message::Editing), None),
+            KeyCode::Char('s') => return (Some(Message::Setting), None),
             KeyCode::Down | KeyCode::Char('j') => {
                 model.selected_session_id = model.session_manager.select_next();
                 let maybe_msg = model.selected_session_id.map(Message::GetSession);

@@ -10,6 +10,7 @@ use crate::{
         focus::{Focusable, Focused},
         session::Session,
         session_manager::SessionManager,
+        setting_manager::SettingManager,
     },
     models::configs::Configs,
 };
@@ -24,7 +25,7 @@ pub struct Model {
     /// It might not be the same as id in session while waiting for fetching selected session.
     pub selected_session_id: Option<uuid::Uuid>,
 
-    // pub setting: SettingManager,
+    pub setting_manager_popup: Option<SettingManager>,
     pub show_sidebar: bool,
     pub focused: Focused,
     focus_order: Vec<fn(&mut Model) -> &mut dyn Focusable>,
@@ -41,6 +42,7 @@ impl Model {
             session: Session::new(default_llm_settings),
             session_manager: SessionManager::default(),
             selected_session_id: None,
+            setting_manager_popup: None,
             show_sidebar: false,
             should_quit: false,
             focused: Focused::Session,
@@ -167,7 +169,7 @@ mod tests {
             "model selected session id is reset"
         );
         assert!(
-            model.session_manager.list_state().selected().is_none(),
+            model.session_manager.list_state_mut().selected().is_none(),
             "session manager selected is reset"
         );
 

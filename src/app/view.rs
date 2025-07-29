@@ -2,6 +2,8 @@ mod constants;
 mod messages;
 mod session;
 mod session_manager;
+mod setting_manager;
+mod utils;
 pub mod widgets;
 
 use crate::app::model::Model;
@@ -34,5 +36,10 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         if let Some((x, y)) = session_state.cursor_position {
             frame.set_cursor_position(Position::new(x, y));
         }
+    }
+
+    if let Some(setting_manager) = &mut model.setting_manager_popup {
+        let setting_area = utils::centered_rect(frame.area(), 30, 60);
+        frame.render_widget(setting_manager, setting_area);
     }
 }

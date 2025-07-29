@@ -69,7 +69,7 @@ pub enum Tool {
     },
 }
 
-#[derive(Clone, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug, PartialEq)]
 pub enum OpenAIModel {
     #[default]
     #[serde(rename = "gpt-4o")]
@@ -95,6 +95,14 @@ impl OpenAIModel {
         }
     }
 }
+
+pub const OPENAI_MODELS: &[OpenAIModel] = &[
+    OpenAIModel::Gpt4o,
+    OpenAIModel::Gpt4oMini,
+    OpenAIModel::O4Mini,
+    OpenAIModel::O3,
+    OpenAIModel::O3Mini,
+];
 
 #[derive(Deserialize, Debug)]
 pub struct ResponsesResp {
