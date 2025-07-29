@@ -127,6 +127,8 @@ pub enum OutputItem {
         call_id: String,
         arguments: String,
     },
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Deserialize, Debug)]

@@ -75,6 +75,9 @@ impl LlmClient for OpenAIClientImpl {
                 OutputItem::FunctionCall { .. } => {
                     todo!()
                 }
+                OutputItem::Unknown => {
+                    tracing::debug!("unimplemented type")
+                }
             }
         }
         tracing::debug!("resp {chat_events:?}");
