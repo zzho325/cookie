@@ -67,9 +67,7 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
 
 fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
     match resp {
-        ServiceResp::ChatMessage(assistant_message) => {
-            model.session.handle_assistant_message(assistant_message)
-        }
+        ServiceResp::ChatEvent(chat_event) => model.session.handle_chat_event(chat_event),
         ServiceResp::Sessions(session_summaries) => model
             .session_manager
             .handle_session_summaries(session_summaries, model.selected_session_id),

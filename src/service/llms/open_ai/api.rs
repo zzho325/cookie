@@ -1,6 +1,9 @@
+use crate::{
+    models::{ChatEventPayload, Role, ToolEvent, settings::LlmSettings},
+    service::llms::LlmReq,
+};
+use color_eyre::eyre::{Result, eyre};
 use serde::{Deserialize, Serialize};
-
-use crate::models::{ChatEventPayload, Role, ToolEventPayload};
 
 // TODO: handle error response and timeout
 #[derive(Serialize, Default)]
@@ -10,7 +13,38 @@ pub struct ResponsesReq {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructions: Option<String>,
     pub input: Vec<InputItem>,
+    pub stream: bool,
     pub tools: Vec<Tool>,
+}
+
+impl ResponsesReq {
+    pub fn build(llm_req: LlmReq) -> Result<Self> {
+        let (model, web_search) = match llm_req.settings.clone() {
+            LlmSettings::OpenAI { model, web_search } => (model, web_search),
+            _ => return Err(eyre!("Client and settings do not match")),
+        };
+
+        let mut tools = vec![];
+        if web_search {
+            tools.push(Tool::WebSearchPreview);
+        }
+        Ok(ResponsesReq {
+            model,
+            instructions: llm_req.instructions,
+            input: llm_req
+                .events
+                .iter()
+                .filter_map(Option::<InputItem>::from)
+                .collect(),
+            stream: false,
+            tools,
+        })
+    }
+
+    pub fn with_streaming(mut self) -> Self {
+        self.stream = true;
+        self
+    }
 }
 
 #[derive(Serialize, Debug)]
@@ -37,22 +71,21 @@ pub enum InputItem {
     },
 }
 
-impl From<&ChatEventPayload> for InputItem {
+impl From<&ChatEventPayload> for Option<InputItem> {
     fn from(value: &ChatEventPayload) -> Self {
         match value {
-            ChatEventPayload::Message(payload) => InputItem::Message {
-                role: payload.role.clone(),
-                content: payload.msg.clone(),
-            },
-            ChatEventPayload::ToolEvent(payload) => match payload {
-                ToolEventPayload::WebSearchCall { action, id, status } => {
-                    InputItem::WebSearchCall {
-                        action: action.clone(),
-                        id: id.clone(),
-                        status: status.clone(),
-                    }
-                }
-            },
+            ChatEventPayload::Message(p) => Some(InputItem::Message {
+                role: p.role.clone(),
+                content: p.msg.clone(),
+            }),
+            ChatEventPayload::ToolEvent(te) => Some(match te {
+                ToolEvent::WebSearchCall { action, id, status } => InputItem::WebSearchCall {
+                    action: action.clone(),
+                    id: id.clone(),
+                    status: status.clone(),
+                },
+            }),
+            ChatEventPayload::MessageDelta(_) => None,
         }
     }
 }
@@ -105,8 +138,7 @@ pub const OPENAI_MODELS: &[OpenAIModel] = &[
 ];
 
 #[derive(Deserialize, Debug)]
-pub struct ResponsesResp {
-    pub id: String,
+pub struct Responses {
     pub output: Vec<OutputItem>,
 }
 
@@ -128,7 +160,7 @@ pub enum OutputItem {
         arguments: String,
     },
     #[serde(other)]
-    Unknown,
+    Unimplement,
 }
 
 #[derive(Deserialize, Debug)]
@@ -154,4 +186,48 @@ pub enum Annotation {
         title: String,
         url: String,
     },
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum ResponsesStream {
+    #[serde(rename = "response.created")]
+    Created { response: Responses },
+    #[serde(rename = "response.in_progress")]
+    InProgress { response: Responses },
+    #[serde(rename = "response.completed")]
+    Completed { response: Responses },
+    #[serde(rename = "response.failed")]
+    Failed { response: Responses },
+    #[serde(rename = "response.incomplete")]
+    Incomplete { response: Responses },
+    #[serde(rename = "response.output_text.delta")]
+    OutputTextDelta(OutputTextDelta),
+    #[serde(rename = "response.output_text.done")]
+    OutputTextDone(OutputTextDone),
+    #[serde(other)]
+    Unimplement,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StreamCommon {
+    pub sequence_number: u64,
+    pub item_id: String,
+    pub output_index: u64,
+    pub content_index: u64,
+    pub logprobs: Vec<()>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OutputTextDelta {
+    #[serde(flatten)]
+    pub common: StreamCommon,
+    pub delta: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OutputTextDone {
+    #[serde(flatten)]
+    pub common: StreamCommon,
+    pub text: String,
 }

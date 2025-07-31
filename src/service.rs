@@ -13,7 +13,7 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    models::{ChatMessage, ServiceReq, ServiceResp},
+    models::{ChatEvent, ChatMessage, ServiceReq, ServiceResp},
     service::{chat::SharedSession, llms::LlmClientRouter},
 };
 

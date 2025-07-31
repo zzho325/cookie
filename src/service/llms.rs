@@ -3,6 +3,7 @@ pub mod open_ai;
 
 use async_trait::async_trait;
 use color_eyre::eyre::Result;
+use futures_util::stream::BoxStream;
 use std::sync::Arc;
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
 #[async_trait]
 pub trait LlmClient {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp>;
+    async fn stream(&self, llm_req: LlmReq) -> Result<BoxStream<'static, ChatEventPayload>>;
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +26,6 @@ pub struct LlmReq {
 
 pub struct LlmResp {
     pub output: Vec<ChatEventPayload>,
-    pub id: String,
 }
 
 #[derive(Clone)]
@@ -56,6 +57,15 @@ impl LlmClient for LlmClientRouter {
                 }
                 #[cfg(not(debug_assertions))]
                 panic!("using mock llm provider with non debug build")
+            }
+        }
+    }
+
+    async fn stream(&self, llm_req: LlmReq) -> Result<BoxStream<'static, ChatEventPayload>> {
+        match llm_req.settings {
+            LlmSettings::OpenAI { .. } => return self.open_ai.stream(llm_req).await,
+            LlmSettings::Mock { .. } => {
+                todo!()
             }
         }
     }

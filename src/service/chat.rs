@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::{Result, eyre::eyre};
+use futures_util::StreamExt;
 use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
 
@@ -37,29 +38,10 @@ impl Session {
         self.updated_at = chrono::Utc::now();
     }
 
-    /// Saves chat events payload to session and returns chat message if exists.
-    pub fn persist_events(&mut self, events_payload: Vec<ChatEventPayload>) -> Option<ChatMessage> {
-        let maybe_assistant_message = events_payload.iter().find_map(|payload| {
-            if let ChatEventPayload::Message(m) = payload {
-                Some(ChatMessage::new(
-                    self.id,
-                    self.llm_settings.clone(),
-                    m.role.clone(),
-                    m.msg.clone(),
-                ))
-            } else {
-                None
-            }
-        });
-
-        let mut events: Vec<ChatEvent> = events_payload
-            .into_iter()
-            .map(|p| ChatEvent::new(self.id, self.llm_settings.clone(), p))
-            .collect();
-        self.chat_events.append(&mut events);
+    /// Saves chat event payload to session and returns chat message if exists.
+    pub fn persist_chat_event(&mut self, event: ChatEvent) {
+        self.chat_events.push(event);
         self.updated_at = chrono::Utc::now();
-
-        maybe_assistant_message
     }
 }
 
@@ -205,27 +187,33 @@ impl Service {
                     .map(|event| event.payload().clone())
                     .collect()
             };
-            let llm_settings = user_message.llm_settings().clone();
+            let llm_settings = user_message.llm_settings();
             let llm_req = LlmReq {
                 events,
                 instructions: None,
-                settings: llm_settings,
+                settings: llm_settings.clone(),
             };
 
             // ----------------------------------------------------------------
-            // Send llm request and persist response.
+            // Stream request and handle response.
             // ----------------------------------------------------------------
-            match llm_router.request(llm_req).await {
-                Ok(resp) => {
-                    // update session
-                    let mut guard = session.write().await;
-                    let maybe_assistant_message = (*guard).persist_events(resp.output);
-                    if let Some(assistant_message) = maybe_assistant_message {
-                        resp_tx.send(ServiceResp::ChatMessage(assistant_message))?;
+            let session_id = {
+                let guard = session.read().await;
+                guard.id
+            };
+            let mut stream = llm_router.stream(llm_req).await?;
+            while let Some(payload) = stream.next().await {
+                // send to tui
+                let chat_event = ChatEvent::new(session_id, llm_settings.clone(), payload.clone());
+                resp_tx.send(ServiceResp::ChatEvent(chat_event.clone()))?;
+
+                // persist non delta event
+                match payload {
+                    ChatEventPayload::Message(_) | ChatEventPayload::ToolEvent(_) => {
+                        let mut guard = session.write().await;
+                        guard.persist_chat_event(chat_event);
                     }
-                }
-                Err(_) => {
-                    // TODO: send error as response
+                    _ => {}
                 }
             }
         }
@@ -270,8 +258,8 @@ impl Service {
         conversation, ideally in 3ish words. Only reply with the title, without any additional \
         punctuation, text or explanation. This is very important."
             .to_string();
-
         tracing::debug!("{prompt}");
+
         // load settings
         let settings = {
             let guard = session.read().await;
@@ -291,6 +279,6 @@ impl Service {
                 None
             }
         });
-        maybe_title.ok_or(eyre!("Llm response has not title"))
+        maybe_title.ok_or(eyre!("Llm response has no title"))
     }
 }

@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     app::model::messages::Messages,
-    models::{ChatMessage, settings::LlmSettings},
+    models::{settings::LlmSettings, ChatEvent, ChatMessage},
 };
 
 impl Messages {
@@ -56,7 +56,7 @@ impl Widget for &Messages {
         let mut messages = Text::raw("");
 
         for chunk in self.chat_messages().chunks_exact(2) {
-            let user_message: &ChatMessage = &chunk[0];
+            let user_message: &ChatMessage= &chunk[0];
             let assistant_message: &ChatMessage = &chunk[1];
 
             let prefix = Messages::prefix(
@@ -80,8 +80,8 @@ impl Widget for &Messages {
             messages.extend(tui_markdown::from_str(&assistant_message.payload().msg));
             messages.extend(Text::from(""));
         }
-        if let Some((user_message, settings)) = self.pending() {
-            let prefix = Messages::prefix(settings, None);
+        if let Some(user_message) = self.pending() {
+            let prefix = Messages::prefix(user_message.llm_settings(), None);
             let lines = prefix
                 .iter()
                 .enumerate()

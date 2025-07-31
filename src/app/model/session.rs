@@ -6,7 +6,7 @@ use crate::{
         focus::Focusable,
         messages::Messages,
     },
-    models::{self, ChatMessage, SessionSummary, settings::LlmSettings},
+    models::{self, ChatEvent, ChatMessage, SessionSummary, settings::LlmSettings},
 };
 
 pub struct Session {
@@ -90,17 +90,16 @@ impl Session {
             crate::models::Role::User,
             msg_,
         );
-        self.messages
-            .send_question(user_message.clone(), self.llm_settings.clone());
+        self.messages.send_question(user_message.clone());
         self.input_editor.clear();
         Some(user_message)
     }
 
-    pub fn handle_assistant_message(&mut self, assistant_message: ChatMessage) {
+    pub fn handle_chat_event(&mut self, chat_event: ChatEvent) {
         // assign session with session id
         match self.session_id {
-            Some(session_id) if session_id == assistant_message.session_id() => {
-                self.messages.receive_response(assistant_message);
+            Some(session_id) if session_id == chat_event.session_id() => {
+                self.messages.handle_chat_event(chat_event);
             }
             _ => {}
         }

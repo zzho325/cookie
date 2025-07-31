@@ -1,7 +1,8 @@
+use crate::service::llms::ChatEventPayload;
+use crate::service::llms::{LlmClient, LlmReq, LlmResp};
 use async_trait::async_trait;
 use color_eyre::Result;
-
-use crate::service::llms::{LlmClient, LlmReq, LlmResp};
+use futures_util::stream::BoxStream;
 
 const MARKDOWN_RESP: &str = "
 # Heading Level 1
@@ -66,7 +67,7 @@ pub struct MockLlmClientImpl {}
 #[cfg(debug_assertions)]
 impl LlmClient for MockLlmClientImpl {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
-        use crate::models::MessagePayload;
+        use crate::models::Message;
 
         let msg = if let Some(item) = llm_req.events.last() {
             use crate::models::ChatEventPayload;
@@ -79,13 +80,16 @@ impl LlmClient for MockLlmClientImpl {
         };
         Ok(LlmResp {
             output: vec![
-                MessagePayload {
+                Message {
                     role: crate::models::Role::Assistant,
                     msg,
                 }
                 .into(),
             ],
-            id: "mock-response-id".to_string(),
         })
+    }
+
+    async fn stream(&self, llm_req: LlmReq) -> Result<BoxStream<'static, ChatEventPayload>> {
+        todo!()
     }
 }

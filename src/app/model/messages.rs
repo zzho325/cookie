@@ -1,29 +1,43 @@
 use crate::{
     app::view::widgets::scroll::ScrollState,
-    models::{ChatEvent, ChatMessage, settings::LlmSettings},
+    models::{ChatEvent, ChatEventPayload, ChatMessage, settings::LlmSettings},
 };
 
 #[derive(Default)]
 pub struct Messages {
     chat_messages: Vec<ChatMessage>,
-    pending: Option<(ChatMessage, LlmSettings)>,
+    pending: Option<ChatMessage>,
     scroll_state: ScrollState,
 }
 
 impl Messages {
-    pub fn receive_response(&mut self, assistant_message: ChatMessage) {
-        if let Some((user_message, _)) = self.pending.take() {
+    /// Handle chat events from server.
+    pub fn handle_chat_event(&mut self, chat_event: ChatEvent) {
+        if let Some(user_message) = self.pending.take() {
             self.chat_messages.push(user_message);
-            self.chat_messages.push(assistant_message);
+            if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
+                self.chat_messages.push(msg);
+            }
             self.pending = None;
         } else {
-            // TODO: report error
-            tracing::warn!("received answer while no question is pending")
+            match chat_event.payload() {
+                ChatEventPayload::Message(p) => {
+                    if let Some(message) = self.chat_messages.last_mut() {
+                        *message.msg_mut() = p.msg.to_string();
+                    }
+                }
+                ChatEventPayload::MessageDelta(p) => {
+                    if let Some(message) = self.chat_messages.last_mut() {
+                        message.msg_mut().push_str(&p.delta);
+                    }
+                }
+                ChatEventPayload::ToolEvent(_) => {}
+            }
         }
     }
 
-    pub fn send_question(&mut self, user_chat_message: ChatMessage, llm_settings: LlmSettings) {
-        self.pending = Some((user_chat_message, llm_settings));
+    pub fn send_question(&mut self, user_chat_message: ChatMessage) {
+        self.pending = Some(user_chat_message);
     }
 
     pub fn is_pending_resp(&self) -> bool {
@@ -41,11 +55,11 @@ impl Messages {
     pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
         self.chat_messages = chat_events
             .into_iter()
-            .filter_map(|event| event.maybe_into_chat_message())
+            .filter_map(|event| event.try_into().ok())
             .collect();
     }
 
-    pub fn pending(&self) -> Option<&(ChatMessage, LlmSettings)> {
+    pub fn pending(&self) -> Option<&ChatMessage> {
         self.pending.as_ref()
     }
 

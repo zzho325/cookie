@@ -3,6 +3,7 @@ pub mod constants;
 pub mod settings;
 
 use chrono::{DateTime, Utc};
+use color_eyre::eyre::{self, eyre};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -15,7 +16,7 @@ pub enum ServiceReq {
 }
 
 pub enum ServiceResp {
-    ChatMessage(ChatMessage),
+    ChatEvent(ChatEvent),
     Sessions(Vec<SessionSummary>),
     /// Summary for one session to update title async.
     SessionSummary(SessionSummary),
@@ -32,27 +33,11 @@ pub enum Role {
 }
 
 #[derive(Debug, Clone)]
-pub struct ChatEventBase {
-    pub id: uuid::Uuid,
-    pub session_id: uuid::Uuid,
-    pub llm_settings: LlmSettings,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-impl ChatEventBase {
-    pub fn new(session_id: uuid::Uuid, llm_settings: LlmSettings) -> Self {
-        Self {
-            id: uuid::Uuid::new_v4(),
-            session_id,
-            llm_settings,
-            created_at: chrono::Utc::now(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct ChatEvent {
-    base: ChatEventBase,
+    id: uuid::Uuid,
+    session_id: uuid::Uuid,
+    llm_settings: LlmSettings,
+    created_at: chrono::DateTime<chrono::Utc>,
     payload: ChatEventPayload,
 }
 
@@ -63,31 +48,30 @@ impl ChatEvent {
         payload: ChatEventPayload,
     ) -> Self {
         Self {
-            base: ChatEventBase::new(session_id, llm_settings),
+            id: uuid::Uuid::new_v4(),
+            session_id,
+            llm_settings,
+            created_at: chrono::Utc::now(),
             payload,
         }
     }
 
-    pub fn payload(&self) -> &ChatEventPayload {
-        &self.payload
+    pub fn session_id(&self) -> uuid::Uuid {
+        self.session_id
     }
 
-    /// Converts into a `ChatMessage` if this event is a message.
-    pub fn maybe_into_chat_message(self) -> Option<ChatMessage> {
-        if let ChatEventPayload::Message(payload) = self.payload {
-            return Some(ChatMessage {
-                base: self.base,
-                payload,
-            });
-        }
-        None
+    pub fn payload(&self) -> &ChatEventPayload {
+        &self.payload
     }
 }
 
 impl From<ChatMessage> for ChatEvent {
     fn from(value: ChatMessage) -> Self {
         Self {
-            base: value.base,
+            id: value.id,
+            session_id: value.session_id,
+            llm_settings: value.llm_settings,
+            created_at: value.created_at,
             payload: value.payload.into(),
         }
     }
@@ -95,72 +79,124 @@ impl From<ChatMessage> for ChatEvent {
 
 #[derive(Debug, Clone)]
 pub enum ChatEventPayload {
-    Message(MessagePayload),
-    ToolEvent(ToolEventPayload),
+    Message(Message),
+    MessageDelta(MessageDelta),
+    ToolEvent(ToolEvent),
 }
 
 #[derive(Debug, Clone)]
-pub struct MessagePayload {
+pub struct Message {
     pub role: Role,
     pub msg: String,
 }
 
-impl From<MessagePayload> for ChatEventPayload {
-    fn from(value: MessagePayload) -> Self {
+impl From<Message> for ChatEventPayload {
+    fn from(value: Message) -> Self {
         Self::Message(value)
     }
 }
 
-impl From<ToolEventPayload> for ChatEventPayload {
-    fn from(value: ToolEventPayload) -> Self {
+#[derive(Debug, Clone)]
+pub struct MessageDelta {
+    pub delta: String,
+}
+
+impl From<MessageDelta> for ChatEventPayload {
+    fn from(value: MessageDelta) -> Self {
+        Self::MessageDelta(value)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ToolEvent {
+    WebSearchCall {
+        action: serde_json::Value,
+        id: String,
+        status: String,
+    },
+}
+
+impl From<ToolEvent> for ChatEventPayload {
+    fn from(value: ToolEvent) -> Self {
         Self::ToolEvent(value)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ChatMessage {
-    base: ChatEventBase,
-    payload: MessagePayload,
+    id: uuid::Uuid,
+    session_id: uuid::Uuid,
+    llm_settings: LlmSettings,
+    created_at: chrono::DateTime<chrono::Utc>,
+    payload: Message,
 }
 
 impl ChatMessage {
     pub fn new(session_id: uuid::Uuid, llm_settings: LlmSettings, role: Role, msg: String) -> Self {
         Self {
-            base: ChatEventBase::new(session_id, llm_settings),
-            payload: MessagePayload { role, msg },
+            id: uuid::Uuid::new_v4(),
+            session_id,
+            llm_settings,
+            created_at: chrono::Utc::now(),
+            payload: Message { role, msg },
         }
     }
 
     #[cfg(test)]
     pub fn with_created_at(mut self, created_at: DateTime<Utc>) -> Self {
-        self.base.created_at = created_at;
+        self.created_at = created_at;
         self
     }
 
     pub fn session_id(&self) -> uuid::Uuid {
-        self.base.session_id
+        self.session_id
     }
 
     pub fn llm_settings(&self) -> &LlmSettings {
-        &self.base.llm_settings
+        &self.llm_settings
     }
 
     pub fn created_at(&self) -> &DateTime<Utc> {
-        &self.base.created_at
+        &self.created_at
     }
 
-    pub fn payload(&self) -> &MessagePayload {
+    pub fn payload(&self) -> &Message {
         &self.payload
+    }
+
+    pub fn msg_mut(&mut self) -> &mut String {
+        &mut self.payload.msg
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ToolEventPayload {
-    WebSearchCall {
-        action: serde_json::Value,
-        id: String,
-        status: String,
-    },
+impl TryFrom<ChatEvent> for ChatMessage {
+    type Error = eyre::Report;
+    fn try_from(value: ChatEvent) -> Result<Self, Self::Error> {
+        match value.payload {
+            ChatEventPayload::Message(message) => {
+                return Ok(Self {
+                    id: value.id,
+                    session_id: value.session_id,
+                    llm_settings: value.llm_settings,
+                    created_at: value.created_at,
+                    payload: message,
+                });
+            }
+            ChatEventPayload::MessageDelta(message_delta) => {
+                return Ok(Self {
+                    id: value.id,
+                    session_id: value.session_id,
+                    llm_settings: value.llm_settings,
+                    created_at: value.created_at,
+                    payload: Message {
+                        role: Role::Assistant,
+                        msg: message_delta.delta,
+                    },
+                });
+            }
+            _ => return Err(eyre!("Event is not message")),
+        }
+    }
 }
 
 #[derive(Clone)]

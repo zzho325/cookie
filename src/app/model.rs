@@ -84,7 +84,7 @@ mod tests {
 
     use crate::{
         app::model::{Model, focus::Focused, messages::Messages},
-        models::{ChatMessage, Role, SessionSummary},
+        models::{ChatEvent, ChatMessage, Message, Role, SessionSummary},
     };
 
     #[test]
@@ -100,30 +100,27 @@ mod tests {
         let title = "Awesome chat".to_string();
 
         let mut messages = Messages::default();
-        messages.send_question(
-            ChatMessage::new(
-                session_id,
-                llm_settings.clone(),
-                Role::User,
-                "history question".to_string(),
-            ),
-            llm_settings.clone(),
-        );
-        messages.receive_response(ChatMessage::new(
+        messages.send_question(ChatMessage::new(
             session_id,
             llm_settings.clone(),
-            Role::Assistant,
-            "history reponse".to_string(),
+            Role::User,
+            "history question".to_string(),
         ));
-        messages.send_question(
-            ChatMessage::new(
-                session_id,
-                llm_settings.clone(),
-                Role::User,
-                "pending question".to_string(),
-            ),
+        messages.handle_chat_event(ChatEvent::new(
+            session_id,
             llm_settings.clone(),
-        );
+            Message {
+                role: Role::Assistant,
+                msg: "history reponse".to_string(),
+            }
+            .into(),
+        ));
+        messages.send_question(ChatMessage::new(
+            session_id,
+            llm_settings.clone(),
+            Role::User,
+            "pending question".to_string(),
+        ));
         messages.scroll_down();
 
         let mut model = Model::new(crate::models::configs::Configs::default());
