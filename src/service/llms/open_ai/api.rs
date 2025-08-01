@@ -94,12 +94,12 @@ impl From<&ChatEventPayload> for Option<InputItem> {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Tool {
     WebSearchPreview,
-    Function {
-        name: String,
-        description: String,
-        strict: bool,
-        parameters: serde_json::Value,
-    },
+    // Function {
+    //     name: String,
+    //     description: String,
+    //     strict: bool,
+    //     parameters: serde_json::Value,
+    // },
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug, PartialEq)]
@@ -154,11 +154,11 @@ pub enum OutputItem {
         id: String,
         status: String,
     },
-    FunctionCall {
-        name: String,
-        call_id: String,
-        arguments: String,
-    },
+    // FunctionCall {
+    //     name: String,
+    //     call_id: String,
+    //     arguments: String,
+    // },
     #[serde(other)]
     Unimplement,
 }

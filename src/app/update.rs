@@ -5,11 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use crate::{
     app::{
         Command, Message,
-        model::{
-            Model,
-            focus::Focused,
-            setting_manager::{self, SettingManager},
-        },
+        model::{Model, focus::Focused, setting_manager::SettingManager},
     },
     models::{ServiceReq, ServiceResp},
 };

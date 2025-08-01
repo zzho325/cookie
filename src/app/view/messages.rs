@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     app::model::messages::Messages,
-    models::{settings::LlmSettings, ChatEvent, ChatMessage},
+    models::{ChatMessage, settings::LlmSettings},
 };
 
 impl Messages {
@@ -56,7 +56,7 @@ impl Widget for &Messages {
         let mut messages = Text::raw("");
 
         for chunk in self.chat_messages().chunks_exact(2) {
-            let user_message: &ChatMessage= &chunk[0];
+            let user_message: &ChatMessage = &chunk[0];
             let assistant_message: &ChatMessage = &chunk[1];
 
             let prefix = Messages::prefix(

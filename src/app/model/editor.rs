@@ -170,9 +170,7 @@ impl Editor {
     //
     /// Returns current cursor position.
     pub fn cursor_position(&self) -> (u16 /*x*/, u16 /*y*/) {
-        self.scroll_state
-            .cursor_position()
-            .unwrap_or_else(|| (0, 0))
+        self.scroll_state.cursor_position().unwrap_or((0, 0))
     }
 
     pub fn set_viewport_width(&mut self, viewport_width: usize) {

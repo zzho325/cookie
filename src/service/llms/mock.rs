@@ -89,7 +89,7 @@ impl LlmClient for MockLlmClientImpl {
         })
     }
 
-    async fn stream(&self, llm_req: LlmReq) -> Result<BoxStream<'static, ChatEventPayload>> {
+    async fn stream(&self, _: LlmReq) -> Result<BoxStream<'static, ChatEventPayload>> {
         todo!()
     }
 }

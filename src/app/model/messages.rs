@@ -1,6 +1,6 @@
 use crate::{
     app::view::widgets::scroll::ScrollState,
-    models::{ChatEvent, ChatEventPayload, ChatMessage, settings::LlmSettings},
+    models::{ChatEvent, ChatEventPayload, ChatMessage},
 };
 
 #[derive(Default)]

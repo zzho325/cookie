@@ -173,28 +173,24 @@ impl TryFrom<ChatEvent> for ChatMessage {
     type Error = eyre::Report;
     fn try_from(value: ChatEvent) -> Result<Self, Self::Error> {
         match value.payload {
-            ChatEventPayload::Message(message) => {
-                return Ok(Self {
-                    id: value.id,
-                    session_id: value.session_id,
-                    llm_settings: value.llm_settings,
-                    created_at: value.created_at,
-                    payload: message,
-                });
-            }
-            ChatEventPayload::MessageDelta(message_delta) => {
-                return Ok(Self {
-                    id: value.id,
-                    session_id: value.session_id,
-                    llm_settings: value.llm_settings,
-                    created_at: value.created_at,
-                    payload: Message {
-                        role: Role::Assistant,
-                        msg: message_delta.delta,
-                    },
-                });
-            }
-            _ => return Err(eyre!("Event is not message")),
+            ChatEventPayload::Message(message) => Ok(Self {
+                id: value.id,
+                session_id: value.session_id,
+                llm_settings: value.llm_settings,
+                created_at: value.created_at,
+                payload: message,
+            }),
+            ChatEventPayload::MessageDelta(message_delta) => Ok(Self {
+                id: value.id,
+                session_id: value.session_id,
+                llm_settings: value.llm_settings,
+                created_at: value.created_at,
+                payload: Message {
+                    role: Role::Assistant,
+                    msg: message_delta.delta,
+                },
+            }),
+            _ => Err(eyre!("Event is not message")),
         }
     }
 }

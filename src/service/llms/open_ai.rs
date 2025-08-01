@@ -35,7 +35,7 @@ impl LlmClient for OpenAIClientImpl {
                                 msg.push_str(text);
                                 tracing::debug!("{:?}", annotations);
                             }
-                            ContentItem::Refusal { refusal } => {
+                            ContentItem::Refusal { .. } => {
                                 todo!()
                             }
                         }
@@ -57,9 +57,6 @@ impl LlmClient for OpenAIClientImpl {
                         }
                         .into(),
                     );
-                }
-                OutputItem::FunctionCall { .. } => {
-                    todo!()
                 }
                 OutputItem::Unimplement => {
                     tracing::debug!("unimplemented type")

@@ -2,13 +2,12 @@ use std::pin::Pin;
 
 use color_eyre::{
     Result,
-    eyre::{self, Context as _, bail},
+    eyre::{Context as _, bail},
 };
 use futures_util::{Stream, StreamExt, stream::BoxStream};
 use reqwest::header::AUTHORIZATION;
 use reqwest_eventsource::{Event, EventSource};
 use serde::{Serialize, de::DeserializeOwned};
-use serde_json::{Value, from_str, to_string_pretty};
 
 pub async fn post<U: Serialize, T: DeserializeOwned>(
     client: &reqwest::Client,
@@ -69,9 +68,7 @@ where
     tokio::spawn(async move {
         while let Some(event) = event_source.next().await {
             match event {
-                Err(_) => {
-                    event_source.close(); // stream ends
-                }
+                Err(_) => break, // stream ends
                 Ok(Event::Message(msg)) => {
                     // tracing::debug!(msg.data);
                     let parsed = serde_json::from_str::<T>(msg.data.as_str())
@@ -83,7 +80,7 @@ where
                 Ok(Event::Open) => {} // ignore,
             }
         }
-        let _ = event_source.close();
+        event_source.close();
     });
 
     Box::pin(tokio_stream::wrappers::UnboundedReceiverStream::new(rx))
