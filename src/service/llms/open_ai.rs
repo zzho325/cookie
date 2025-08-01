@@ -2,7 +2,10 @@ pub mod api;
 
 use async_trait::async_trait;
 use color_eyre::eyre::{Result, WrapErr};
-use futures_util::{StreamExt, TryStreamExt, stream::BoxStream};
+use futures_util::{
+    StreamExt, TryStreamExt,
+    stream::{self, BoxStream},
+};
 
 use crate::{
     models::{ChatEventPayload, Message, MessageDelta, Role, ToolEvent},
@@ -74,22 +77,48 @@ impl LlmClient for OpenAIClientImpl {
         tracing::debug!(model=req.model.display_name(), input=?req.input);
         let stream = self.stream_responses(req).await?;
         let event_stream = stream
-            .inspect_err(|e| tracing::error!("stream error: {:?}", e))
-            .filter_map(|resp| async move {
-                match resp.ok()? {
+            .filter_map(|res| async move {
+                match res {
+                    Ok(resp) => Some(resp),
+                    Err(e) => {
+                        tracing::error!("stream error: {:?}", e);
+                        None
+                    }
+                }
+            })
+            .flat_map(|resp| {
+                let payloads = match resp {
                     ResponsesStream::OutputTextDelta(d) => {
-                        Some(ChatEventPayload::MessageDelta(MessageDelta {
+                        vec![ChatEventPayload::MessageDelta(MessageDelta {
                             delta: d.delta,
-                        }))
+                        })]
                     }
                     ResponsesStream::OutputTextDone(d) => {
-                        Some(ChatEventPayload::Message(Message {
+                        vec![ChatEventPayload::Message(Message {
                             role: Role::Assistant,
                             msg: d.text,
-                        }))
+                        })]
                     }
-                    _ => None,
-                }
+                    // handle web search call here since streaming does not contain action payload
+                    ResponsesStream::Completed { response } => response
+                        .output
+                        .into_iter()
+                        .filter_map(|output| {
+                            if let OutputItem::WebSearchCall { action, id, status } = output {
+                                Some(ChatEventPayload::ToolEvent(ToolEvent::WebSearchCall {
+                                    action,
+                                    id,
+                                    status,
+                                }))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                tracing::debug!(?payloads);
+                stream::iter(payloads)
             })
             .boxed();
 
