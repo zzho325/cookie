@@ -100,13 +100,13 @@ mod tests {
         let title = "Awesome chat".to_string();
 
         let mut messages = Messages::default();
-        messages.send_question(ChatMessage::new(
+        messages.handle_user_chat_message(ChatMessage::new(
             session_id,
             llm_settings.clone(),
             Role::User,
             "history question".to_string(),
         ));
-        messages.handle_chat_event(ChatEvent::new(
+        messages.handle_chat_event_stream(ChatEvent::new(
             session_id,
             llm_settings.clone(),
             Message {
@@ -115,7 +115,7 @@ mod tests {
             }
             .into(),
         ));
-        messages.send_question(ChatMessage::new(
+        messages.handle_user_chat_message(ChatMessage::new(
             session_id,
             llm_settings.clone(),
             Role::User,
@@ -151,7 +151,7 @@ mod tests {
             "history messages are reset"
         );
         assert!(
-            !model.session.messages.is_pending_resp(),
+            !model.session.messages.is_pending(),
             "pending messages are reset"
         );
         assert_eq!(

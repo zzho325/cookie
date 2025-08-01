@@ -4,7 +4,7 @@ use crate::{
     app::model::{
         editor::{Editor, WrapMode},
         focus::Focusable,
-        messages::Messages,
+        messages::{Messages},
     },
     models::{self, ChatEvent, ChatMessage, SessionSummary, settings::LlmSettings},
 };
@@ -53,6 +53,14 @@ impl Session {
         self.messages = messages;
     }
 
+    pub fn llm_settings(&self) -> &LlmSettings {
+        &self.llm_settings
+    }
+
+    pub fn set_llm_settings(&mut self, llm_settings: LlmSettings) {
+        self.llm_settings = llm_settings;
+    }
+
     /// Clears everything except for editor input with given settings.
     pub fn reset(&mut self, settings: LlmSettings) {
         self.session_id = None;
@@ -69,11 +77,11 @@ impl Session {
     /// If not already pending response, and input editor is not empty, sends user message to
     /// service, create session_id if this is a draft chat, i.e., session_id not populated.
     /// Returns he user message.
-    pub fn handle_send(&mut self) -> Option<ChatMessage> {
-        // only send response if not waiting
+    pub fn handle_sending_user_message(&mut self) -> Option<ChatMessage> {
+        // only send response if no response is pending or in progress
         // TODO: implement timeout for pending resp
-        if self.messages.is_pending_resp() {
-            return None;
+        if self.messages.is_pending() {
+           return None;
         }
         let msg = self.input_editor.input().to_string();
         // early return if input is empty.
@@ -90,7 +98,7 @@ impl Session {
             crate::models::Role::User,
             msg_,
         );
-        self.messages.send_question(user_message.clone());
+        self.messages.handle_user_chat_message(user_message.clone());
         self.input_editor.clear();
         Some(user_message)
     }
@@ -99,7 +107,7 @@ impl Session {
         // assign session with session id
         match self.session_id {
             Some(session_id) if session_id == chat_event.session_id() => {
-                self.messages.handle_chat_event(chat_event);
+                self.messages.handle_chat_event_stream(chat_event);
             }
             _ => {}
         }
@@ -115,20 +123,12 @@ impl Session {
         self.messages.handle_chat_events(session.chat_events);
     }
 
-    // Updates title if `session_summary` is for current session.
+    /// Updates title if `session_summary` is for current session.
     pub fn handle_session_summary(&mut self, session_summary: SessionSummary) {
         if let Some(session_id) = self.session_id {
             if session_id == session_summary.id {
                 self.title = Some(session_summary.title)
             }
         }
-    }
-
-    pub fn llm_settings(&self) -> &LlmSettings {
-        &self.llm_settings
-    }
-
-    pub fn set_llm_settings(&mut self, llm_settings: LlmSettings) {
-        self.llm_settings = llm_settings;
     }
 }

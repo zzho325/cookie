@@ -1,47 +1,19 @@
 use crate::{
     app::view::widgets::scroll::ScrollState,
-    models::{ChatEvent, ChatEventPayload, ChatMessage},
+    models::{ChatEvent, ChatEventPayload, ChatMessage, MessageDelta},
 };
 
 #[derive(Default)]
 pub struct Messages {
     chat_messages: Vec<ChatMessage>,
-    pending: Option<ChatMessage>,
+    stream_message: Option<MessageDelta>,
+    is_pending: bool,
     scroll_state: ScrollState,
 }
 
 impl Messages {
-    /// Handle chat events from server.
-    pub fn handle_chat_event(&mut self, chat_event: ChatEvent) {
-        if let Some(user_message) = self.pending.take() {
-            self.chat_messages.push(user_message);
-            if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
-                self.chat_messages.push(msg);
-            }
-            self.pending = None;
-        } else {
-            match chat_event.payload() {
-                ChatEventPayload::Message(p) => {
-                    if let Some(message) = self.chat_messages.last_mut() {
-                        *message.msg_mut() = p.msg.to_string();
-                    }
-                }
-                ChatEventPayload::MessageDelta(p) => {
-                    if let Some(message) = self.chat_messages.last_mut() {
-                        message.msg_mut().push_str(&p.delta);
-                    }
-                }
-                ChatEventPayload::ToolEvent(_) => {}
-            }
-        }
-    }
-
-    pub fn send_question(&mut self, user_chat_message: ChatMessage) {
-        self.pending = Some(user_chat_message);
-    }
-
-    pub fn is_pending_resp(&self) -> bool {
-        self.pending.is_some()
+    pub fn is_pending(&self) -> bool {
+        self.is_pending
     }
 
     pub fn chat_messages(&self) -> &[ChatMessage] {
@@ -52,22 +24,13 @@ impl Messages {
         self.chat_messages = chat_messages;
     }
 
-    pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
-        self.chat_messages = chat_events
-            .into_iter()
-            .filter_map(|event| event.try_into().ok())
-            .collect();
+    pub fn stream_message(&self) -> Option<&MessageDelta> {
+        self.stream_message.as_ref()
     }
 
-    pub fn pending(&self) -> Option<&ChatMessage> {
-        self.pending.as_ref()
-    }
-
-    pub fn reset(&mut self) {
-        self.chat_messages.clear();
-        self.pending = None;
-        self.scroll_state.reset();
-    }
+    // ----------------------------------------------------------------
+    // Scroll.
+    // ----------------------------------------------------------------
 
     pub fn scroll_down(&mut self) {
         self.scroll_state.scroll_down();
@@ -79,5 +42,62 @@ impl Messages {
 
     pub fn scroll_state(&self) -> &ScrollState {
         &self.scroll_state
+    }
+
+    // ----------------------------------------------------------------
+    // Event handling.
+    // ----------------------------------------------------------------
+
+    /// Resets to default on nagivating.
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Handles sending user chat message.
+    pub fn handle_user_chat_message(&mut self, user_chat_message: ChatMessage) {
+        self.chat_messages.push(user_chat_message);
+        self.is_pending = true;
+    }
+
+    /// Handles chat events streamed from streaming API.
+    pub fn handle_chat_event_stream(&mut self, chat_event: ChatEvent) {
+        if self.is_pending() {
+            // if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
+            //     self.delta
+            // }
+            // self.chat_state = ChatState::InProgress;
+            // }
+            // ChatState::InProgress =>
+            match chat_event.payload() {
+                ChatEventPayload::Message(_) => {
+                    if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
+                        self.chat_messages.push(msg);
+                    }
+                    // mark state as complete on getting full text.
+                    self.stream_message = None;
+                    self.is_pending = false;
+                }
+                ChatEventPayload::MessageDelta(message_delta) => {
+                    if let Some(stream_message) = &mut self.stream_message {
+                        stream_message.delta_mut().push_str(&message_delta.delta);
+                    } else {
+                        self.stream_message = Some(MessageDelta {
+                            delta: message_delta.delta.clone(),
+                        });
+                    }
+                }
+                ChatEventPayload::ToolEvent(_) => {}
+            }
+        } else {
+            tracing::error!("receiving orphan response")
+        }
+    }
+
+    /// Handle chat events loaded from storage.
+    pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
+        self.chat_messages = chat_events
+            .into_iter()
+            .filter_map(|event| event.try_into().ok())
+            .collect();
     }
 }

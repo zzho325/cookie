@@ -101,6 +101,12 @@ pub struct MessageDelta {
     pub delta: String,
 }
 
+impl MessageDelta {
+    pub fn delta_mut(&mut self) -> &mut String {
+        &mut self.delta
+    }
+}
+
 impl From<MessageDelta> for ChatEventPayload {
     fn from(value: MessageDelta) -> Self {
         Self::MessageDelta(value)
@@ -163,10 +169,6 @@ impl ChatMessage {
     pub fn payload(&self) -> &Message {
         &self.payload
     }
-
-    pub fn msg_mut(&mut self) -> &mut String {
-        &mut self.payload.msg
-    }
 }
 
 impl TryFrom<ChatEvent> for ChatMessage {
@@ -179,16 +181,6 @@ impl TryFrom<ChatEvent> for ChatMessage {
                 llm_settings: value.llm_settings,
                 created_at: value.created_at,
                 payload: message,
-            }),
-            ChatEventPayload::MessageDelta(message_delta) => Ok(Self {
-                id: value.id,
-                session_id: value.session_id,
-                llm_settings: value.llm_settings,
-                created_at: value.created_at,
-                payload: Message {
-                    role: Role::Assistant,
-                    msg: message_delta.delta,
-                },
             }),
             _ => Err(eyre!("Event is not message")),
         }

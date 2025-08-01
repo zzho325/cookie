@@ -15,19 +15,11 @@ use crate::{
 impl Messages {
     /// Generate prefix spans from message metadata.
     // TODO: handle narrow width, clean up spans and add unit test
-    fn prefix(
-        settings: &LlmSettings,
-        created_at: Option<(DateTime<Utc>, DateTime<Utc>)>,
-    ) -> Vec<Vec<Span>> {
+    fn prefix(settings: &LlmSettings, elapsed_secs: Option<i64>) -> Vec<Vec<Span>> {
         let provider = settings.provider_name();
         let model = settings.model_name();
         // compute elapsed seconds
-        let elapsed = if let Some((req_at, resp_at)) = created_at {
-            let elapsed_secs = (resp_at - req_at).num_seconds();
-            format!("{}s", elapsed_secs)
-        } else {
-            "-".to_string()
-        };
+        let elapsed = elapsed_secs.map_or_else(|| "-".to_string(), |s| format!("{s}s"));
 
         vec![
             vec![
@@ -52,48 +44,42 @@ impl Messages {
 impl Widget for &Messages {
     /// Renders history messages pane.
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // history messages
         let mut messages = Text::raw("");
 
-        for chunk in self.chat_messages().chunks_exact(2) {
-            let user_message: &ChatMessage = &chunk[0];
-            let assistant_message: &ChatMessage = &chunk[1];
-
-            let prefix = Messages::prefix(
-                user_message.llm_settings(),
-                Some((*user_message.created_at(), *assistant_message.created_at())),
-            );
-            let lines = prefix
-                .iter()
-                .enumerate()
-                .map(|(i, base)| {
-                    let mut spans = base.clone();
-                    if i == 1 {
-                        spans.push(Span::raw(user_message.payload().msg.clone()));
-                    }
-                    Line::from(spans)
-                })
-                .collect::<Vec<_>>();
-            messages.extend(Text::from(lines));
-
-            // llm response
-            messages.extend(tui_markdown::from_str(&assistant_message.payload().msg));
-            messages.extend(Text::from(""));
+        // history messages
+        let mut iter = self.chat_messages().iter().peekable();
+        while let Some(chat_message) = iter.next() {
+            match chat_message.payload().role {
+                crate::models::Role::User => {
+                    // calculate elapsed duration if next message is from assistant
+                    let start = *chat_message.created_at();
+                    let elapsed_secs = iter
+                        .peek()
+                        .map(|next| (*next.created_at() - start).num_seconds());
+                    let prefix = Messages::prefix(chat_message.llm_settings(), elapsed_secs);
+                    let lines = prefix
+                        .iter()
+                        .enumerate()
+                        .map(|(i, base)| {
+                            let mut spans = base.clone();
+                            if i == 1 {
+                                spans.push(Span::raw(chat_message.payload().msg.clone()));
+                            }
+                            Line::from(spans)
+                        })
+                        .collect::<Vec<_>>();
+                    messages.extend(Text::from(lines));
+                }
+                crate::models::Role::Assistant => {
+                    messages.extend(tui_markdown::from_str(&chat_message.payload().msg));
+                    messages.extend(Text::from(""));
+                }
+            }
         }
-        if let Some(user_message) = self.pending() {
-            let prefix = Messages::prefix(user_message.llm_settings(), None);
-            let lines = prefix
-                .iter()
-                .enumerate()
-                .map(|(i, base)| {
-                    let mut spans = base.clone();
-                    if i == 1 {
-                        spans.push(Span::raw(user_message.payload().msg.clone()));
-                    }
-                    Line::from(spans)
-                })
-                .collect::<Vec<_>>();
-            messages.extend(Text::from(lines));
+
+        // stream in progress
+        if let Some(stream_message) = self.stream_message() {
+            messages.extend(tui_markdown::from_str(&stream_message.delta));
         }
 
         Paragraph::new(messages)

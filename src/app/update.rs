@@ -22,7 +22,7 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         }
         // TODO: add a unit test for sending message and create session.
         Message::Send => {
-            if let Some(user_message) = model.session.handle_send() {
+            if let Some(user_message) = model.session.handle_sending_user_message() {
                 model.selected_session_id = Some(user_message.session_id());
                 return (
                     None,
