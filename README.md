@@ -63,7 +63,7 @@ cargo build --release
     * [ ] Support other web search provider.
   * [x] Model selection.
   * [ ] Other LLM providers and provider selection.
-  * [ ] Streaming.
+  * [x] Streaming.
   * [ ] Track token usage.
 * Session Management: 
   * [x] Sessions.
