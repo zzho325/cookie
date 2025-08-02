@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -8,8 +7,8 @@ use ratatui::{
 };
 
 use crate::{
-    app::model::messages::Messages,
-    models::{ChatMessage, settings::LlmSettings},
+    app::model::{markdown, messages::Messages},
+    models::settings::LlmSettings,
 };
 
 impl Messages {
@@ -71,7 +70,7 @@ impl Widget for &Messages {
                     messages.extend(Text::from(lines));
                 }
                 crate::models::Role::Assistant => {
-                    messages.extend(tui_markdown::from_str(&chat_message.payload().msg));
+                    messages.extend(markdown::from_str(&chat_message.payload().msg));
                     messages.extend(Text::from(""));
                 }
             }
@@ -79,7 +78,7 @@ impl Widget for &Messages {
 
         // stream in progress
         if let Some(stream_message) = self.stream_message() {
-            messages.extend(tui_markdown::from_str(&stream_message.delta));
+            messages.extend(markdown::from_str(&stream_message.delta));
         }
 
         Paragraph::new(messages)

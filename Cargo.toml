@@ -21,13 +21,19 @@ tracing-appender = "0.2.3"
 textwrap = {git = "https://github.com/mgeisler/textwrap", rev = "77a634f72506cc8ec26b499949a500fd6a9d5cdc"}
 unicode-width = "0.2.0"
 unicode-segmentation = "1.12.0"
-tui-markdown = "0.3.5"
 dirs = "6.0.0"
 toml = "0.9.2"
 chrono = { version = "0.4.41", features = ["serde"]}
 uuid = { version = "1", features = ["v4"] }
 reqwest-eventsource = "0.6.0"
 tokio-stream = "0.1.17"
+ansi-to-tui = "7.0.0"
+itertools = "0.14.0"
+pulldown-cmark = "0.13.0"
+syntect =  "5.2.0"
 
 [dev-dependencies]
+pretty_assertions = "1.4.1"
+rstest = "0.26.1"
 insta = "1.43.1"
+indoc = "2.0.6"
