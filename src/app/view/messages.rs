@@ -70,7 +70,9 @@ impl Widget for &Messages {
                     messages.extend(Text::from(lines));
                 }
                 crate::models::Role::Assistant => {
-                    messages.extend(markdown::from_str(&chat_message.payload().msg));
+                    let styled_lines = markdown::from_str(&chat_message.payload().msg);
+                    let lines: Vec<Line> = styled_lines.into_iter().map(Line::from).collect();
+                    messages.extend(lines);
                     messages.extend(Text::from(""));
                 }
             }
@@ -78,7 +80,10 @@ impl Widget for &Messages {
 
         // stream in progress
         if let Some(stream_message) = self.stream_message() {
-            messages.extend(markdown::from_str(&stream_message.delta));
+            let styled_lines = markdown::from_str(&stream_message.delta);
+            let lines: Vec<Line> = styled_lines.into_iter().map(Line::from).collect();
+            messages.extend(lines);
+            messages.extend(Text::from(""));
         }
 
         Paragraph::new(messages)

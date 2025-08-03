@@ -16,21 +16,116 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
-pub fn from_str(input: &str) -> Text {
+pub fn from_str(input: &str) -> Vec<StyledLine> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     let parser = Parser::new_ext(input, options);
     let mut writer = TextWriter::new(parser);
     writer.run();
-    writer.text
+    writer.lines
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StyleSlice {
+    byte_offset: usize,
+    len: usize,
+    /// A Ratatui `Style`.
+    style: Style,
+}
+
+impl StyleSlice {
+    fn new(byte_offset: usize, len: usize, style: Style) -> Self {
+        Self {
+            byte_offset,
+            len,
+            style,
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct StyledLine {
+    /// The literal text to render.
+    content: String,
+
+    /// A Ratatui `Style` applied to the whole line.
+    style: Style,
+
+    /// Style slices in current line.
+    style_slices: Vec<StyleSlice>,
+}
+
+impl From<String> for StyledLine {
+    fn from(value: String) -> Self {
+        let style_slice = StyleSlice::new(0, value.len(), Style::default());
+        Self {
+            content: value,
+            style: Style::default(),
+            style_slices: vec![style_slice],
+        }
+    }
+}
+
+impl StyledLine {
+    fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+
+    pub fn style_slices_mut(&mut self) -> &mut Vec<StyleSlice> {
+        &mut self.style_slices
+    }
+
+    /// Appends content to line.
+    fn append(&mut self, content: impl Into<String>, style: Style) {
+        let content: String = content.into();
+        let byte_offset = self.content.len();
+        let style_slice = StyleSlice::new(byte_offset, content.len(), style);
+        self.content += &content;
+        self.style_slices.push(style_slice);
+    }
+
+    /// Inserts prefix span to line.
+    fn insert_prefix(&mut self, prefix: Span) {
+        let len = prefix.content.len();
+        self.content.insert_str(0, &prefix.content);
+        for span in &mut self.style_slices {
+            span.byte_offset += len;
+        }
+        self.style_slices
+            .insert(0, StyleSlice::new(0, len, prefix.style));
+    }
+
+    fn patch_style(&mut self, style: Style) {
+        self.style = self.style.patch(style)
+    }
+}
+
+impl From<StyledLine> for Line<'_> {
+    fn from(line: StyledLine) -> Self {
+        let spans: Vec<Span> = line
+            .style_slices
+            .iter()
+            .map(|s| {
+                let content: String = line.content[s.byte_offset..s.byte_offset + s.len].into();
+                Span::from(content).style(s.style)
+            })
+            .collect();
+        let tui_line = Line::from(spans);
+        tui_line.patch_style(line.style)
+    }
 }
 
 struct TextWriter<'a, I> {
     /// Iterator supplying events.
     iter: I,
 
-    /// Text to write to.
-    text: Text<'a>,
+    /// Styled lines.
+    lines: Vec<StyledLine>,
 
     /// Current style.
     ///
@@ -65,7 +160,7 @@ where
     fn new(iter: I) -> Self {
         Self {
             iter,
-            text: Text::default(),
+            lines: vec![],
             inline_styles: vec![],
             line_styles: vec![],
             line_prefixes: vec![],
@@ -88,6 +183,7 @@ where
             Event::Start(tag) => self.start_tag(tag),
             Event::End(tag) => self.end_tag(tag),
             Event::Text(text) => self.text(text),
+            // TODO: should add a signal to avoid wrapping code
             Event::Code(code) => self.code(code),
             Event::Html(_html) => warn!("Html not yet supported"),
             Event::InlineHtml(_html) => warn!("Inline html not yet supported"),
@@ -160,9 +256,9 @@ where
     fn start_paragraph(&mut self) {
         // Insert an empty line between paragraphs if there is at least one line of text already.
         if self.needs_newline {
-            self.push_line(Line::default());
+            self.push_line(StyledLine::default());
         }
-        self.push_line(Line::default());
+        self.push_line(StyledLine::default());
         self.needs_newline = false;
     }
 
@@ -172,7 +268,7 @@ where
 
     fn start_heading(&mut self, level: HeadingLevel) {
         if self.needs_newline {
-            self.push_line(Line::default());
+            self.push_line(StyledLine::default());
         }
         let style = match level {
             HeadingLevel::H1 => styles::H1,
@@ -183,7 +279,7 @@ where
             HeadingLevel::H6 => styles::H6,
         };
         let content = format!("{} ", "#".repeat(level as usize));
-        self.push_line(Line::styled(content, style));
+        self.push_line(StyledLine::from(content).with_style(style));
         self.needs_newline = false;
     }
 
@@ -193,7 +289,7 @@ where
 
     fn start_blockquote(&mut self, _kind: Option<BlockQuoteKind>) {
         if self.needs_newline {
-            self.push_line(Line::default());
+            self.push_line(StyledLine::default());
             self.needs_newline = false;
         }
         self.line_prefixes.push(Span::from(">"));
@@ -208,49 +304,51 @@ where
 
     fn text(&mut self, text: CowStr<'a>) {
         if let Some(highlighter) = &mut self.code_highlighter {
-            let text: Text = LinesWithEndings::from(&text)
+            let tui_text: Text = LinesWithEndings::from(&text)
                 .filter_map(|line| highlighter.highlight_line(line, &SYNTAX_SET).ok())
                 .filter_map(|part| as_24_bit_terminal_escaped(&part, false).into_text().ok())
                 .flatten()
                 .collect();
 
-            for line in text.lines {
-                self.text.push_line(line);
+            // construct tui texts from ansi_to_tui to styled lines
+            for tui_line in tui_text.lines {
+                let mut styled_line = StyledLine::from("".to_string()).with_style(tui_line.style);
+                for span in tui_line {
+                    styled_line.append(span.content, span.style);
+                }
+                self.lines.push(styled_line);
             }
             self.needs_newline = false;
             return;
         }
 
+        // TODO: figure out will there be new line in text?
         for (position, line) in text.lines().with_position() {
             if self.needs_newline {
-                self.push_line(Line::default());
+                self.push_line(StyledLine::default());
                 self.needs_newline = false;
             }
             if matches!(position, Position::Middle | Position::Last) {
-                self.push_line(Line::default());
+                self.push_line(StyledLine::default());
             }
 
             let style = self.inline_styles.last().copied().unwrap_or_default();
-
-            let span = Span::styled(line.to_owned(), style);
-
-            self.push_span(span);
+            self.append(line.to_owned(), style);
         }
         self.needs_newline = false;
     }
 
     fn code(&mut self, code: CowStr<'a>) {
-        let span = Span::styled(code, styles::CODE);
-        self.push_span(span);
+        self.append(code, styles::CODE);
     }
 
     fn hard_break(&mut self) {
-        self.push_line(Line::default());
+        self.push_line(StyledLine::default());
     }
 
     fn start_list(&mut self, index: Option<u64>) {
         if self.list_indices.is_empty() && self.needs_newline {
-            self.push_line(Line::default());
+            self.push_line(StyledLine::default());
         }
         self.list_indices.push(index);
     }
@@ -261,28 +359,29 @@ where
     }
 
     fn start_item(&mut self) {
-        self.push_line(Line::default());
+        self.push_line(StyledLine::default());
         let width = self.list_indices.len() * 4 - 3;
         if let Some(last_index) = self.list_indices.last_mut() {
-            let span = match last_index {
-                None => Span::from(" ".repeat(width - 1) + "- "),
+            match last_index {
+                None => self.append(" ".repeat(width - 1) + "- ", Style::default()),
                 Some(index) => {
                     *index += 1;
-                    format!("{:width$}. ", *index - 1).light_blue()
+                    let content = format!("{:width$}. ", *index - 1);
+                    let style = Style::new().light_blue();
+                    self.append(content, style);
                 }
             };
-            self.push_span(span);
         }
         self.needs_newline = false;
     }
 
     fn soft_break(&mut self) {
-        self.push_line(Line::default());
+        self.push_line(StyledLine::default());
     }
 
     fn start_codeblock(&mut self, kind: CodeBlockKind<'_>) {
-        if !self.text.lines.is_empty() {
-            self.push_line(Line::default());
+        if !self.lines.is_empty() {
+            self.push_line(StyledLine::default());
         }
         let lang = match kind {
             CodeBlockKind::Fenced(ref lang) => lang.as_ref(),
@@ -291,14 +390,12 @@ where
 
         self.set_code_highlighter(lang);
 
-        let span = Span::from(format!("```{lang}"));
-        self.push_line(span.into());
+        self.push_line(format!("```{lang}").into());
         self.needs_newline = true;
     }
 
     fn end_codeblock(&mut self) {
-        let span = Span::from("```");
-        self.push_line(span.into());
+        self.push_line("```".to_string().into());
         self.needs_newline = true;
 
         self.clear_code_highlighter();
@@ -326,39 +423,11 @@ where
         let current_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = current_style.patch(style);
         self.inline_styles.push(style);
-        debug!("Pushed inline style: {:?}", style);
-        debug!("Current inline styles: {:?}", self.inline_styles);
     }
 
     #[instrument(level = "trace", skip(self))]
     fn pop_inline_style(&mut self) {
         self.inline_styles.pop();
-    }
-
-    #[instrument(level = "trace", skip(self))]
-    fn push_line(&mut self, line: Line<'a>) {
-        let style = self.line_styles.last().copied().unwrap_or_default();
-        let mut line = line.patch_style(style);
-
-        // Add line prefixes to the start of the line.
-        let line_prefixes = self.line_prefixes.iter().cloned().collect_vec();
-        let has_prefixes = !line_prefixes.is_empty();
-        if has_prefixes {
-            line.spans.insert(0, " ".into());
-        }
-        for prefix in line_prefixes.iter().rev().cloned() {
-            line.spans.insert(0, prefix);
-        }
-        self.text.lines.push(line);
-    }
-
-    #[instrument(level = "trace", skip(self))]
-    fn push_span(&mut self, span: Span<'a>) {
-        if let Some(line) = self.text.lines.last_mut() {
-            line.push_span(span);
-        } else {
-            self.push_line(Line::from(vec![span]));
-        }
     }
 
     /// Store the link to be appended to the link text
@@ -371,9 +440,36 @@ where
     #[instrument(level = "trace", skip(self))]
     fn pop_link(&mut self) {
         if let Some(link) = self.link.take() {
-            self.push_span(" (".into());
-            self.push_span(Span::styled(link, styles::LINK));
-            self.push_span(")".into());
+            self.append(" (", Style::default());
+            self.append(link, styles::LINK);
+            self.append(")", Style::default());
+        }
+    }
+
+    #[instrument(level = "trace", skip(self))]
+    fn push_line(&mut self, mut line: StyledLine) {
+        let style = self.line_styles.last().copied().unwrap_or_default();
+        line.patch_style(style);
+
+        // insert line prefixes
+        let line_prefixes = self.line_prefixes.iter().cloned().collect_vec();
+        let has_prefixes = !line_prefixes.is_empty();
+        if has_prefixes {
+            line.insert_prefix(" ".into());
+        }
+        for prefix in line_prefixes.iter().rev().cloned() {
+            line.insert_prefix(prefix);
+        }
+        self.lines.push(line);
+    }
+
+    fn append(&mut self, content: impl Into<String>, style: Style) {
+        let content: String = content.into();
+        if let Some(line) = self.lines.last_mut() {
+            line.append(content, style);
+        } else {
+            self.push_line(StyledLine::default());
+            self.append(content, style);
         }
     }
 }
@@ -431,48 +527,62 @@ mod tests {
 
     #[rstest]
     fn empty(_with_tracing: DefaultGuard) {
-        assert_eq!(from_str(""), Text::default());
+        let lines: Vec<Line> = from_str("").into_iter().map(Line::from).collect();
+        assert_eq!(Text::from(lines), Text::default());
     }
 
     #[rstest]
     fn paragraph_single(_with_tracing: DefaultGuard) {
-        assert_eq!(from_str("Hello, world!"), Text::from("Hello, world!"));
+        let lines: Vec<Line> = from_str("Hello, world!")
+            .into_iter()
+            .map(Line::from)
+            .collect();
+        assert_eq!(Text::from(lines), Text::from("Hello, world!"));
     }
 
     #[rstest]
     fn paragraph_soft_break(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 Hello
                 World
-            "}),
-            Text::from_iter(["Hello", "World"])
-        );
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(Text::from(lines), Text::from_iter(["Hello", "World"]));
     }
 
     #[rstest]
     fn paragraph_multiple(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 Paragraph 1
-                
+
                 Paragraph 2
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter(["Paragraph 1", "", "Paragraph 2",])
         );
     }
 
     #[rstest]
     fn headings(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 # Heading 1
                 ## Heading 2
                 ### Heading 3
                 #### Heading 4
                 ##### Heading 5
                 ###### Heading 6
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter(["# ", "Heading 1"]).style(styles::H1),
                 Line::default(),
@@ -493,12 +603,16 @@ mod tests {
     /// test is to help debug and ensure that.
     #[rstest]
     fn blockquote_after_paragraph(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 Hello, world!
 
                 > Blockquote
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from("Hello, world!"),
                 Line::default(),
@@ -508,19 +622,28 @@ mod tests {
     }
     #[rstest]
     fn blockquote_single(_with_tracing: DefaultGuard) {
+        let lines: Vec<Line> = from_str("> Blockquote")
+            .into_iter()
+            .map(Line::from)
+            .collect();
         assert_eq!(
-            from_str("> Blockquote"),
+            Text::from(lines),
             Text::from(Line::from_iter([">", " ", "Blockquote"]).style(styles::BLOCKQUOTE))
         );
     }
 
     #[rstest]
     fn blockquote_soft_break(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 > Blockquote 1
                 > Blockquote 2
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
                 Line::from_iter([">", " ", "Blockquote 2"]).style(styles::BLOCKQUOTE),
@@ -530,12 +653,17 @@ mod tests {
 
     #[rstest]
     fn blockquote_multiple(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 > Blockquote 1
                 >
                 > Blockquote 2
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
                 Line::from_iter([">", " "]).style(styles::BLOCKQUOTE),
@@ -546,12 +674,17 @@ mod tests {
 
     #[rstest]
     fn blockquote_multiple_with_break(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 > Blockquote 1
 
                 > Blockquote 2
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
                 Line::default(),
@@ -562,11 +695,16 @@ mod tests {
 
     #[rstest]
     fn blockquote_nested(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 > Blockquote 1
                 >> Nested Blockquote
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter([">", " ", "Blockquote 1"]).style(styles::BLOCKQUOTE),
                 Line::from_iter([">", " "]).style(styles::BLOCKQUOTE),
@@ -577,21 +715,30 @@ mod tests {
 
     #[rstest]
     fn list_single(_with_tracing: DefaultGuard) {
+        let lines: Vec<Line> = from_str(indoc! {"
+            - List item 1
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+
         assert_eq!(
-            from_str(indoc! {"
-                - List item 1
-            "}),
+            Text::from(lines),
             Text::from_iter([Line::from_iter(["- ", "List item 1"])])
         );
     }
 
     #[rstest]
     fn list_multiple(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 - List item 1
                 - List item 2
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter(["- ", "List item 1"]),
                 Line::from_iter(["- ", "List item 2"]),
@@ -601,11 +748,15 @@ mod tests {
 
     #[rstest]
     fn list_ordered(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 1. List item 1
                 2. List item 2
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter(["1. ".light_blue(), "List item 1".into()]),
                 Line::from_iter(["2. ".light_blue(), "List item 2".into()]),
@@ -615,11 +766,15 @@ mod tests {
 
     #[rstest]
     fn list_nested(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str(indoc! {"
+        let lines: Vec<Line> = from_str(indoc! {"
                 - List item 1
                   - Nested list item 1
-            "}),
+            "})
+        .into_iter()
+        .map(Line::from)
+        .collect();
+        assert_eq!(
+            Text::from(lines),
             Text::from_iter([
                 Line::from_iter(["- ", "List item 1"]),
                 Line::from_iter(["    - ", "Nested list item 1"]),
@@ -629,32 +784,41 @@ mod tests {
 
     #[rstest]
     fn strong(_with_tracing: DefaultGuard) {
-        assert_eq!(
-            from_str("**Strong**"),
-            Text::from(Line::from("Strong".bold()))
-        );
+        let lines: Vec<Line> = from_str("**Strong**").into_iter().map(Line::from).collect();
+        assert_eq!(Text::from(lines), Text::from(Line::from("Strong".bold())));
     }
 
     #[rstest]
     fn emphasis(_with_tracing: DefaultGuard) {
+        let lines: Vec<Line> = from_str("*Emphasis*").into_iter().map(Line::from).collect();
         assert_eq!(
-            from_str("*Emphasis*"),
+            Text::from(lines),
             Text::from(Line::from("Emphasis".italic()))
         );
     }
 
     #[rstest]
     fn strikethrough(_with_tracing: DefaultGuard) {
+        let lines: Vec<Line> = from_str("~~Strikethrough~~")
+            .into_iter()
+            .map(Line::from)
+            .collect();
+
         assert_eq!(
-            from_str("~~Strikethrough~~"),
+            Text::from(lines),
             Text::from(Line::from("Strikethrough".crossed_out()))
         );
     }
 
     #[rstest]
     fn strong_emphasis(_with_tracing: DefaultGuard) {
+        let lines: Vec<Line> = from_str("**Strong *emphasis***")
+            .into_iter()
+            .map(Line::from)
+            .collect();
+
         assert_eq!(
-            from_str("**Strong *emphasis***"),
+            Text::from(lines),
             Text::from(Line::from_iter([
                 "Strong ".bold(),
                 "emphasis".bold().italic()
@@ -664,8 +828,12 @@ mod tests {
 
     #[rstest]
     fn link(_with_tracing: DefaultGuard) {
+        let lines: Vec<Line> = from_str("[Link](https://example.com)")
+            .into_iter()
+            .map(Line::from)
+            .collect();
         assert_eq!(
-            from_str("[Link](https://example.com)"),
+            Text::from(lines),
             Text::from(Line::from_iter([
                 Span::from("Link"),
                 Span::from(" ("),
