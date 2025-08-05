@@ -1,6 +1,5 @@
 pub mod editor;
 pub mod focus;
-pub mod markdown;
 pub mod messages;
 pub mod session;
 pub mod session_manager;

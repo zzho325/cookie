@@ -7,7 +7,7 @@ use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
 use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span, Text};
+use ratatui::text::{Span, Text};
 use syntect::{
     easy::HighlightLines,
     highlighting::ThemeSet,
@@ -16,6 +16,8 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
+use crate::app::view::messages_viewport::StyledLine;
+
 pub fn from_str(input: &str) -> Vec<StyledLine> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
@@ -23,101 +25,6 @@ pub fn from_str(input: &str) -> Vec<StyledLine> {
     let mut writer = TextWriter::new(parser);
     writer.run();
     writer.lines
-}
-
-#[derive(Debug, PartialEq)]
-pub struct StyleSlice {
-    byte_offset: usize,
-    len: usize,
-    /// A Ratatui `Style`.
-    style: Style,
-}
-
-impl StyleSlice {
-    fn new(byte_offset: usize, len: usize, style: Style) -> Self {
-        Self {
-            byte_offset,
-            len,
-            style,
-        }
-    }
-}
-
-#[derive(Debug, Default, PartialEq)]
-pub struct StyledLine {
-    /// The literal text to render.
-    content: String,
-
-    /// A Ratatui `Style` applied to the whole line.
-    style: Style,
-
-    /// Style slices in current line.
-    style_slices: Vec<StyleSlice>,
-}
-
-impl From<String> for StyledLine {
-    fn from(value: String) -> Self {
-        let style_slice = StyleSlice::new(0, value.len(), Style::default());
-        Self {
-            content: value,
-            style: Style::default(),
-            style_slices: vec![style_slice],
-        }
-    }
-}
-
-impl StyledLine {
-    fn with_style(mut self, style: Style) -> Self {
-        self.style = style;
-        self
-    }
-
-    pub fn content(&self) -> &str {
-        &self.content
-    }
-
-    pub fn style_slices_mut(&mut self) -> &mut Vec<StyleSlice> {
-        &mut self.style_slices
-    }
-
-    /// Appends content to line.
-    fn append(&mut self, content: impl Into<String>, style: Style) {
-        let content: String = content.into();
-        let byte_offset = self.content.len();
-        let style_slice = StyleSlice::new(byte_offset, content.len(), style);
-        self.content += &content;
-        self.style_slices.push(style_slice);
-    }
-
-    /// Inserts prefix span to line.
-    fn insert_prefix(&mut self, prefix: Span) {
-        let len = prefix.content.len();
-        self.content.insert_str(0, &prefix.content);
-        for span in &mut self.style_slices {
-            span.byte_offset += len;
-        }
-        self.style_slices
-            .insert(0, StyleSlice::new(0, len, prefix.style));
-    }
-
-    fn patch_style(&mut self, style: Style) {
-        self.style = self.style.patch(style)
-    }
-}
-
-impl From<StyledLine> for Line<'_> {
-    fn from(line: StyledLine) -> Self {
-        let spans: Vec<Span> = line
-            .style_slices
-            .iter()
-            .map(|s| {
-                let content: String = line.content[s.byte_offset..s.byte_offset + s.len].into();
-                Span::from(content).style(s.style)
-            })
-            .collect();
-        let tui_line = Line::from(spans);
-        tui_line.patch_style(line.style)
-    }
 }
 
 struct TextWriter<'a, I> {
@@ -506,6 +413,7 @@ mod styles {
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
+    use ratatui::text::Line;
     use rstest::{fixture, rstest};
     use tracing::level_filters::LevelFilter;
     use tracing::subscriber::{self, DefaultGuard};
@@ -527,7 +435,7 @@ mod tests {
 
     #[rstest]
     fn empty(_with_tracing: DefaultGuard) {
-        let lines: Vec<Line> = from_str("").into_iter().map(Line::from).collect();
+        let lines: Vec<Line> = from_str("").into_iter().map(|l| Line::from(&l)).collect();
         assert_eq!(Text::from(lines), Text::default());
     }
 
@@ -535,7 +443,7 @@ mod tests {
     fn paragraph_single(_with_tracing: DefaultGuard) {
         let lines: Vec<Line> = from_str("Hello, world!")
             .into_iter()
-            .map(Line::from)
+            .map(|l| Line::from(&l))
             .collect();
         assert_eq!(Text::from(lines), Text::from("Hello, world!"));
     }
@@ -547,7 +455,7 @@ mod tests {
                 World
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(Text::from(lines), Text::from_iter(["Hello", "World"]));
     }
@@ -560,7 +468,7 @@ mod tests {
                 Paragraph 2
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(
             Text::from(lines),
@@ -579,7 +487,7 @@ mod tests {
                 ###### Heading 6
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(
             Text::from(lines),
@@ -609,7 +517,7 @@ mod tests {
                 > Blockquote
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(
             Text::from(lines),
@@ -624,7 +532,7 @@ mod tests {
     fn blockquote_single(_with_tracing: DefaultGuard) {
         let lines: Vec<Line> = from_str("> Blockquote")
             .into_iter()
-            .map(Line::from)
+            .map(|l| Line::from(&l))
             .collect();
         assert_eq!(
             Text::from(lines),
@@ -639,7 +547,7 @@ mod tests {
                 > Blockquote 2
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
 
         assert_eq!(
@@ -659,7 +567,7 @@ mod tests {
                 > Blockquote 2
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
 
         assert_eq!(
@@ -680,7 +588,7 @@ mod tests {
                 > Blockquote 2
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
 
         assert_eq!(
@@ -700,7 +608,7 @@ mod tests {
                 >> Nested Blockquote
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
 
         assert_eq!(
@@ -719,7 +627,7 @@ mod tests {
             - List item 1
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
 
         assert_eq!(
@@ -735,7 +643,7 @@ mod tests {
                 - List item 2
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(
             Text::from(lines),
@@ -753,7 +661,7 @@ mod tests {
                 2. List item 2
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(
             Text::from(lines),
@@ -771,7 +679,7 @@ mod tests {
                   - Nested list item 1
             "})
         .into_iter()
-        .map(Line::from)
+        .map(|l| Line::from(&l))
         .collect();
         assert_eq!(
             Text::from(lines),
@@ -784,13 +692,19 @@ mod tests {
 
     #[rstest]
     fn strong(_with_tracing: DefaultGuard) {
-        let lines: Vec<Line> = from_str("**Strong**").into_iter().map(Line::from).collect();
+        let lines: Vec<Line> = from_str("**Strong**")
+            .into_iter()
+            .map(|l| Line::from(&l))
+            .collect();
         assert_eq!(Text::from(lines), Text::from(Line::from("Strong".bold())));
     }
 
     #[rstest]
     fn emphasis(_with_tracing: DefaultGuard) {
-        let lines: Vec<Line> = from_str("*Emphasis*").into_iter().map(Line::from).collect();
+        let lines: Vec<Line> = from_str("*Emphasis*")
+            .into_iter()
+            .map(|l| Line::from(&l))
+            .collect();
         assert_eq!(
             Text::from(lines),
             Text::from(Line::from("Emphasis".italic()))
@@ -801,7 +715,7 @@ mod tests {
     fn strikethrough(_with_tracing: DefaultGuard) {
         let lines: Vec<Line> = from_str("~~Strikethrough~~")
             .into_iter()
-            .map(Line::from)
+            .map(|l| Line::from(&l))
             .collect();
 
         assert_eq!(
@@ -814,7 +728,7 @@ mod tests {
     fn strong_emphasis(_with_tracing: DefaultGuard) {
         let lines: Vec<Line> = from_str("**Strong *emphasis***")
             .into_iter()
-            .map(Line::from)
+            .map(|l| Line::from(&l))
             .collect();
 
         assert_eq!(
@@ -830,7 +744,7 @@ mod tests {
     fn link(_with_tracing: DefaultGuard) {
         let lines: Vec<Line> = from_str("[Link](https://example.com)")
             .into_iter()
-            .map(Line::from)
+            .map(|l| Line::from(&l))
             .collect();
         assert_eq!(
             Text::from(lines),
