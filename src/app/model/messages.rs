@@ -1,5 +1,5 @@
 use crate::{
-    app::view::widgets::scroll::ScrollState,
+    app::view::{messages_viewport::MessagesViewport, widgets::scroll::ScrollState},
     models::{ChatEvent, ChatEventPayload, ChatMessage, MessageDelta},
 };
 
@@ -8,7 +8,7 @@ pub struct Messages {
     chat_messages: Vec<ChatMessage>,
     stream_message: Option<MessageDelta>,
     is_pending: bool,
-    scroll_state: ScrollState,
+    pub viewport: MessagesViewport,
 }
 
 impl Messages {
@@ -33,15 +33,15 @@ impl Messages {
     // ----------------------------------------------------------------
 
     pub fn scroll_down(&mut self) {
-        self.scroll_state.scroll_down();
+        self.viewport.scroll_state_mut().scroll_down();
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_state.scroll_up();
+        self.viewport.scroll_state_mut().scroll_up();
     }
 
-    pub fn scroll_state(&self) -> &ScrollState {
-        &self.scroll_state
+    pub fn set_viewport_width(&mut self, viewport_width: usize) {
+        self.viewport.set_viewport_width(viewport_width);
     }
 
     // ----------------------------------------------------------------
@@ -55,19 +55,17 @@ impl Messages {
 
     /// Handles sending user chat message.
     pub fn handle_user_chat_message(&mut self, user_chat_message: ChatMessage) {
+        self.viewport.scroll_to_top();
         self.chat_messages.push(user_chat_message);
         self.is_pending = true;
+
+        self.viewport
+            .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
     }
 
     /// Handles chat events streamed from streaming API.
     pub fn handle_chat_event_stream(&mut self, chat_event: ChatEvent) {
         if self.is_pending() {
-            // if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
-            //     self.delta
-            // }
-            // self.chat_state = ChatState::InProgress;
-            // }
-            // ChatState::InProgress =>
             match chat_event.payload() {
                 ChatEventPayload::Message(_) => {
                     if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
@@ -91,6 +89,9 @@ impl Messages {
         } else {
             tracing::error!("receiving orphan response")
         }
+
+        self.viewport
+            .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
     }
 
     /// Handle chat events loaded from storage.
@@ -99,5 +100,8 @@ impl Messages {
             .into_iter()
             .filter_map(|event| event.try_into().ok())
             .collect();
+
+        self.viewport
+            .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
     }
 }

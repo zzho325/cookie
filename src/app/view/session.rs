@@ -1,6 +1,6 @@
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Padding, StatefulWidget, Widget},
@@ -29,6 +29,7 @@ impl StatefulWidget for &mut Session {
     /// Renders chat session with input block starting with MIN_INPUT_HEIGHT including border and
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut SessionState) {
+        // border with title
         let title = self
             .title()
             .map(String::as_str)
@@ -39,33 +40,38 @@ impl StatefulWidget for &mut Session {
             title.fg(tailwind::AMBER.c300)
         };
         let block = Block::new().title(Line::from(styled_title).centered());
+        let inner_area = block.inner(area);
         block.render(area, buf);
 
-        let input_content_width = area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
+        // ----------------------------------------------------------------
+        // Dynamic height and split area
+        // ----------------------------------------------------------------
+
+        // input width
+        let input_content_width = inner_area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
         self.input_editor.set_viewport_width(input_content_width);
 
-        let max_input_height = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
-
-        let lines = self.input_editor.lines();
+        // input height
+        let max_input_height = (inner_area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
+        let lines = self.input_editor.viewport.lines();
         let input_height =
             (lines.len() + BORDER_THICKNESS_SIDE).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
-        let message_height = area.height.saturating_sub(input_height);
 
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(message_height),
-                Constraint::Length(input_height),
-            ])
-            .split(area);
+        // message height
+        let message_height = inner_area.height.saturating_sub(input_height);
 
-        self.messages.render(layout[0], buf);
+        let [message_area, input_area] = Layout::vertical([
+            Constraint::Length(message_height),
+            Constraint::Length(input_height),
+        ])
+        .areas(inner_area);
 
-        // input
-        let input_lines: Vec<Line> = lines.into_iter().map(Line::from).collect();
-        let text = Text::from(input_lines);
+        self.messages.render(message_area, buf);
 
-        // construct title
+        // ----------------------------------------------------------------
+        // Input
+        // ----------------------------------------------------------------
+
         // TODO: centralize style here and prompt style
         let provider = self.llm_settings().provider_name();
         let model = self.llm_settings().model_name();
@@ -82,23 +88,29 @@ impl StatefulWidget for &mut Session {
             Span::raw(" "),
         ]);
 
+        let input_lines: Vec<Line> = lines.into_iter().map(Line::from).collect();
+        let text = Text::from(input_lines);
         let scrollable = AutoScroll::from(text).block(
             Block::new()
                 .borders(Borders::TOP)
                 .padding(Padding::horizontal(1))
                 .title(title.left_aligned()),
         );
-        scrollable.render(layout[1], buf, self.input_editor.scroll_state());
+        scrollable.render(input_area, buf, self.input_editor.viewport.scroll_state());
 
-        // set cursor position if editing
+        // ----------------------------------------------------------------
+        // Cursor position
+        // ----------------------------------------------------------------
+
         state.cursor_position = if self.is_editing {
             self.input_editor
+                .viewport
                 .scroll_state()
                 .cursor_viewport_position()
                 .map(|(x, y)| {
                     (
                         x + BORDER_THICKNESS_SIDE as u16,
-                        y + message_height + BORDER_THICKNESS_SIDE as u16,
+                        y + message_height + BORDER_THICKNESS_SIDE as u16 * 2,
                     )
                 })
         } else {
@@ -146,12 +158,11 @@ mod tests {
             )
             .with_created_at(assistant_message_created_at),
         ];
-        messages.set_chat_messages(chat_messages);
-
+        messages.viewport.build_lines(&chat_messages, None);
         let mut session = super::Session::new(llm_settings);
         session.set_title(Some("Awesome chat".to_string()));
         session.set_messages(messages);
-        *session.input_editor.input_mut() = "repeat this".repeat(3);
+        session.input_editor.set_input("repeat this".repeat(3));
         let session_state = &mut SessionState {
             cursor_position: None,
         };

@@ -1,3 +1,5 @@
+pub mod markdown;
+
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 
 /// A centered rect of the given percentage.
