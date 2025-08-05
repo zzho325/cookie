@@ -5,7 +5,7 @@ use ratatui::{
 use textwrap::{Options, WordSeparator, wrap};
 
 use crate::{
-    app::view::utils::markdown,
+    app::view::{utils::markdown, widgets::scroll::ScrollState},
     models::{ChatMessage, MessageDelta, settings::LlmSettings},
 };
 
@@ -152,11 +152,20 @@ pub struct MessagesViewport {
     lines: Vec<StyledLine>,
     /// Available visual width.
     viewport_width: usize,
+    scroll_state: ScrollState,
 }
 
 impl MessagesViewport {
     pub fn lines(&self) -> &[StyledLine] {
         &self.lines
+    }
+
+    pub fn scroll_state(&self) -> &ScrollState {
+        &self.scroll_state
+    }
+
+    pub fn scroll_state_mut(&mut self) -> &mut ScrollState {
+        &mut self.scroll_state
     }
 
     /// Creates prompt line as `StyledLine`.
@@ -263,5 +272,10 @@ impl MessagesViewport {
             }
         }
         self.lines = styled_lines;
+    }
+
+    pub fn scroll_to_top(&mut self) {
+        self.scroll_state
+            .set_vertical_scroll_offset(self.lines.len())
     }
 }

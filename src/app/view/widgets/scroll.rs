@@ -32,6 +32,10 @@ impl ScrollState {
         self.cursor_position = Some(cursor_position);
     }
 
+    pub fn set_vertical_scroll_offset(&mut self, vertical_scroll_offset: usize) {
+        self.vertical_scroll_offset = vertical_scroll_offset;
+    }
+
     pub fn cursor_viewport_position(&self) -> Option<(u16, u16)> {
         self.cursor_position
             .map(|(x, y)| (x, y - self.vertical_scroll_offset as u16))

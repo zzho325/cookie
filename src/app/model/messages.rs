@@ -8,7 +8,6 @@ pub struct Messages {
     chat_messages: Vec<ChatMessage>,
     stream_message: Option<MessageDelta>,
     is_pending: bool,
-    scroll_state: ScrollState,
     pub viewport: MessagesViewport,
 }
 
@@ -34,15 +33,11 @@ impl Messages {
     // ----------------------------------------------------------------
 
     pub fn scroll_down(&mut self) {
-        self.scroll_state.scroll_down();
+        self.viewport.scroll_state_mut().scroll_down();
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_state.scroll_up();
-    }
-
-    pub fn scroll_state(&self) -> &ScrollState {
-        &self.scroll_state
+        self.viewport.scroll_state_mut().scroll_up();
     }
 
     pub fn set_viewport_width(&mut self, viewport_width: usize) {
@@ -60,6 +55,7 @@ impl Messages {
 
     /// Handles sending user chat message.
     pub fn handle_user_chat_message(&mut self, user_chat_message: ChatMessage) {
+        self.viewport.scroll_to_top();
         self.chat_messages.push(user_chat_message);
         self.is_pending = true;
 

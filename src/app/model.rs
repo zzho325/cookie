@@ -158,7 +158,12 @@ mod tests {
             "pending messages are reset"
         );
         assert_eq!(
-            model.session.messages.scroll_state().scroll_offset(),
+            model
+                .session
+                .messages
+                .viewport
+                .scroll_state()
+                .scroll_offset(),
             (0u16, 0u16),
             "messages scroll state is reset"
         );
