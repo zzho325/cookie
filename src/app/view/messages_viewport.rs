@@ -155,6 +155,10 @@ pub struct MessagesViewport {
 }
 
 impl MessagesViewport {
+    pub fn lines(&self) -> &[StyledLine] {
+        &self.lines
+    }
+
     /// Creates prompt line as `StyledLine`.
     fn make_prompt_line(settings: &LlmSettings, elapsed_sec: Option<i64>) -> StyledLine {
         let provider = settings.provider_name();
@@ -259,9 +263,5 @@ impl MessagesViewport {
             }
         }
         self.lines = styled_lines;
-    }
-
-    pub fn lines(&self) -> &[StyledLine] {
-        &self.lines
     }
 }

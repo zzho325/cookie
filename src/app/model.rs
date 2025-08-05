@@ -127,7 +127,10 @@ mod tests {
         model.session.set_title(Some(title.clone()));
         model.session.set_messages(messages);
         model.session.is_editing = false;
-        *model.session.input_editor.input_mut() = "repeat this".repeat(3);
+        model
+            .session
+            .input_editor
+            .set_input("repeat this".repeat(3));
         model.selected_session_id = Some(session_id);
 
         model.session_manager.handle_session_summaries(

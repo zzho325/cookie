@@ -1,4 +1,5 @@
 mod constants;
+pub mod editor_viewport;
 mod messages;
 pub mod messages_viewport;
 mod session;

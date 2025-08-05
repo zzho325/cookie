@@ -46,7 +46,7 @@ impl StatefulWidget for &mut Session {
 
         let max_input_height = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
 
-        let lines = self.input_editor.lines();
+        let lines = self.input_editor.viewport.lines();
         let input_height =
             (lines.len() + BORDER_THICKNESS_SIDE).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
         let message_height = area.height.saturating_sub(input_height);
@@ -88,11 +88,12 @@ impl StatefulWidget for &mut Session {
                 .padding(Padding::horizontal(1))
                 .title(title.left_aligned()),
         );
-        scrollable.render(layout[1], buf, self.input_editor.scroll_state());
+        scrollable.render(layout[1], buf, self.input_editor.viewport.scroll_state());
 
         // set cursor position if editing
         state.cursor_position = if self.is_editing {
             self.input_editor
+                .viewport
                 .scroll_state()
                 .cursor_viewport_position()
                 .map(|(x, y)| {
@@ -151,7 +152,7 @@ mod tests {
         let mut session = super::Session::new(llm_settings);
         session.set_title(Some("Awesome chat".to_string()));
         session.set_messages(messages);
-        *session.input_editor.input_mut() = "repeat this".repeat(3);
+        session.input_editor.set_input("repeat this".repeat(3));
         let session_state = &mut SessionState {
             cursor_position: None,
         };
