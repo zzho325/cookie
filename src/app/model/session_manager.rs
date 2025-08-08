@@ -1,4 +1,5 @@
-use crate::app::model::focus::Focusable;
+use crate::app::model::focus::{Focusable, Focused};
+use crate::impl_focusable;
 use crate::models::SessionSummary;
 use ratatui::widgets::ListState;
 
@@ -9,7 +10,7 @@ pub struct SessionManager {
     focused: bool,
 }
 
-crate::impl_focusable!(SessionManager);
+impl_focusable!(SessionManager, Focused::SessionManager);
 
 impl SessionManager {
     pub fn session_summaries(&self) -> &[SessionSummary] {

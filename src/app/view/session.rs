@@ -34,7 +34,7 @@ impl StatefulWidget for &mut Session {
             .title()
             .map(String::as_str)
             .unwrap_or(NEW_SESSION_TITLE);
-        let styled_title = if self.is_focused() {
+        let styled_title = if self.messages.is_focused() {
             title.fg(tailwind::AMBER.c400).bold()
         } else {
             title.fg(tailwind::AMBER.c300)
@@ -102,7 +102,7 @@ impl StatefulWidget for &mut Session {
         // Cursor position
         // ----------------------------------------------------------------
 
-        state.cursor_position = if self.is_editing {
+        state.cursor_position = if self.input_editor.is_editing() {
             self.input_editor
                 .viewport
                 .scroll_state()

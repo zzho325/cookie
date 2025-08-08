@@ -1,5 +1,9 @@
 use crate::{
-    app::view::{messages_viewport::MessagesViewport, widgets::scroll::ScrollState},
+    app::{
+        model::focus::{Focusable, Focused},
+        view::messages_viewport::MessagesViewport,
+    },
+    impl_focusable,
     models::{ChatEvent, ChatEventPayload, ChatMessage, MessageDelta},
 };
 
@@ -8,8 +12,11 @@ pub struct Messages {
     chat_messages: Vec<ChatMessage>,
     stream_message: Option<MessageDelta>,
     is_pending: bool,
+    focused: bool,
     pub viewport: MessagesViewport,
 }
+
+impl_focusable!(Messages, Focused::Messages);
 
 impl Messages {
     pub fn is_pending(&self) -> bool {

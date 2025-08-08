@@ -45,13 +45,17 @@ impl Model {
             setting_manager_popup: None,
             show_sidebar: false,
             should_quit: false,
-            focused: Focused::Session,
+            focused: Focused::InputEditor,
             focus_order: Vec::new(),
         };
 
-        this.focus_order.push(|m| &mut m.session);
-        this.focus_order.push(|m| &mut m.session_manager);
-        this.focus_order[0](&mut this).set_focus(true);
+        this.focus_order.push(|m| &mut m.session.messages);
+        this.focus_order.push(|m| &mut m.session.input_editor);
+
+        // TODO: it seems bad to combine initialization and setup, clean this up
+        this.shift_focus_to(Focused::InputEditor);
+        // by default editing
+        this.session.input_editor.set_is_editing(true);
         this
     }
 
@@ -61,9 +65,13 @@ impl Model {
 
     pub fn toggle_sidebar(&mut self) {
         if !self.show_sidebar {
+            self.focus_order.insert(0, |m| &mut m.session_manager);
             self.shift_focus_to(Focused::SessionManager);
         } else {
-            self.shift_focus_to(Focused::Session);
+            if self.focused == Focused::SessionManager {
+                self.shift_focus_to(Focused::InputEditor);
+            }
+            self.focus_order.remove(0);
         }
         self.show_sidebar = !self.show_sidebar;
     }
@@ -73,8 +81,8 @@ impl Model {
         self.session.reset(self.configs.derive_llm_settings());
         self.selected_session_id = None;
         self.session_manager.set_selected(None);
-        self.shift_focus_to(Focused::Session);
-        self.session.is_editing = true;
+        self.shift_focus_to(Focused::InputEditor);
+        self.session.input_editor.set_is_editing(true);
     }
 }
 
@@ -126,7 +134,7 @@ mod tests {
         let mut model = Model::new(crate::models::configs::Configs::default());
         model.session.set_title(Some(title.clone()));
         model.session.set_messages(messages);
-        model.session.is_editing = false;
+        model.session.input_editor.set_is_editing(false);
         model
             .session
             .input_editor
@@ -187,9 +195,12 @@ mod tests {
         // Focus on editor and in editing mode.
         assert_eq!(
             model.focused,
-            Focused::Session,
+            Focused::InputEditor,
             "focus is shifted to session"
         );
-        assert!(model.session.is_editing, "editing is enabled")
+        assert!(
+            model.session.input_editor.is_editing(),
+            "editing is enabled"
+        )
     }
 }

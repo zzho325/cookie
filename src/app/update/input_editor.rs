@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::app::model::Model;
 use crate::app::{Message, update::Update};
 
-pub fn handle_session_key_event(
+pub fn handle_key_event(
     model: &mut Model,
     KeyEvent {
         code,
@@ -13,14 +13,14 @@ pub fn handle_session_key_event(
     }: KeyEvent,
 ) -> Update {
     let session = &mut model.session;
-    if session.is_editing {
-        let editor = &mut session.input_editor;
+    let editor = &mut session.input_editor;
+    if editor.is_editing() {
         match (code, modifiers) {
             (KeyCode::Char(c), _) => editor.enter_char(c),
             (KeyCode::Backspace, _) => editor.delete_char(),
             (KeyCode::Left, _) => editor.move_cursor_left(),
             (KeyCode::Right, _) => editor.move_cursor_right(),
-            (KeyCode::Esc, _) => session.is_editing = false,
+            (KeyCode::Esc, _) => editor.set_is_editing(false),
             (KeyCode::Enter, KeyModifiers::ALT) => editor.enter_char('\n'),
             (KeyCode::Enter, _) => return (Some(Message::Send), None),
             (KeyCode::Down, _) => editor.move_cursor_down(),
@@ -32,15 +32,9 @@ pub fn handle_session_key_event(
             KeyCode::Char('q') => model.quit(),
             KeyCode::Char('e') => model.toggle_sidebar(),
             KeyCode::Char('n') => return (Some(Message::NewChat), None),
-            KeyCode::Tab => {
-                if model.show_sidebar {
-                    model.shift_focus()
-                }
-            }
+            KeyCode::Tab => model.shift_focus(),
             KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Char('s') => return (Some(Message::Setting), None),
-            KeyCode::Down => session.messages.scroll_down(),
-            KeyCode::Up => session.messages.scroll_up(),
             _ => {}
         }
     }
