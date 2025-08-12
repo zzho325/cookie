@@ -102,7 +102,7 @@ impl StatefulWidget for &mut Session {
         // Cursor position
         // ----------------------------------------------------------------
 
-        state.cursor_position = if self.input_editor.is_editing() {
+        state.cursor_position = if self.input_editor.is_focused() {
             self.input_editor
                 .viewport
                 .scroll_state()
@@ -115,7 +115,7 @@ impl StatefulWidget for &mut Session {
                 })
         } else {
             None
-        };
+        }
     }
 }
 

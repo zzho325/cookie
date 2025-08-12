@@ -6,12 +6,15 @@ use color_eyre::{
     Result,
     eyre::{Context, bail},
 };
+use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{Event, EventStream, KeyEvent, KeyEventKind};
-use futures_util::stream::StreamExt;
+use crossterm::execute;
+
 use tokio::{
     select,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
+use tokio_stream::StreamExt;
 
 use crate::{ServiceReq, ServiceResp, app::model::Model, models::configs::Configs};
 
@@ -37,6 +40,15 @@ impl App {
         let mut event_reader = EventStream::new();
 
         while !model.should_quit {
+            // set cursor style based on editing status
+            let set_cursor_style = match model.focused {
+                model::focus::Focused::InputEditor if model.session.input_editor.is_editing() => {
+                    SetCursorStyle::BlinkingBar
+                }
+                _ => SetCursorStyle::SteadyBlock,
+            };
+            execute!(terminal.backend_mut(), set_cursor_style)?;
+
             // draw first so we see the latest state immediately
             terminal.draw(|f| view::render_ui(&mut model, f))?;
             let mut maybe_msg = select! {

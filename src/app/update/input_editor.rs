@@ -35,6 +35,11 @@ pub fn handle_key_event(
             KeyCode::Tab => model.shift_focus(),
             KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Char('s') => return (Some(Message::Setting), None),
+            KeyCode::Enter => return (Some(Message::Send), None),
+            KeyCode::Left | KeyCode::Char('h') => editor.move_cursor_left(),
+            KeyCode::Right | KeyCode::Char('l') => editor.move_cursor_right(),
+            KeyCode::Down | KeyCode::Char('j') => editor.move_cursor_down(),
+            KeyCode::Up | KeyCode::Char('k') => editor.move_cursor_up(),
             _ => {}
         }
     }
