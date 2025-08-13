@@ -35,8 +35,8 @@ impl MessagesViewport {
         self.paragraphs.iter().flat_map(|p| p.lines()).collect()
     }
 
-    pub fn scroll_state(&self) -> &ScrollState {
-        &self.scroll_state
+    pub fn scroll_state(&mut self) -> &mut ScrollState {
+        &mut self.scroll_state
     }
 
     pub fn scroll_state_mut(&mut self) -> &mut ScrollState {
