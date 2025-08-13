@@ -3,115 +3,17 @@ use textwrap::{Options, WordSeparator, wrap};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::{model::editor::WrapMode, view::widgets::scroll::ScrollState};
+use crate::app::{
+    model::editor::WrapMode,
+    view::{
+        utils::paragraph::{Paragraph, Slicable},
+        widgets::scroll::ScrollState,
+    },
+};
 
-#[derive(Debug)]
-struct Paragraph {
-    /// Current input buffer.
-    input: String,
-    lines: Vec<String>,
-    /// Byte offset of start of paragraph.
-    byte_offset: usize,
-    /// Line number offset.
-    line_offset: usize,
-}
-
-impl Paragraph {
-    fn new(input: String, byte_offset: usize, line_offset: usize) -> Self {
-        Self {
-            input,
-            lines: Vec::new(),
-            byte_offset,
-            line_offset,
-        }
-    }
-
-    /// Creates text wrap option.
-    fn make_wrap_opts(&self, viewport_width: usize) -> Options {
-        Options::new(viewport_width)
-            .break_words(true)
-            .word_separator(WordSeparator::UnicodeBreakProperties)
-            .preserve_trailing_space(true)
-    }
-
-    /// Recalculates paragraph lines.
-    fn reflow(&mut self, view_width: usize, wrap_mode: WrapMode) {
-        let input = &self.input;
-        match wrap_mode {
-            WrapMode::Character => {
-                let mut current_width = 0;
-                let mut line_byte_offset = 0;
-                let mut lines = Vec::new();
-                // iterate graphemes
-                for (grapheme_byte_offset, grapheme) in input.grapheme_indices(true) {
-                    let grapheme_width = UnicodeWidthStr::width(grapheme);
-                    // create new line when width is reached
-                    if current_width + grapheme_width > view_width {
-                        lines.push(input[(line_byte_offset)..grapheme_byte_offset].to_string());
-                        line_byte_offset = grapheme_byte_offset;
-                        current_width = 0;
-                    }
-                    current_width += grapheme_width;
-                }
-                // push the remainder
-                if line_byte_offset < input.len() {
-                    lines.push(input[line_byte_offset..].to_string());
-                }
-                // handle empty paragraph
-                if input.is_empty() {
-                    lines.push(String::new());
-                }
-                self.lines = lines;
-            }
-            WrapMode::Word => {
-                let lines = wrap(input, self.make_wrap_opts(view_width));
-                self.lines = lines.into_iter().map(Cow::into_owned).collect();
-            }
-        }
-    }
-
-    /// Returns cursor position given a byte idx against cached lines, assuming it's in this
-    /// paragraph.
-    fn find_cursor_position(&self, cursor_byte_idx: usize) -> (u16 /*x*/, u16 /*y*/) {
-        let mut line_byte_offset = 0;
-        for (line_idx, line) in self.lines.iter().enumerate() {
-            if cursor_byte_idx < self.byte_offset + line_byte_offset + line.len() {
-                let x = line[..(cursor_byte_idx - self.byte_offset - line_byte_offset)].width();
-                let y = self.line_offset + line_idx;
-                return (x as u16, y as u16);
-            }
-            line_byte_offset += line.len();
-        }
-
-        // handle cursor at the end of paragraph
-        let current_width = self.lines.last().map_or(0, |s| s.width());
-        let x = current_width;
-        let y = self.line_offset + self.lines.len() - 1;
-        (x as u16, y as u16)
-    }
-
-    /// Returns cursor byte idx given a position against cached visual lines, assuming it's in
-    /// this paragraph.
-    fn find_cursor_byte_idx(&self, cursor_position: (u16 /*x*/, u16 /*y*/)) -> usize {
-        let (x, y) = cursor_position;
-        let mut line_idx = y as usize - self.line_offset;
-        // clamp to last line if out of paragraph bound
-        line_idx = line_idx.clamp(0, self.lines.len() - 1);
-
-        let line = &self.lines[line_idx];
-        let line_byte_offset: usize = self.lines[..line_idx].iter().map(|l| l.len()).sum();
-
-        // iterate graphemes
-        let mut current_width = 0;
-        for (grapheme_byte_offset, grapheme) in line.grapheme_indices(true) {
-            let grapheme_width = UnicodeWidthStr::width(grapheme);
-            if current_width + grapheme_width > x as usize {
-                return self.byte_offset + line_byte_offset + grapheme_byte_offset;
-            }
-            current_width += grapheme_width;
-        }
-        // clamp to last byte if out of line bound
-        self.byte_offset + line_byte_offset + line.len()
+impl Slicable for String {
+    fn slice(&self, offset: usize, len: usize) -> Self {
+        self[offset..offset + len].to_string()
     }
 }
 
@@ -121,7 +23,7 @@ pub struct EditorViewport {
     wrap_mode: WrapMode,
 
     /// Logical paragraphs wrapped with viewport_width.
-    paragraphs: Vec<Paragraph>,
+    paragraphs: Vec<Paragraph<String>>,
     /// Available visual width.
     viewport_width: usize,
 
@@ -161,12 +63,52 @@ impl EditorViewport {
 
     /// Returns visual lines given a view_width.
     pub fn lines(&mut self) -> Vec<String> {
-        let mut lines = Vec::new();
-        for paragraph in &self.paragraphs {
-            lines.extend(paragraph.lines.clone());
-        }
-        lines
+        self.paragraphs
+            .iter()
+            .flat_map(|p| p.lines().iter().cloned())
+            .collect()
     }
+
+    /// Wraps `input` into visual lines.
+    fn wrap(&mut self, input: &str) -> Vec<String> {
+        match self.wrap_mode {
+            WrapMode::Character => {
+                let mut current_width = 0;
+                let mut line_byte_offset = 0;
+                let mut lines = Vec::new();
+                // iterate graphemes
+                for (grapheme_byte_offset, grapheme) in input.grapheme_indices(true) {
+                    let grapheme_width = UnicodeWidthStr::width(grapheme);
+                    // create new line when width is reached
+                    if current_width + grapheme_width > self.viewport_width {
+                        lines.push(input[(line_byte_offset)..grapheme_byte_offset].to_string());
+                        line_byte_offset = grapheme_byte_offset;
+                        current_width = 0;
+                    }
+                    current_width += grapheme_width;
+                }
+                // push the remainder
+                if line_byte_offset < input.len() {
+                    lines.push(input[line_byte_offset..].to_string());
+                }
+                // handle empty paragraph
+                if input.is_empty() {
+                    lines.push(String::new());
+                }
+                return lines;
+            }
+            WrapMode::Word => {
+                let wrap_opts = Options::new(self.viewport_width)
+                    .break_words(true)
+                    .word_separator(WordSeparator::UnicodeBreakProperties)
+                    .preserve_trailing_space(true);
+
+                let lines = wrap(input, wrap_opts);
+                return lines.into_iter().map(Cow::into_owned).collect();
+            }
+        }
+    }
+    //
 
     /// Recalculates `self.paragraphs`.
     pub fn reflow(&mut self, input: &str) {
@@ -176,14 +118,15 @@ impl EditorViewport {
         let mut line_offset = 0;
 
         for paragraph_input in input.split('\n') {
-            let mut paragraph =
-                Paragraph::new(paragraph_input.to_string(), byte_offset, line_offset);
-            paragraph.reflow(self.viewport_width, self.wrap_mode);
+            let lines = self.wrap(paragraph_input);
+            let mut paragraph = Paragraph::build(paragraph_input.to_string());
+
+            let line_count = lines.len();
+            paragraph.reflow(lines, byte_offset, line_offset);
+            paragraphs.push(paragraph);
 
             byte_offset += paragraph_input.len() + 1; // count for '\n'
-            line_offset += paragraph.lines.len();
-
-            paragraphs.push(paragraph);
+            line_offset += line_count;
         }
 
         self.paragraphs = paragraphs;
@@ -194,8 +137,8 @@ impl EditorViewport {
         for paragraph in &self.paragraphs {
             // if cursor is in this paragrah, find its line and find cursor
             // inclusive on the right side to take account for \n
-            if cursor_byte_idx >= paragraph.byte_offset
-                && cursor_byte_idx <= paragraph.byte_offset + paragraph.input.len()
+            if cursor_byte_idx >= paragraph.byte_offset()
+                && cursor_byte_idx <= paragraph.byte_offset() + paragraph.len()
             {
                 let (mut x, y) = paragraph.find_cursor_position(cursor_byte_idx);
                 x = x.clamp(0, self.viewport_width as u16);
@@ -211,7 +154,7 @@ impl EditorViewport {
         let (_, y) = cursor_position;
         let mut paragraph_idx = self.paragraphs.partition_point(|p| {
             // first partition: {paragraphs before cursor}
-            (p.line_offset as u16 + p.lines.len() as u16) <= y
+            (p.line_offset() as u16 + p.lines().len() as u16) <= y
         });
         // clamp to last paragraph if out of input bound
         paragraph_idx = paragraph_idx.clamp(0, self.paragraphs.len() - 1);
