@@ -20,8 +20,12 @@ pub fn handle_key_event(
         KeyCode::Tab => model.shift_focus(),
         KeyCode::Char('i') => return (Some(Message::Editing), None),
         KeyCode::Char('s') => return (Some(Message::Setting), None),
-        KeyCode::Down => messages.scroll_down(),
-        KeyCode::Up => messages.scroll_up(),
+        // KeyCode::Down => messages.scroll_down(),
+        // KeyCode::Up => messages.scroll_up(),
+        KeyCode::Left | KeyCode::Char('h') => messages.viewport.move_cursor_left(),
+        KeyCode::Right | KeyCode::Char('l') => messages.viewport.move_cursor_right(),
+        KeyCode::Down | KeyCode::Char('j') => messages.viewport.move_cursor_down(),
+        KeyCode::Up | KeyCode::Char('k') => messages.viewport.move_cursor_up(),
         _ => {}
     }
     (None, None)

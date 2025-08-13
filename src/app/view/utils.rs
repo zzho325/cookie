@@ -1,4 +1,6 @@
 pub mod markdown;
+pub mod paragraph;
+pub mod styled_line;
 
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 

@@ -1,163 +1,38 @@
+use itertools::Itertools;
 use ratatui::{
     style::{Color, Modifier, Style},
-    text::{Line, Span},
+    text::Span,
 };
 use textwrap::{Options, WordSeparator, wrap};
 
 use crate::{
-    app::view::{utils::markdown, widgets::scroll::ScrollState},
+    app::view::{
+        utils::{
+            markdown,
+            paragraph::{Paragraph, Slicable},
+            styled_line::StyledLine,
+        },
+        widgets::scroll::ScrollState,
+    },
     models::{ChatMessage, MessageDelta, settings::LlmSettings},
 };
 
-#[derive(Debug, PartialEq)]
-pub struct StyleSlice {
-    byte_offset: usize,
-    len: usize,
-    /// A Ratatui `Style`.
-    style: Style,
-}
-
-impl StyleSlice {
-    fn new(byte_offset: usize, len: usize, style: Style) -> Self {
-        Self {
-            byte_offset,
-            len,
-            style,
-        }
-    }
-
-    fn start_idx(&self) -> usize {
-        self.byte_offset
-    }
-
-    fn end_idx(&self) -> usize {
-        self.byte_offset + self.len
-    }
-}
-
-#[derive(Debug, Default, PartialEq)]
-pub struct StyledLine {
-    /// The literal text to render.
-    content: String,
-
-    /// A Ratatui `Style` applied to the whole line.
-    style: Style,
-
-    /// Style slices in current line.
-    style_slices: Vec<StyleSlice>,
-}
-
-impl From<String> for StyledLine {
-    fn from(value: String) -> Self {
-        let style_slice = StyleSlice::new(0, value.len(), Style::default());
-        Self {
-            content: value,
-            style: Style::default(),
-            style_slices: vec![style_slice],
-        }
-    }
-}
-
-impl StyledLine {
-    pub fn with_style(mut self, style: Style) -> Self {
-        self.style = style;
-        self
-    }
-
-    pub fn content(&self) -> &str {
-        &self.content
-    }
-
-    pub fn style_slices_mut(&mut self) -> &mut Vec<StyleSlice> {
-        &mut self.style_slices
-    }
-
-    /// Appends content to line.
-    pub fn append(&mut self, content: impl Into<String>, style: Style) {
-        let content: String = content.into();
-        let byte_offset = self.content.len();
-        let style_slice = StyleSlice::new(byte_offset, content.len(), style);
-        self.content += &content;
-        self.style_slices.push(style_slice);
-    }
-
-    /// Inserts prefix span to line.
-    pub fn insert_prefix(&mut self, prefix: Span) {
-        let len = prefix.content.len();
-        self.content.insert_str(0, &prefix.content);
-        for style_slices in &mut self.style_slices {
-            style_slices.byte_offset += len;
-        }
-        self.style_slices
-            .insert(0, StyleSlice::new(0, len, prefix.style));
-    }
-
-    pub fn patch_style(&mut self, style: Style) {
-        self.style = self.style.patch(style)
-    }
-
-    /// Returns a subslice of `StyledLine` starting at `offset` of length `len`.
-    pub fn get(&self, offset: usize, len: usize) -> StyledLine {
-        let style_slices = self
-            .style_slices
-            .iter()
-            .filter_map(|s| {
-                if s.start_idx() >= offset + len || s.end_idx() < offset {
-                    None
-                } else {
-                    // start = min(current start, offset)
-                    let start = s.start_idx().max(offset);
-                    // len = end - start = min(current end, offset + len) - start
-                    let len = s
-                        .end_idx()
-                        .min(offset.saturating_add(len))
-                        .saturating_sub(start);
-                    Some(StyleSlice::new(start.saturating_sub(offset), len, s.style))
-                }
-            })
-            .collect();
-
-        StyledLine {
-            content: self
-                .content
-                .get(offset..offset + len)
-                .unwrap_or("")
-                .to_string(),
-            style: self.style,
-            style_slices,
-        }
-    }
-}
-
-impl From<&StyledLine> for Line<'_> {
-    fn from(line: &StyledLine) -> Self {
-        let spans: Vec<Span> = line
-            .style_slices
-            .iter()
-            .map(|s| {
-                let content: String = line.content[s.byte_offset..s.byte_offset + s.len].into();
-                Span::from(content).style(s.style)
-            })
-            .collect();
-        let tui_line = Line::from(spans);
-        tui_line.patch_style(line.style)
-    }
-}
-
 #[derive(Default)]
 pub struct MessagesViewport {
+    /// Aggregate paragraphs content.
+    input: String,
     /// Logical paragraphs.
-    paragraphs: Vec<StyledLine>,
-    /// Visual lines.
-    lines: Vec<StyledLine>,
+    paragraphs: Vec<Paragraph<StyledLine>>,
     /// Available visual width.
     viewport_width: usize,
     scroll_state: ScrollState,
+    /// Current cursor char idx in input.
+    cursor_char_idx: usize,
 }
 
 impl MessagesViewport {
-    pub fn lines(&self) -> &[StyledLine] {
-        &self.lines
+    pub fn lines(&self) -> Vec<&StyledLine> {
+        self.paragraphs.iter().flat_map(|p| p.lines()).collect()
     }
 
     pub fn scroll_state(&self) -> &ScrollState {
@@ -166,6 +41,11 @@ impl MessagesViewport {
 
     pub fn scroll_state_mut(&mut self) -> &mut ScrollState {
         &mut self.scroll_state
+    }
+
+    /// Returns current cursor position.
+    pub fn cursor_position(&self) -> (u16 /*x*/, u16 /*y*/) {
+        self.scroll_state.cursor_position().unwrap_or((0, 0))
     }
 
     /// Creates prompt line as `StyledLine`.
@@ -190,14 +70,6 @@ impl MessagesViewport {
         line
     }
 
-    // Creates text wrap option.
-    fn make_wrap_opts(&self) -> Options {
-        Options::new(self.viewport_width)
-            .break_words(true)
-            .word_separator(WordSeparator::UnicodeBreakProperties)
-            .preserve_trailing_space(true)
-    }
-
     /// Sets viewport width.
     pub fn set_viewport_width(&mut self, viewport_width: usize) {
         if viewport_width != self.viewport_width {
@@ -213,7 +85,7 @@ impl MessagesViewport {
         chat_messages: &[ChatMessage],
         stream_message: Option<&MessageDelta>,
     ) {
-        let mut paragraphs: Vec<StyledLine> = vec![];
+        let mut lines: Vec<StyledLine> = vec![];
 
         // history messages
         let mut iter = chat_messages.iter().peekable();
@@ -227,22 +99,22 @@ impl MessagesViewport {
                         .map(|next| (*next.created_at() - start).num_seconds());
                     let prefix_line =
                         Self::make_prompt_line(chat_message.llm_settings(), elapsed_secs);
-                    paragraphs.push(prefix_line);
+                    lines.push(prefix_line);
 
-                    let mut lines: Vec<StyledLine> = chat_message
+                    let mut chat_message_lines: Vec<StyledLine> = chat_message
                         .payload()
                         .msg
                         .lines()
                         .map(|l| StyledLine::from(l.to_string()))
                         .collect();
-                    if let Some(styled_line) = lines.get_mut(0) {
+                    if let Some(styled_line) = chat_message_lines.get_mut(0) {
                         styled_line.insert_prefix(Span::raw("└─> "));
                     }
-                    paragraphs.extend(lines);
+                    lines.extend(chat_message_lines);
                 }
                 crate::models::Role::Assistant => {
                     let styled_lines = markdown::from_str(&chat_message.payload().msg);
-                    paragraphs.extend(styled_lines);
+                    lines.extend(styled_lines);
                 }
             }
         }
@@ -250,32 +122,124 @@ impl MessagesViewport {
         // stream in progress
         if let Some(stream_message) = stream_message {
             let styled_lines = markdown::from_str(&stream_message.delta);
-            paragraphs.extend(styled_lines);
+            lines.extend(styled_lines);
         }
 
-        self.paragraphs = paragraphs;
+        self.input = lines.iter().map(|p| p.content()).join("\n");
+        self.paragraphs = lines.into_iter().map(Paragraph::build).collect();
         self.reflow();
     }
 
-    /// Recalculates `self.lines`.
+    /// Recalculates paragraph lines.
     pub fn reflow(&mut self) {
-        let mut styled_lines: Vec<StyledLine> = vec![];
+        let mut byte_offset = 0;
+        let mut line_offset = 0;
 
-        for paragraph in &self.paragraphs {
-            let lines = wrap(paragraph.content(), self.make_wrap_opts());
+        let wrap_opts = Options::new(self.viewport_width)
+            .break_words(true)
+            .word_separator(WordSeparator::UnicodeBreakProperties)
+            .preserve_trailing_space(true);
+
+        for paragraph in &mut self.paragraphs {
+            let mut styled_lines: Vec<StyledLine> = vec![];
+
+            let lines = wrap(paragraph.content().as_ref(), wrap_opts.clone());
             let mut offset = 0;
             for line in lines {
                 let len = line.len();
-                let styled_line = paragraph.get(offset, len);
+                let styled_line = paragraph.content().slice(offset, len);
                 offset += len;
                 styled_lines.push(styled_line);
             }
+
+            let line_count = styled_lines.len();
+            paragraph.reflow(styled_lines, byte_offset, line_offset);
+            byte_offset += paragraph.len() + 1; // count for '\n'
+            line_offset += line_count;
         }
-        self.lines = styled_lines;
     }
 
-    pub fn scroll_to_top(&mut self) {
-        self.scroll_state
-            .set_vertical_scroll_offset(self.lines.len())
+    /// Sets cursor position given cursor byte index.
+    pub fn update_cursor_position(&mut self, cursor_byte_idx: usize) {
+        for paragraph in &self.paragraphs {
+            // if cursor is in this paragrah, find its line and find cursor
+            // inclusive on the right side to take account for \n
+            if cursor_byte_idx >= paragraph.byte_offset()
+                && cursor_byte_idx <= paragraph.byte_offset() + paragraph.len()
+            {
+                let (mut x, y) = paragraph.find_cursor_position(cursor_byte_idx);
+                x = x.clamp(0, self.viewport_width as u16);
+                self.scroll_state.set_cursor_position((x, y));
+                return;
+            }
+        }
+        tracing::warn!("cursor position not found");
+    }
+
+    /// Returns cursor byte idx given a cursor position.
+    pub fn find_cursor_byte_idx(&mut self, cursor_position: (u16 /*x*/, u16 /*y*/)) -> usize {
+        let (_, y) = cursor_position;
+        let mut paragraph_idx = self.paragraphs.partition_point(|p| {
+            // first partition: {paragraphs before cursor}
+            (p.line_offset() as u16 + p.lines().len() as u16) <= y
+        });
+        // clamp to last paragraph if out of input bound
+        paragraph_idx = paragraph_idx.clamp(0, self.paragraphs.len() - 1);
+        let paragraph = &self.paragraphs[paragraph_idx];
+        paragraph.find_cursor_byte_idx(cursor_position)
+    }
+
+    // ----------------------------------------------------------------
+    // Cursor nagivation.
+    // ----------------------------------------------------------------
+    /// Returns current cursor byte idx.
+    ///
+    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
+    /// the byte idx based on the idx of the character.
+    fn cursor_byte_idx(&self) -> usize {
+        self.input
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(self.cursor_char_idx)
+            .unwrap_or(self.input.len())
+    }
+
+    pub fn move_cursor_down(&mut self) {
+        let (x, mut y) = self.cursor_position();
+        y = y.saturating_add(1);
+
+        let target_cursor_byte_idx = self.find_cursor_byte_idx((x, y));
+        let target_cursor_char_idx = self.input[..target_cursor_byte_idx].chars().count();
+        self.clamp_and_update_cursor_position(target_cursor_char_idx);
+    }
+
+    pub fn move_cursor_up(&mut self) {
+        let (x, mut y) = self.cursor_position();
+        y = y.saturating_sub(1);
+
+        let target_cursor_byte_idx = self.find_cursor_byte_idx((x, y));
+        let target_cursor_char_idx = self.input[..target_cursor_byte_idx].chars().count();
+        self.clamp_and_update_cursor_position(target_cursor_char_idx);
+    }
+
+    pub fn move_cursor_left(&mut self) {
+        let target_cursor_char_idx = self.cursor_char_idx.saturating_sub(1);
+        self.clamp_and_update_cursor_position(target_cursor_char_idx);
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        let target_cursor_char_idx = self.cursor_char_idx.saturating_add(1);
+        self.cursor_char_idx = target_cursor_char_idx.clamp(0, self.input.chars().count());
+        self.clamp_and_update_cursor_position(target_cursor_char_idx);
+    }
+
+    /// Updates cursor position to clamped target cursor position.
+    fn clamp_and_update_cursor_position(&mut self, target_cursor_char_idx: usize) {
+        self.cursor_char_idx = target_cursor_char_idx.clamp(0, self.input.chars().count());
+        tracing::debug!(
+            "updating cursor position to char idx {:?}",
+            self.cursor_char_idx
+        );
+        self.update_cursor_position(self.cursor_byte_idx());
     }
 }

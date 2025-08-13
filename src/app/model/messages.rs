@@ -62,7 +62,7 @@ impl Messages {
 
     /// Handles sending user chat message.
     pub fn handle_user_chat_message(&mut self, user_chat_message: ChatMessage) {
-        self.viewport.scroll_to_top();
+        // self.viewport.scroll_to_top();
         self.chat_messages.push(user_chat_message);
         self.is_pending = true;
 
@@ -101,7 +101,7 @@ impl Messages {
             .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
     }
 
-    /// Handle chat events loaded from storage.
+    /// Handles chat events loaded from storage.
     pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
         self.chat_messages = chat_events
             .into_iter()

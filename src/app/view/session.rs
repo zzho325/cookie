@@ -102,7 +102,13 @@ impl StatefulWidget for &mut Session {
         // Cursor position
         // ----------------------------------------------------------------
 
-        state.cursor_position = if self.input_editor.is_focused() {
+        state.cursor_position = if self.messages.is_focused() {
+            self.messages
+                .viewport
+                .scroll_state()
+                .cursor_viewport_position()
+                .map(|(x, y)| (x, y + BORDER_THICKNESS_SIDE as u16))
+        } else if self.input_editor.is_focused() {
             self.input_editor
                 .viewport
                 .scroll_state()

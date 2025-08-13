@@ -12,7 +12,7 @@ impl Widget for &mut Messages {
     fn render(self, area: Rect, buf: &mut Buffer) {
         self.set_viewport_width(area.width as usize);
         let styled_lines = self.viewport.lines();
-        let lines: Vec<Line> = styled_lines.iter().map(Line::from).collect();
+        let lines: Vec<Line> = styled_lines.iter().map(|&l| Line::from(l)).collect();
         let messages = lines;
 
         Paragraph::new(messages)

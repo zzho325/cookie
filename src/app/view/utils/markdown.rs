@@ -16,7 +16,8 @@ use syntect::{
 };
 use tracing::{debug, instrument, warn};
 
-use crate::app::view::messages_viewport::StyledLine;
+use crate::app::view::utils::styled_line::StyledLine;
+
 
 pub fn from_str(input: &str) -> Vec<StyledLine> {
     let mut options = Options::empty();
