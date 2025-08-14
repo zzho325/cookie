@@ -125,6 +125,11 @@ impl MessagesViewport {
             lines.extend(styled_lines);
         }
 
+        // add an extra new line in the end so that we move cursor to the new message line on new
+        // message
+        let styled_lines = StyledLine::from(String::from(""));
+        lines.push(styled_lines);
+
         self.input = lines.iter().map(|p| p.content()).join("\n");
         self.paragraphs = lines.into_iter().map(Paragraph::build).collect();
         self.reflow();
@@ -211,6 +216,17 @@ impl MessagesViewport {
         let target_cursor_byte_idx = self.find_cursor_byte_idx((x, y));
         let target_cursor_char_idx = self.input[..target_cursor_byte_idx].chars().count();
         self.clamp_and_update_cursor_position(target_cursor_char_idx);
+    }
+
+    /// Moves cursor to next line after end of buffer and clear screen.
+    pub fn scroll_to_top(&mut self) {
+        let target_cursor_char_idx = self.input.chars().count();
+        self.clamp_and_update_cursor_position(target_cursor_char_idx);
+        if let Some((_, y)) = self.scroll_state().cursor_position() {
+            self.scroll_state.set_vertical_scroll_offset(y as usize);
+        } else {
+            tracing::warn!("messages missing cursor");
+        }
     }
 
     pub fn move_cursor_up(&mut self) {

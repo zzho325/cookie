@@ -62,7 +62,7 @@ impl Messages {
 
     /// Handles sending user chat message.
     pub fn handle_user_chat_message(&mut self, user_chat_message: ChatMessage) {
-        // self.viewport.scroll_to_top();
+        self.viewport.scroll_to_top();
         self.chat_messages.push(user_chat_message);
         self.is_pending = true;
 
