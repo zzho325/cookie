@@ -1,5 +1,9 @@
 use crate::{
-    app::view::{messages_viewport::MessagesViewport, widgets::scroll::ScrollState},
+    app::{
+        model::focus::{Focusable, Focused},
+        view::messages_viewport::MessagesViewport,
+    },
+    impl_focusable,
     models::{ChatEvent, ChatEventPayload, ChatMessage, MessageDelta},
 };
 
@@ -8,8 +12,11 @@ pub struct Messages {
     chat_messages: Vec<ChatMessage>,
     stream_message: Option<MessageDelta>,
     is_pending: bool,
+    focused: bool,
     pub viewport: MessagesViewport,
 }
+
+impl_focusable!(Messages, Focused::Messages);
 
 impl Messages {
     pub fn is_pending(&self) -> bool {
@@ -94,7 +101,7 @@ impl Messages {
             .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
     }
 
-    /// Handle chat events loaded from storage.
+    /// Handles chat events loaded from storage.
     pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
         self.chat_messages = chat_events
             .into_iter()

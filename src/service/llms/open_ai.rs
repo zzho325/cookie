@@ -117,7 +117,6 @@ impl LlmClient for OpenAIClientImpl {
                         .collect(),
                     _ => Vec::new(),
                 };
-                tracing::debug!(?payloads);
                 stream::iter(payloads)
             })
             .boxed();

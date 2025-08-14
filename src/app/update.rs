@@ -1,4 +1,5 @@
-mod session;
+mod input_editor;
+mod messages;
 
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -36,8 +37,8 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
             model.new_draft_chat();
         }
         Message::Editing => {
-            model.shift_focus_to(Focused::Session);
-            model.session.is_editing = true;
+            model.shift_focus_to(Focused::InputEditor);
+            model.session.input_editor.set_is_editing(true);
         }
         Message::Setting => match &mut model.setting_manager_popup {
             None => {
@@ -106,8 +107,11 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
     }
 
     match model.focused {
-        Focused::Session => {
-            return session::handle_session_key_event(model, keyevent);
+        Focused::InputEditor => {
+            return input_editor::handle_key_event(model, keyevent);
+        }
+        Focused::Messages => {
+            return messages::handle_key_event(model, keyevent);
         }
         Focused::SessionManager => match keyevent.code {
             KeyCode::Char('q') => model.quit(),
@@ -135,6 +139,12 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent};
+    use rstest::{fixture, rstest};
+    use tracing::{
+        level_filters::LevelFilter,
+        subscriber::{self, DefaultGuard},
+    };
+    use tracing_subscriber::fmt::{format::FmtSpan, time::Uptime};
 
     use crate::{
         app::{
@@ -144,8 +154,19 @@ mod tests {
         models::configs::Configs,
     };
 
-    #[test]
-    fn navigation() {
+    #[fixture]
+    fn with_tracing() -> DefaultGuard {
+        let subscriber = tracing_subscriber::fmt()
+            .with_test_writer()
+            .with_timer(Uptime::default())
+            .with_max_level(LevelFilter::TRACE)
+            .with_span_events(FmtSpan::ENTER)
+            .finish();
+        subscriber::set_default(subscriber)
+    }
+
+    #[rstest]
+    fn navigation(_with_tracing: DefaultGuard) {
         struct Case {
             description: &'static str,
             focused: Focused,
@@ -159,18 +180,48 @@ mod tests {
 
         let cases = vec![
             Case {
-                description: "key tab does not navigate focus when sidebar is hidden",
-                focused: Focused::Session,
+                description: "sidebar hidden, key tab navigates from editor to messages",
+                focused: Focused::InputEditor,
                 show_sidebar: false,
                 is_editing: false,
                 key_event: KeyCode::Tab.into(),
-                expected_focused: Focused::Session,
+                expected_focused: Focused::Messages,
                 expected_show_sidebar: false,
                 expected_is_editing: false,
             },
             Case {
+                description: "sidebar hidden, key tab navigates from messages to editor",
+                focused: Focused::Messages,
+                show_sidebar: false,
+                is_editing: false,
+                key_event: KeyCode::Tab.into(),
+                expected_focused: Focused::InputEditor,
+                expected_show_sidebar: false,
+                expected_is_editing: false,
+            },
+            Case {
+                description: "sidebar open, key tab navigates from session manager to messages",
+                focused: Focused::SessionManager,
+                show_sidebar: true,
+                is_editing: false,
+                key_event: KeyCode::Tab.into(),
+                expected_focused: Focused::Messages,
+                expected_show_sidebar: true,
+                expected_is_editing: false,
+            },
+            Case {
+                description: "sidebar open, key tab navigates from input editor to session manager",
+                focused: Focused::SessionManager,
+                show_sidebar: true,
+                is_editing: false,
+                key_event: KeyCode::Tab.into(),
+                expected_focused: Focused::Messages,
+                expected_show_sidebar: true,
+                expected_is_editing: false,
+            },
+            Case {
                 description: "key e opens and navigates to sidebar",
-                focused: Focused::Session,
+                focused: Focused::InputEditor,
                 show_sidebar: false,
                 is_editing: false,
                 key_event: KeyCode::Char('e').into(),
@@ -179,23 +230,23 @@ mod tests {
                 expected_is_editing: false,
             },
             Case {
+                description: "key e closes sidebar",
+                focused: Focused::Messages,
+                show_sidebar: true,
+                is_editing: false,
+                key_event: KeyCode::Char('e').into(),
+                expected_focused: Focused::Messages,
+                expected_show_sidebar: false,
+                expected_is_editing: false,
+            },
+            Case {
                 description: "key e closes and navigates away from sidebar",
                 focused: Focused::SessionManager,
                 show_sidebar: true,
                 is_editing: false,
                 key_event: KeyCode::Char('e').into(),
-                expected_focused: Focused::Session,
+                expected_focused: Focused::InputEditor,
                 expected_show_sidebar: false,
-                expected_is_editing: false,
-            },
-            Case {
-                description: "Tab navigates from session manager to session",
-                focused: Focused::SessionManager,
-                show_sidebar: true,
-                is_editing: false,
-                key_event: KeyCode::Tab.into(),
-                expected_focused: Focused::Session,
-                expected_show_sidebar: true,
                 expected_is_editing: false,
             },
             Case {
@@ -204,7 +255,7 @@ mod tests {
                 show_sidebar: true,
                 is_editing: false,
                 key_event: KeyCode::Char('i').into(),
-                expected_focused: Focused::Session,
+                expected_focused: Focused::InputEditor,
                 expected_show_sidebar: true,
                 expected_is_editing: true,
             },
@@ -212,9 +263,11 @@ mod tests {
 
         for case in cases {
             let mut model = Model::new(Configs::default());
-            model.session.is_editing = case.is_editing;
+            model.session.input_editor.set_is_editing(case.is_editing);
+            if case.show_sidebar {
+                model.toggle_sidebar();
+            }
             model.shift_focus_to(case.focused);
-            model.show_sidebar = case.show_sidebar;
             let (maybe_msg, _) = handle_key_event(&mut model, case.key_event);
             if let Some(msg) = maybe_msg {
                 update::update(&mut model, msg);
@@ -230,7 +283,8 @@ mod tests {
                 case.description
             );
             assert_eq!(
-                model.session.is_editing, case.expected_is_editing,
+                model.session.input_editor.is_editing(),
+                case.expected_is_editing,
                 "{} is_editing",
                 case.description
             );

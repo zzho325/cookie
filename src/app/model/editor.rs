@@ -1,4 +1,10 @@
-use crate::app::view::editor_viewport::EditorViewport;
+use crate::{
+    app::{
+        model::focus::{Focusable, Focused},
+        view::editor_viewport::EditorViewport,
+    },
+    impl_focusable,
+};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum WrapMode {
@@ -16,9 +22,13 @@ pub struct Editor {
     pub input: String,
     /// Current cursor char idx in input.
     pub cursor_char_idx: usize,
+    focused: bool,
+    is_editing: bool,
 
     pub viewport: EditorViewport,
 }
+
+impl_focusable!(Editor, Focused::InputEditor);
 
 impl Editor {
     pub fn new(input: String, wrap_mode: WrapMode) -> Self {
@@ -27,6 +37,7 @@ impl Editor {
             input,
             cursor_char_idx: char_idx,
             viewport: EditorViewport::new(wrap_mode),
+            ..Default::default()
         }
     }
 
@@ -38,6 +49,14 @@ impl Editor {
     #[cfg(test)]
     pub fn set_input(&mut self, input: String) {
         self.input = input;
+    }
+
+    pub fn is_editing(&self) -> bool {
+        self.is_editing
+    }
+
+    pub fn set_is_editing(&mut self, is_editing: bool) {
+        self.is_editing = is_editing;
     }
 
     /// Returns current cursor byte idx.

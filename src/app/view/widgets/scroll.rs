@@ -55,8 +55,8 @@ impl ScrollState {
             .position(self.vertical_scroll_offset);
     }
 
-    /// Scrolls just enough so that line at height is visible.
-    pub fn ensure_line_visible(&mut self, height: usize) {
+    /// Scrolls just enough so that cursor is visible.
+    pub fn ensure_cursor_visible(&mut self, height: usize) {
         if let Some((_, y)) = self.cursor_position {
             let line = y as usize;
             if line < self.vertical_scroll_offset {
@@ -120,7 +120,7 @@ impl StatefulWidget for AutoScroll<'_> {
             block.render(area, buf);
         }
         let inner_area = self.block.inner_if_some(area);
-        state.ensure_line_visible(inner_area.height as usize);
+        state.ensure_cursor_visible(inner_area.height as usize);
         Widget::render(
             Paragraph::new(self.content).scroll(state.scroll_offset()),
             inner_area,

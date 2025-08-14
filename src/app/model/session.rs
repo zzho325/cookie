@@ -3,8 +3,7 @@ use uuid::Uuid;
 use crate::{
     app::model::{
         editor::{Editor, WrapMode},
-        focus::Focusable,
-        messages::{Messages},
+        messages::Messages,
     },
     models::{self, ChatEvent, ChatMessage, SessionSummary, settings::LlmSettings},
 };
@@ -16,11 +15,7 @@ pub struct Session {
     llm_settings: LlmSettings,
     pub messages: Messages,
     pub input_editor: Editor,
-    pub is_editing: bool,
-    focused: bool,
 }
-
-crate::impl_focusable!(Session);
 
 impl Session {
     pub fn new(llm_settings: LlmSettings) -> Self {
@@ -30,9 +25,6 @@ impl Session {
             llm_settings,
             messages: Messages::default(),
             input_editor: Editor::new(String::new(), WrapMode::default()),
-            // by default editting
-            is_editing: true,
-            focused: false,
         }
     }
 
@@ -81,7 +73,7 @@ impl Session {
         // only send response if no response is pending or in progress
         // TODO: implement timeout for pending resp
         if self.messages.is_pending() {
-           return None;
+            return None;
         }
         let msg = self.input_editor.input().to_string();
         // early return if input is empty.
