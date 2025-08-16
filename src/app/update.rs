@@ -151,7 +151,7 @@ mod tests {
             model::{Model, focus::Focused},
             update::{self, handle_key_event},
         },
-        models::configs::Configs,
+        models::configs::Config,
     };
 
     #[fixture]
@@ -262,7 +262,7 @@ mod tests {
         ];
 
         for case in cases {
-            let mut model = Model::new(Configs::default());
+            let mut model = Model::new(Config::default());
             model.session.input_editor.set_is_editing(case.is_editing);
             if case.show_sidebar {
                 model.toggle_sidebar();

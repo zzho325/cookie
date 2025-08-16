@@ -12,11 +12,11 @@ use crate::{
         session_manager::SessionManager,
         setting_manager::SettingManager,
     },
-    models::configs::Configs,
+    models::configs::Config,
 };
 
 pub struct Model {
-    pub configs: Configs,
+    pub configs: Config,
     /// Current session.
     pub session: Session,
     pub session_manager: SessionManager,
@@ -33,7 +33,7 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(configs: Configs) -> Self {
+    pub fn new(configs: Config) -> Self {
         // FIXME: fix config usage
         let default_llm_settings = configs.derive_llm_settings();
 
@@ -131,7 +131,7 @@ mod tests {
         ));
         messages.scroll_down();
 
-        let mut model = Model::new(crate::models::configs::Configs::default());
+        let mut model = Model::new(crate::models::configs::Config::default());
         model.session.set_title(Some(title.clone()));
         model.session.set_messages(messages);
         model.session.input_editor.set_is_editing(false);

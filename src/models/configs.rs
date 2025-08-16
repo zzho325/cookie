@@ -14,11 +14,11 @@ pub struct OpenAIConfig {
 
 /// Boot time static configs.
 #[derive(Deserialize)]
-pub struct Configs {
+pub struct Config {
     pub open_ai: OpenAIConfig,
 }
 
-impl Default for Configs {
+impl Default for Config {
     fn default() -> Self {
         Self {
             open_ai: OpenAIConfig {
@@ -29,7 +29,7 @@ impl Default for Configs {
     }
 }
 
-impl Configs {
+impl Config {
     /// Loads the configuration from the default location (using $XDG_CONFIG_HOME if exists or the
     /// platform’s standard config directory). If the config file doesn’t exist, returns the
     /// built-in default configuration.

@@ -16,7 +16,7 @@ use tokio::{
 };
 use tokio_stream::StreamExt;
 
-use crate::{ServiceReq, ServiceResp, app::model::Model, models::configs::Configs};
+use crate::{ServiceReq, ServiceResp, app::model::Model, models::configs::Config};
 
 pub struct App {
     // frontend <> backend channels
@@ -33,7 +33,7 @@ impl App {
     }
 
     /// Runs the application's main loop until the user quits.
-    pub async fn run(&mut self, cfg: Configs) -> Result<()> {
+    pub async fn run(&mut self, cfg: Config) -> Result<()> {
         let mut terminal = ratatui::init();
         let mut model = Model::new(cfg);
 

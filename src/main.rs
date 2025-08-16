@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     app::App,
-    models::{ServiceReq, ServiceResp, configs::Configs},
+    models::{ServiceReq, ServiceResp, configs::Config},
     service::ServiceBuilder,
 };
 
@@ -28,10 +28,10 @@ async fn main() -> Result<()> {
     };
 
     // TODO: handle error better
-    let configs = Configs::load().wrap_err_with(|| "load config")?;
+    let config = Config::load().wrap_err_with(|| "load config")?;
     let app_fut = async move {
         let mut app = App::new(req_tx, resp_rx)?;
-        app.run(configs).await
+        app.run(config).await
         // req_tx is dropped here and will shutdown backend service
     };
 
