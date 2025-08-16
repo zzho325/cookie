@@ -58,11 +58,7 @@ impl App {
                 }
                 // service response
                 maybe_resp = self.resp_rx.recv() => {
-                    if let Some(resp) = maybe_resp {
-                        Some(Message::ServiceResp(resp))
-                    } else {
-                        bail!("service stream closed");
-                    }
+                    maybe_resp.map(Message::ServiceResp)
                 }
             };
 

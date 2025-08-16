@@ -18,6 +18,11 @@ pub struct ResponsesReq {
 }
 
 impl ResponsesReq {
+    pub fn with_streaming(mut self) -> Self {
+        self.stream = true;
+        self
+    }
+
     pub fn build(llm_req: LlmReq) -> Result<Self> {
         let (model, web_search) = match llm_req.settings.clone() {
             LlmSettings::OpenAI { model, web_search } => (model, web_search),
@@ -39,11 +44,6 @@ impl ResponsesReq {
             stream: false,
             tools,
         })
-    }
-
-    pub fn with_streaming(mut self) -> Self {
-        self.stream = true;
-        self
     }
 }
 

@@ -83,12 +83,17 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
                 .session_manager
                 .handle_session_summary(session_summary);
         }
-        _ => todo!(),
+        ServiceResp::Error(msg) => model.error_message = Some(msg),
     }
     (None, None)
 }
 
 fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
+    // Quit on any key if there is an error message.
+    if model.error_message.is_some() {
+        model.quit()
+    }
+
     if let Some(setting_manager) = &mut model.setting_manager_popup {
         match keyevent.code {
             KeyCode::Down | KeyCode::Char('j') => {

@@ -30,10 +30,15 @@ impl ServiceBuilder {
         Self { req_rx, resp_tx }
     }
 
-    pub fn build(self) -> Service {
-        // todo: fetch env variable here
-        let router = LlmClientRouter::new();
-        Service::new(self.req_rx, self.resp_tx, router)
+    pub fn build(self) -> Option<Service> {
+        match LlmClientRouter::build() {
+            Ok(router) => Some(Service::new(self.req_rx, self.resp_tx, router)),
+            Err(e) => {
+                let message = ServiceResp::Error(e.to_string());
+                self.resp_tx.send(message);
+                None
+            }
+        }
     }
 }
 

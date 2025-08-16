@@ -18,6 +18,7 @@ use api::{ContentItem, OutputItem, Responses, ResponsesReq};
 
 pub struct OpenAIClientImpl {
     client: reqwest::Client,
+    api_key: String,
 }
 
 #[async_trait]
@@ -128,20 +129,15 @@ impl LlmClient for OpenAIClientImpl {
 impl OpenAIClientImpl {
     const OPENAI_HOST: &str = "https://api.openai.com";
 
-    pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
+    pub fn new(client: reqwest::Client, api_key: String) -> Self {
+        Self { client, api_key }
     }
 
     async fn responses(&self, req: ResponsesReq) -> Result<Responses> {
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .wrap_err("set the OPENAI_API_KEY environment variable")?;
-
         let resp = utils::post::<ResponsesReq, Responses>(
             &self.client,
             format!("{}/v1/responses", Self::OPENAI_HOST),
-            api_key,
+            self.api_key.clone(),
             &req,
         )
         .await?;
@@ -152,13 +148,10 @@ impl OpenAIClientImpl {
         &self,
         req: ResponsesReq,
     ) -> Result<BoxStream<'static, Result<ResponsesStream>>> {
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .wrap_err("set the OPENAI_API_KEY environment variable")?;
-
         let stream = utils::post_stream::<ResponsesReq, ResponsesStream>(
             &self.client,
             format!("{}/v1/responses", Self::OPENAI_HOST),
-            api_key,
+            self.api_key.clone(),
             &req,
         )
         .await?;

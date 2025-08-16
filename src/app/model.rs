@@ -26,6 +26,10 @@ pub struct Model {
     pub selected_session_id: Option<uuid::Uuid>,
 
     pub setting_manager_popup: Option<SettingManager>,
+
+    /// Irrecoverable failure message.
+    pub error_message: Option<String>,
+
     pub show_sidebar: bool,
     pub focused: Focused,
     focus_order: Vec<fn(&mut Model) -> &mut dyn Focusable>,
@@ -43,6 +47,7 @@ impl Model {
             session_manager: SessionManager::default(),
             selected_session_id: None,
             setting_manager_popup: None,
+            error_message: None,
             show_sidebar: false,
             should_quit: false,
             focused: Focused::InputEditor,

@@ -56,7 +56,7 @@ cargo build --release
   * [ ] Help and Keymaps.
   * [x] Load config properly.
   * [ ] UI to update settings.
-  * [ ] Error popup.
+  * [x] Error popup.
 * Chat Engine:
   * [x] Retain context across chats.
   * [x] Web: optional search and crawl.

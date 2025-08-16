@@ -2,7 +2,7 @@ pub mod mock;
 pub mod open_ai;
 
 use async_trait::async_trait;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Context, Result};
 use futures_util::stream::BoxStream;
 use std::sync::Arc;
 
@@ -36,12 +36,16 @@ pub struct LlmClientRouter {
 }
 
 impl LlmClientRouter {
-    pub fn new() -> Self {
-        Self {
-            open_ai: Arc::new(OpenAIClientImpl::new()),
+    pub fn build() -> Result<Self> {
+        let client = reqwest::Client::new();
+        let open_ai_key = std::env::var("OPENAI_API_KEY")
+            .wrap_err("set the OPENAI_API_KEY environment variable")?;
+
+        Ok(Self {
+            open_ai: Arc::new(OpenAIClientImpl::new(client, open_ai_key)),
             #[cfg(debug_assertions)]
             mock: Arc::new(mock::MockLlmClientImpl {}),
-        }
+        })
     }
 }
 
