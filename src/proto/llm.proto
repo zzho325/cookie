@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package llm;
+
+enum OpenAIModel {
+  OPEN_AI_MODEL_UNSPECIFIED = 0;
+  OPEN_AI_MODEL_GPT_4O = 1;
+  OPEN_AI_MODEL_GPT_4O_MINI = 2;
+  OPEN_AI_MODEL_O4_MINI = 3;
+  OPEN_AI_MODEL_O3 = 4;
+  OPEN_AI_MODEL_O3_MINI = 5;
+}
+
+message OpenAISettings {
+  OpenAIModel model = 1;
+  // Whether to enable open ai native web search.
+  bool web_search = 2;
+}
+
+message LlmSettings {
+  oneof provider {
+    OpenAISettings open_ai = 1;
+  }
+}

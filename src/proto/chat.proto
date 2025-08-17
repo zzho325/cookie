@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package chat;
+
+import "google/protobuf/timestamp.proto";
+import "llm.proto";
+
+// Message role indicates the sender of the message.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_USER=1;
+  ROLE_ASSISTANT=2;
+}
+
+// Service stream chat events.
+message ChatEvent {
+  // Message id, uuid.
+  string id = 1;
+  // Session id, uuid.
+  string session_id = 2;
+  llm.LlmSettings llm_settings = 3;
+  oneof payload {
+    Message message = 5;
+    MessageDelta message_delta = 6;
+    ToolEvent tool_event = 7;
+  }
+  // When the message was created.
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message Message {
+  Role role = 1;
+  string msg = 2;
+}
+
+message MessageDelta {
+  string delta = 1;
+}
+
+message ToolEvent {
+  message WebSearchCall {
+    string id = 1;
+    string status = 2;
+    string action_json = 3;
+  }
+  oneof event {
+    WebSearchCall web_search_call = 1;
+  }
+}
+
+message ChatSession {
+  // Session id, uuid.
+  string id = 1;
+  // The messages in the chat session.
+  repeated ChatEvent events = 2;
+  // The title of the chat session.
+  string title = 3;
+  // Settings of the chat session.
+  llm.LlmSettings llm_settings = 4;
+  // When the chat session was created.
+  google.protobuf.Timestamp created_at = 5;
+  // When the chat session was updated.
+  google.protobuf.Timestamp updated_at = 6;
+}
+

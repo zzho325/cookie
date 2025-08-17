@@ -11,6 +11,13 @@ use crate::{
     service::ServiceBuilder,
 };
 
+pub mod llm {
+    include!(concat!(env!("OUT_DIR"), "/llm.rs"));
+}
+pub mod chat {
+    include!(concat!(env!("OUT_DIR"), "/chat.rs"));
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
