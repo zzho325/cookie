@@ -10,10 +10,10 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
 };
-use uuid::Uuid;
 
 use crate::{
-    models::{ChatMessage, ServiceReq, ServiceResp},
+    chat::ChatEvent,
+    models::{ServiceReq, ServiceResp},
     service::{chat::SharedSession, llms::LlmClientRouter},
 };
 
@@ -47,8 +47,8 @@ pub struct Service {
     resp_tx: UnboundedSender<ServiceResp>,
 
     llm_router: LlmClientRouter,
-    sessions: HashMap<Uuid, SharedSession>,
-    sessions_chat_tx: HashMap<Uuid, UnboundedSender<ChatMessage>>,
+    sessions: HashMap<String, SharedSession>,
+    sessions_chat_tx: HashMap<String, UnboundedSender<ChatEvent>>,
 }
 
 impl Service {
@@ -74,7 +74,7 @@ impl Service {
                     match maybe_req {
                         None => break,
                         Some(ServiceReq::ChatMessage ( user_message )) => {
-                            if self.sessions.contains_key(&user_message.session_id()) {
+                            if self.sessions.contains_key(&user_message.session_id) {
                                 self.handle_user_message(user_message)?;
                             } else {
                                 let chat_handle = self.handle_new_session(user_message).await?;

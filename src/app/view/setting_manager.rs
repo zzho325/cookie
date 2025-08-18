@@ -1,6 +1,4 @@
-use crate::{
-    app::model::setting_manager::SettingManager, service::llms::open_ai::api::OPENAI_MODELS,
-};
+use crate::{app::model::setting_manager::SettingManager, models::OPENAI_MODELS};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

@@ -4,11 +4,11 @@ use color_eyre::{
 };
 use serde::Deserialize;
 
-use crate::{models::LlmSettings, service::llms::open_ai::api::OpenAIModel};
+use crate::{llm::*, models::LlmSettings, service::llms::open_ai::api::Model};
 
 #[derive(Deserialize)]
 pub struct OpenAIConfig {
-    pub model: OpenAIModel,
+    pub model: Model,
     pub web_search: bool,
 }
 
@@ -22,7 +22,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             open_ai: OpenAIConfig {
-                model: OpenAIModel::default(),
+                model: Model::default(),
                 web_search: true,
             },
         }
@@ -57,9 +57,12 @@ impl Config {
     }
 
     pub fn derive_llm_settings(&self) -> LlmSettings {
-        LlmSettings::OpenAI {
-            model: self.open_ai.model.clone(),
-            web_search: self.open_ai.web_search,
+        let model: OpenAiModel = (&self.open_ai.model).into();
+        LlmSettings {
+            provider: Some(llm_settings::Provider::OpenAi(OpenAiSettings {
+                model: model as i32,
+                web_search: self.open_ai.web_search,
+            })),
         }
     }
 }

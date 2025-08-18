@@ -128,39 +128,53 @@ impl StatefulWidget for &mut Session {
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
+    use prost_types::Timestamp;
     use uuid::Uuid;
 
     use crate::{
         app::{model::messages::Messages, view::session::SessionState},
-        models::{ChatMessage, Role},
+        chat::*,
+        llm::*,
     };
 
     #[test]
     fn render_session() {
-        let user_message_created_at = chrono::Utc.with_ymd_and_hms(2025, 7, 10, 0, 0, 0).unwrap();
-        let assistant_message_created_at =
-            user_message_created_at + std::time::Duration::from_secs(2);
-
-        let llm_settings = crate::models::settings::LlmSettings::OpenAI {
-            model: crate::service::llms::open_ai::api::OpenAIModel::Gpt4o,
-            web_search: false,
+        let dt = chrono::Utc.with_ymd_and_hms(2025, 7, 10, 0, 0, 0).unwrap();
+        let user_message_created_at = Timestamp {
+            seconds: dt.timestamp(),
+            nanos: dt.timestamp_subsec_nanos() as i32,
         };
-        let session_id = Uuid::new_v4();
+        let assistant_message_created_at = Timestamp {
+            seconds: dt.timestamp() + 2,
+            nanos: dt.timestamp_subsec_nanos() as i32,
+        };
+
+        let llm_settings = LlmSettings {
+            provider: Some(crate::llm::llm_settings::Provider::OpenAi(OpenAiSettings {
+                model: OpenAiModel::Gpt4o as i32,
+                web_search: false,
+            })),
+        };
+        let session_id = Uuid::new_v4().to_string();
 
         let mut messages = Messages::default();
-        let chat_messages: Vec<ChatMessage> = vec![
-            ChatMessage::new(
-                session_id,
-                llm_settings.clone(),
-                Role::User,
-                "history question".to_string(),
+        let chat_messages: Vec<ChatEvent> = vec![
+            ChatEvent::new(
+                session_id.clone(),
+                Some(llm_settings),
+                chat_event::Payload::Message(Message {
+                    role: Role::User as i32,
+                    msg: "history question".to_string(),
+                }),
             )
             .with_created_at(user_message_created_at),
-            ChatMessage::new(
-                session_id,
-                llm_settings.clone(),
-                Role::Assistant,
-                "history answer".to_string(),
+            ChatEvent::new(
+                session_id.clone(),
+                Some(llm_settings),
+                chat_event::Payload::Message(Message {
+                    role: Role::Assistant as i32,
+                    msg: "history answer".to_string(),
+                }),
             )
             .with_created_at(assistant_message_created_at),
         ];

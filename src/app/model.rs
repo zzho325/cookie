@@ -23,7 +23,7 @@ pub struct Model {
     /// Source of truth for selected session id.
     /// It might not be in session_summaries for newly created session.
     /// It might not be the same as id in session while waiting for fetching selected session.
-    pub selected_session_id: Option<uuid::Uuid>,
+    pub selected_session_id: Option<String>,
 
     pub setting_manager_popup: Option<SettingManager>,
 
@@ -93,11 +93,14 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
+    use std::time::SystemTime;
+
     use uuid::Uuid;
 
     use crate::{
         app::model::{Model, focus::Focused, messages::Messages},
-        models::{ChatEvent, ChatMessage, Message, Role, SessionSummary},
+        chat::*,
+        llm::*,
     };
 
     #[test]
@@ -105,34 +108,42 @@ mod tests {
         // ----------------------------------------------------------------
         // Setup model.
         // ----------------------------------------------------------------
-        let llm_settings = crate::models::settings::LlmSettings::OpenAI {
-            model: crate::service::llms::open_ai::api::OpenAIModel::Gpt4o,
-            web_search: false,
+        let llm_settings = LlmSettings {
+            provider: Some(crate::llm::llm_settings::Provider::OpenAi(OpenAiSettings {
+                model: OpenAiModel::Gpt4o as i32,
+                web_search: false,
+            })),
         };
-        let session_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4().to_string();
         let title = "Awesome chat".to_string();
 
         let mut messages = Messages::default();
-        messages.handle_user_chat_message(ChatMessage::new(
-            session_id,
-            llm_settings.clone(),
-            Role::User,
-            "history question".to_string(),
+        let payload = chat_event::Payload::Message(Message {
+            role: Role::User as i32,
+            msg: "history question".to_string(),
+        });
+        messages.handle_user_chat_message(ChatEvent::new(
+            session_id.clone(),
+            Some(llm_settings),
+            payload,
         ));
+        let payload = chat_event::Payload::Message(Message {
+            role: Role::Assistant as i32,
+            msg: "history response".to_string(),
+        });
         messages.handle_chat_event_stream(ChatEvent::new(
-            session_id,
-            llm_settings.clone(),
-            Message {
-                role: Role::Assistant,
-                msg: "history reponse".to_string(),
-            }
-            .into(),
+            session_id.clone(),
+            Some(llm_settings),
+            payload,
         ));
-        messages.handle_user_chat_message(ChatMessage::new(
-            session_id,
-            llm_settings.clone(),
-            Role::User,
-            "pending question".to_string(),
+        let payload = chat_event::Payload::Message(Message {
+            role: Role::User as i32,
+            msg: "pending question".to_string(),
+        });
+        messages.handle_user_chat_message(ChatEvent::new(
+            session_id.clone(),
+            Some(llm_settings),
+            payload,
         ));
         messages.scroll_down();
 
@@ -144,15 +155,18 @@ mod tests {
             .session
             .input_editor
             .set_input("repeat this".repeat(3));
-        model.selected_session_id = Some(session_id);
+        model.selected_session_id = Some(session_id.clone());
 
         model.session_manager.handle_session_summaries(
-            vec![SessionSummary {
+            vec![ChatSession {
                 id: session_id,
+                events: vec![],
                 title,
-                updated_at: chrono::Utc::now(),
+                llm_settings: None,
+                updated_at: Some(prost_types::Timestamp::from(SystemTime::now())),
+                created_at: None,
             }],
-            model.selected_session_id,
+            model.selected_session_id.clone(),
         );
 
         // ----------------------------------------------------------------
@@ -162,7 +176,7 @@ mod tests {
 
         // Session history, pending messages and messages scroll srate are reset.
         assert_eq!(
-            model.session.messages.chat_messages().len(),
+            model.session.messages.chat_events().len(),
             0,
             "history messages are reset"
         );

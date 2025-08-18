@@ -1,41 +1,19 @@
-use serde::Deserialize;
-
-use crate::service::llms::open_ai::api::OpenAIModel;
-
-#[derive(Clone, Deserialize, Debug)]
-pub enum LlmSettings {
-    OpenAI {
-        model: OpenAIModel,
-        web_search: bool,
-    },
-    Mock {
-        latency: std::time::Duration,
-    },
-}
-
-impl Default for LlmSettings {
-    fn default() -> Self {
-        LlmSettings::OpenAI {
-            model: OpenAIModel::default(),
-            web_search: false,
-        }
-    }
-}
+use crate::llm::*;
 
 impl LlmSettings {
     /// Returns provider display name.
     pub fn provider_name(&self) -> &'static str {
-        match self {
-            LlmSettings::OpenAI { .. } => "openAI",
-            LlmSettings::Mock { .. } => "mock",
+        match self.provider {
+            Some(llm_settings::Provider::OpenAi(_)) => "openAI",
+            None => "Unspecified",
         }
     }
 
     /// Returns the model display name.
     pub fn model_name(&self) -> &'static str {
-        match self {
-            LlmSettings::OpenAI { model, .. } => model.display_name(),
-            LlmSettings::Mock { .. } => "—",
+        match self.provider {
+            Some(llm_settings::Provider::OpenAi(settings)) => settings.model().display_name(),
+            None => "Unspecified",
         }
     }
 }

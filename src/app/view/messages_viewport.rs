@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use itertools::Itertools;
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -14,7 +16,8 @@ use crate::{
         },
         widgets::scroll::ScrollState,
     },
-    models::{ChatMessage, MessageDelta, settings::LlmSettings},
+    chat::*,
+    llm::*,
 };
 
 #[derive(Default)]
@@ -82,28 +85,44 @@ impl MessagesViewport {
     // TODO: cache history messages.
     pub fn build_lines(
         &mut self,
-        chat_messages: &[ChatMessage],
+        chat_events: &[ChatEvent],
         stream_message: Option<&MessageDelta>,
     ) {
         let mut lines: Vec<StyledLine> = vec![];
 
         // history messages
-        let mut iter = chat_messages.iter().peekable();
-        while let Some(chat_message) = iter.next() {
-            match chat_message.payload().role {
-                crate::models::Role::User => {
+        let mut iter = chat_events
+            .iter()
+            .filter(|e| matches!(e.payload, Some(chat_event::Payload::Message(_))))
+            .peekable();
+
+        while let Some(chat_event) = iter.next() {
+            let chat_event::Payload::Message(Message { role, msg }) =
+                chat_event.payload.clone().unwrap()
+            else {
+                unreachable!()
+            };
+
+            match Role::try_from(role).expect("Invalid role") {
+                Role::User => {
                     // calculate elapsed duration if next message is from assistant
-                    let start = *chat_message.created_at();
-                    let elapsed_secs = iter
-                        .peek()
-                        .map(|next| (*next.created_at() - start).num_seconds());
-                    let prefix_line =
-                        Self::make_prompt_line(chat_message.llm_settings(), elapsed_secs);
+                    let start: SystemTime = chat_event.created_at.unwrap().try_into().unwrap();
+
+                    let elapsed_secs = iter.peek().map(|next| {
+                        let next_time: SystemTime =
+                            next.created_at.unwrap_or_default().try_into().unwrap();
+                        next_time
+                            .duration_since(start)
+                            .map(|d| d.as_secs() as i64)
+                            .unwrap_or(0)
+                    });
+                    let prefix_line = Self::make_prompt_line(
+                        &chat_event.llm_settings.unwrap_or_default(),
+                        elapsed_secs,
+                    );
                     lines.push(prefix_line);
 
-                    let mut chat_message_lines: Vec<StyledLine> = chat_message
-                        .payload()
-                        .msg
+                    let mut chat_message_lines: Vec<StyledLine> = msg
                         .lines()
                         .map(|l| StyledLine::from(l.to_string()))
                         .collect();
@@ -112,10 +131,11 @@ impl MessagesViewport {
                     }
                     lines.extend(chat_message_lines);
                 }
-                crate::models::Role::Assistant => {
-                    let styled_lines = markdown::from_str(&chat_message.payload().msg);
+                Role::Assistant => {
+                    let styled_lines = markdown::from_str(&msg);
                     lines.extend(styled_lines);
                 }
+                Role::Unspecified => unreachable!("Unpecified role"),
             }
         }
 

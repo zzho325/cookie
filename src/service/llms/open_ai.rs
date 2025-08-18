@@ -1,14 +1,14 @@
 pub mod api;
 
 use async_trait::async_trait;
-use color_eyre::eyre::{Result, WrapErr};
+use color_eyre::eyre::Result;
 use futures_util::{
-    StreamExt, TryStreamExt,
+    StreamExt,
     stream::{self, BoxStream},
 };
 
 use crate::{
-    models::{ChatEventPayload, Message, MessageDelta, Role, ToolEvent},
+    chat::{self, *},
     service::{
         llms::{LlmClient, LlmReq, LlmResp, open_ai::api::ResponsesStream},
         utils,
@@ -25,10 +25,10 @@ pub struct OpenAIClientImpl {
 impl LlmClient for OpenAIClientImpl {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
         let req = ResponsesReq::build(llm_req)?;
-        tracing::debug!(model=req.model.display_name(), input=?req.input);
+        tracing::debug!(model=?req.model, input=?req.input);
         let resp = self.responses(req).await?;
 
-        let mut chat_events: Vec<ChatEventPayload> = Vec::new();
+        let mut chat_events: Vec<chat_event::Payload> = Vec::new();
         for output in &resp.output {
             match output {
                 OutputItem::Message { content, role } => {
@@ -44,23 +44,21 @@ impl LlmClient for OpenAIClientImpl {
                             }
                         }
                     }
-                    chat_events.push(
-                        Message {
-                            role: role.to_owned(),
-                            msg,
-                        }
-                        .into(),
-                    );
+                    chat_events.push(chat_event::Payload::Message(Message {
+                        role: chat::Role::from(role) as i32,
+                        msg,
+                    }));
                 }
                 OutputItem::WebSearchCall { action, id, status } => {
-                    chat_events.push(
-                        ToolEvent::WebSearchCall {
-                            action: action.clone(),
-                            id: id.clone(),
-                            status: status.clone(),
-                        }
-                        .into(),
-                    );
+                    chat_events.push(chat_event::Payload::ToolEvent(ToolEvent {
+                        event: Some(tool_event::Event::WebSearchCall(
+                            tool_event::WebSearchCall {
+                                id: id.clone(),
+                                status: status.clone(),
+                                action_json: action.to_string(),
+                            },
+                        )),
+                    }));
                 }
                 OutputItem::Unimplement => {
                     tracing::debug!("unimplemented type")
@@ -73,9 +71,9 @@ impl LlmClient for OpenAIClientImpl {
         })
     }
 
-    async fn stream(&self, llm_req: LlmReq) -> Result<BoxStream<'static, ChatEventPayload>> {
+    async fn stream(&self, llm_req: LlmReq) -> Result<BoxStream<'static, chat_event::Payload>> {
         let req = ResponsesReq::build(llm_req)?.with_streaming();
-        tracing::debug!(model=req.model.display_name(), input=?req.input);
+        tracing::debug!(model=?req.model, input=?req.input);
         let stream = self.stream_responses(req).await?;
         let event_stream = stream
             .filter_map(|res| async move {
@@ -90,13 +88,13 @@ impl LlmClient for OpenAIClientImpl {
             .flat_map(|resp| {
                 let payloads = match resp {
                     ResponsesStream::OutputTextDelta(d) => {
-                        vec![ChatEventPayload::MessageDelta(MessageDelta {
+                        vec![chat_event::Payload::MessageDelta(MessageDelta {
                             delta: d.delta,
                         })]
                     }
                     ResponsesStream::OutputTextDone(d) => {
-                        vec![ChatEventPayload::Message(Message {
-                            role: Role::Assistant,
+                        vec![chat_event::Payload::Message(Message {
+                            role: Role::Assistant as i32,
                             msg: d.text,
                         })]
                     }
@@ -106,10 +104,14 @@ impl LlmClient for OpenAIClientImpl {
                         .into_iter()
                         .filter_map(|output| {
                             if let OutputItem::WebSearchCall { action, id, status } = output {
-                                Some(ChatEventPayload::ToolEvent(ToolEvent::WebSearchCall {
-                                    action,
-                                    id,
-                                    status,
+                                Some(chat_event::Payload::ToolEvent(ToolEvent {
+                                    event: Some(tool_event::Event::WebSearchCall(
+                                        tool_event::WebSearchCall {
+                                            id,
+                                            status,
+                                            action_json: action.to_string(),
+                                        },
+                                    )),
                                 }))
                             } else {
                                 None

@@ -95,7 +95,7 @@ impl EditorViewport {
                 if input.is_empty() {
                     lines.push(String::new());
                 }
-                return lines;
+                lines
             }
             WrapMode::Word => {
                 let wrap_opts = Options::new(self.viewport_width)
@@ -104,7 +104,7 @@ impl EditorViewport {
                     .preserve_trailing_space(true);
 
                 let lines = wrap(input, wrap_opts);
-                return lines.into_iter().map(Cow::into_owned).collect();
+                lines.into_iter().map(Cow::into_owned).collect()
             }
         }
     }

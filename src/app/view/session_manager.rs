@@ -8,11 +8,11 @@ use ratatui::{
 
 use crate::{
     app::model::{focus::Focusable, session_manager::SessionManager},
-    models::SessionSummary,
+    chat::ChatSession,
 };
 
-impl From<&SessionSummary> for ListItem<'_> {
-    fn from(value: &SessionSummary) -> Self {
+impl From<&ChatSession> for ListItem<'_> {
+    fn from(value: &ChatSession) -> Self {
         let line = Line::from(value.title.clone());
 
         ListItem::new(line)

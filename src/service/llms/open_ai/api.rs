@@ -1,5 +1,6 @@
 use crate::{
-    models::{ChatEventPayload, Role, ToolEvent, settings::LlmSettings},
+    chat::{self, *},
+    llm::*,
     service::llms::LlmReq,
 };
 use color_eyre::eyre::{Result, eyre};
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 // TODO: handle error response and timeout
 #[derive(Serialize, Default)]
 pub struct ResponsesReq {
-    pub model: OpenAIModel,
+    pub model: Model,
     /// A system (or developer) message inserted into model's context.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructions: Option<String>,
@@ -24,8 +25,10 @@ impl ResponsesReq {
     }
 
     pub fn build(llm_req: LlmReq) -> Result<Self> {
-        let (model, web_search) = match llm_req.settings.clone() {
-            LlmSettings::OpenAI { model, web_search } => (model, web_search),
+        let (model, web_search) = match llm_req.settings.provider {
+            Some(llm_settings::Provider::OpenAi(open_ai_settings)) => {
+                (open_ai_settings.model(), open_ai_settings.web_search)
+            }
             _ => return Err(eyre!("Client and settings do not match")),
         };
 
@@ -34,7 +37,7 @@ impl ResponsesReq {
             tools.push(Tool::WebSearchPreview);
         }
         Ok(ResponsesReq {
-            model,
+            model: model.into(),
             instructions: llm_req.instructions,
             input: llm_req
                 .events
@@ -47,6 +50,31 @@ impl ResponsesReq {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    User,
+    Assistant,
+}
+
+impl From<chat::Role> for Role {
+    fn from(value: chat::Role) -> Self {
+        match value {
+            chat::Role::Unspecified => Role::User,
+            chat::Role::User => Role::User,
+            chat::Role::Assistant => Role::User,
+        }
+    }
+}
+
+impl From<&Role> for chat::Role {
+    fn from(value: &Role) -> Self {
+        match value {
+            Role::User => chat::Role::User,
+            Role::Assistant => chat::Role::User,
+        }
+    }
+}
 #[derive(Serialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum InputItem {
@@ -55,9 +83,9 @@ pub enum InputItem {
         content: String,
     },
     WebSearchCall {
-        action: serde_json::Value,
         id: String,
         status: String,
+        action: serde_json::Value,
     },
     FunctionCall {
         name: String,
@@ -71,21 +99,23 @@ pub enum InputItem {
     },
 }
 
-impl From<&ChatEventPayload> for Option<InputItem> {
-    fn from(value: &ChatEventPayload) -> Self {
+impl From<&chat_event::Payload> for Option<InputItem> {
+    fn from(value: &chat_event::Payload) -> Self {
         match value {
-            ChatEventPayload::Message(p) => Some(InputItem::Message {
-                role: p.role.clone(),
-                content: p.msg.clone(),
+            chat_event::Payload::Message(message) => Some(InputItem::Message {
+                role: message.role().into(),
+                content: message.msg.clone(),
             }),
-            ChatEventPayload::ToolEvent(te) => Some(match te {
-                ToolEvent::WebSearchCall { action, id, status } => InputItem::WebSearchCall {
-                    action: action.clone(),
-                    id: id.clone(),
-                    status: status.clone(),
-                },
-            }),
-            ChatEventPayload::MessageDelta(_) => None,
+            chat_event::Payload::MessageDelta(_) => None,
+            chat_event::Payload::ToolEvent(tool_event) => match &tool_event.event {
+                Some(tool_event::Event::WebSearchCall(wsc)) => Some(InputItem::WebSearchCall {
+                    id: wsc.id.clone(),
+                    status: wsc.status.clone(),
+                    action: serde_json::from_str(&wsc.action_json)
+                        .unwrap_or_else(|_| serde_json::Value::Null),
+                }),
+                _ => None,
+            },
         }
     }
 }
@@ -103,7 +133,7 @@ pub enum Tool {
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug, PartialEq)]
-pub enum OpenAIModel {
+pub enum Model {
     #[default]
     #[serde(rename = "gpt-4o")]
     Gpt4o,
@@ -117,25 +147,30 @@ pub enum OpenAIModel {
     O3Mini,
 }
 
-impl OpenAIModel {
-    pub fn display_name(&self) -> &'static str {
-        match self {
-            OpenAIModel::Gpt4o => "4o",
-            OpenAIModel::Gpt4oMini => "4o-mini",
-            OpenAIModel::O4Mini => "o4-mini",
-            OpenAIModel::O3 => "o3",
-            OpenAIModel::O3Mini => "o3-mini",
+impl From<OpenAiModel> for Model {
+    fn from(value: OpenAiModel) -> Self {
+        match value {
+            OpenAiModel::Unspecified => Model::default(),
+            OpenAiModel::Gpt4o => Model::Gpt4o,
+            OpenAiModel::Gpt4oMini => Model::Gpt4oMini,
+            OpenAiModel::O4Mini => Model::O4Mini,
+            OpenAiModel::O3 => Model::O3,
+            OpenAiModel::O3Mini => Model::O3Mini,
         }
     }
 }
 
-pub const OPENAI_MODELS: &[OpenAIModel] = &[
-    OpenAIModel::Gpt4o,
-    OpenAIModel::Gpt4oMini,
-    OpenAIModel::O4Mini,
-    OpenAIModel::O3,
-    OpenAIModel::O3Mini,
-];
+impl From<&Model> for OpenAiModel {
+    fn from(value: &Model) -> Self {
+        match value {
+            Model::Gpt4o => OpenAiModel::Gpt4o,
+            Model::Gpt4oMini => OpenAiModel::Gpt4oMini,
+            Model::O4Mini => OpenAiModel::O4Mini,
+            Model::O3 => OpenAiModel::O3,
+            Model::O3Mini => OpenAiModel::O3Mini,
+        }
+    }
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Responses {
@@ -150,9 +185,9 @@ pub enum OutputItem {
         content: Vec<ContentItem>,
     },
     WebSearchCall {
-        action: serde_json::Value,
         id: String,
         status: String,
+        action: serde_json::Value,
     },
     // FunctionCall {
     //     name: String,

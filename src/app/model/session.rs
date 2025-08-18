@@ -5,12 +5,13 @@ use crate::{
         editor::{Editor, WrapMode},
         messages::Messages,
     },
-    models::{self, ChatEvent, ChatMessage, SessionSummary, settings::LlmSettings},
+    chat::*,
+    llm::*,
 };
 
 pub struct Session {
     /// Session Id of current session. None for new session before sending first message.
-    pub session_id: Option<Uuid>,
+    pub session_id: Option<String>,
     title: Option<String>,
     llm_settings: LlmSettings,
     pub messages: Messages,
@@ -28,10 +29,9 @@ impl Session {
         }
     }
 
-    pub fn session_id(&self) -> Option<Uuid> {
-        self.session_id
+    pub fn session_id(&self) -> Option<&String> {
+        self.session_id.as_ref()
     }
-
     pub fn title(&self) -> Option<&String> {
         self.title.as_ref()
     }
@@ -45,8 +45,8 @@ impl Session {
         self.messages = messages;
     }
 
-    pub fn llm_settings(&self) -> &LlmSettings {
-        &self.llm_settings
+    pub fn llm_settings(&self) -> LlmSettings {
+        self.llm_settings
     }
 
     pub fn set_llm_settings(&mut self, llm_settings: LlmSettings) {
@@ -69,7 +69,7 @@ impl Session {
     /// If not already pending response, and input editor is not empty, sends user message to
     /// service, create session_id if this is a draft chat, i.e., session_id not populated.
     /// Returns he user message.
-    pub fn handle_sending_user_message(&mut self) -> Option<ChatMessage> {
+    pub fn handle_sending_user_message(&mut self) -> Option<ChatEvent> {
         // only send response if no response is pending or in progress
         // TODO: implement timeout for pending resp
         if self.messages.is_pending() {
@@ -82,14 +82,19 @@ impl Session {
         }
 
         let msg_ = msg.clone();
-        let session_id = self.session_id.unwrap_or_else(Uuid::new_v4);
-        self.session_id = Some(session_id);
-        let user_message = ChatMessage::new(
-            session_id,
-            self.llm_settings.clone(),
-            crate::models::Role::User,
-            msg_,
-        );
+        let session_id = if let Some(id) = &self.session_id {
+            id.clone()
+        } else {
+            let id = Uuid::new_v4().to_string();
+            self.session_id = Some(id.clone());
+            id
+        };
+
+        let payload = chat_event::Payload::Message(crate::chat::Message {
+            role: Role::User as i32,
+            msg: msg_,
+        });
+        let user_message = ChatEvent::new(session_id, Some(self.llm_settings), payload);
         self.messages.handle_user_chat_message(user_message.clone());
         self.input_editor.clear();
         Some(user_message)
@@ -97,8 +102,8 @@ impl Session {
 
     pub fn handle_chat_event(&mut self, chat_event: ChatEvent) {
         // assign session with session id
-        match self.session_id {
-            Some(session_id) if session_id == chat_event.session_id() => {
+        match &self.session_id {
+            Some(id) if id == &chat_event.session_id => {
                 self.messages.handle_chat_event_stream(chat_event);
             }
             _ => {}
@@ -106,18 +111,18 @@ impl Session {
     }
 
     /// Replaces current content with given session except for editor input.
-    pub fn handle_session(&mut self, session: models::Session) {
+    pub fn handle_session(&mut self, session: ChatSession) {
         self.session_id = Some(session.id);
         self.title = Some(session.title);
-        self.llm_settings = session.llm_settings;
+        self.llm_settings = session.llm_settings.unwrap_or_default();
 
         self.messages.reset();
-        self.messages.handle_chat_events(session.chat_events);
+        self.messages.handle_chat_events(session.events);
     }
 
     /// Updates title if `session_summary` is for current session.
-    pub fn handle_session_summary(&mut self, session_summary: SessionSummary) {
-        if let Some(session_id) = self.session_id {
+    pub fn handle_session_summary(&mut self, session_summary: ChatSession) {
+        if let Some(session_id) = self.session_id.clone() {
             if session_id == session_summary.id {
                 self.title = Some(session_summary.title)
             }

@@ -24,7 +24,7 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         // TODO: add a unit test for sending message and create session.
         Message::Send => {
             if let Some(user_message) = model.session.handle_sending_user_message() {
-                model.selected_session_id = Some(user_message.session_id());
+                model.selected_session_id = Some(user_message.session_id.clone());
                 return (
                     None,
                     Some(Command::ServiceReq(ServiceReq::ChatMessage(
@@ -43,12 +43,12 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         Message::Setting => match &mut model.setting_manager_popup {
             None => {
                 model.setting_manager_popup =
-                    Some(SettingManager::new(model.session.llm_settings().clone()))
+                    Some(SettingManager::new(model.session.llm_settings()))
             }
             Some(setting_manager) => {
                 model
                     .session
-                    .set_llm_settings(setting_manager.llm_settings().clone());
+                    .set_llm_settings(setting_manager.llm_settings());
                 model.setting_manager_popup = None;
             }
         },
@@ -67,14 +67,14 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
         ServiceResp::ChatEvent(chat_event) => model.session.handle_chat_event(chat_event),
         ServiceResp::Sessions(session_summaries) => model
             .session_manager
-            .handle_session_summaries(session_summaries, model.selected_session_id),
+            .handle_session_summaries(session_summaries, model.selected_session_id.clone()),
         ServiceResp::Session(session) => {
-            if model.selected_session_id == Some(session.id) {
+            if model.selected_session_id.as_ref() == Some(&session.id) {
                 model.session.handle_session(session);
             }
         }
         ServiceResp::SessionSummary(session_summary) => {
-            if model.selected_session_id == Some(session_summary.id) {
+            if model.selected_session_id.as_ref() == Some(&session_summary.id) {
                 model
                     .session
                     .handle_session_summary(session_summary.clone());
@@ -126,12 +126,12 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             KeyCode::Char('s') => return (Some(Message::Setting), None),
             KeyCode::Down | KeyCode::Char('j') => {
                 model.selected_session_id = model.session_manager.select_next();
-                let maybe_msg = model.selected_session_id.map(Message::GetSession);
+                let maybe_msg = model.selected_session_id.clone().map(Message::GetSession);
                 return (maybe_msg, None);
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 model.selected_session_id = model.session_manager.select_previous();
-                let maybe_msg = model.selected_session_id.map(Message::GetSession);
+                let maybe_msg = model.selected_session_id.clone().map(Message::GetSession);
                 return (maybe_msg, None);
             }
             KeyCode::Tab => model.shift_focus(),

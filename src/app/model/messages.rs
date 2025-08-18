@@ -3,13 +3,13 @@ use crate::{
         model::focus::{Focusable, Focused},
         view::messages_viewport::MessagesViewport,
     },
+    chat::*,
     impl_focusable,
-    models::{ChatEvent, ChatEventPayload, ChatMessage, MessageDelta},
 };
 
 #[derive(Default)]
 pub struct Messages {
-    chat_messages: Vec<ChatMessage>,
+    chat_events: Vec<ChatEvent>,
     stream_message: Option<MessageDelta>,
     is_pending: bool,
     focused: bool,
@@ -23,12 +23,12 @@ impl Messages {
         self.is_pending
     }
 
-    pub fn chat_messages(&self) -> &[ChatMessage] {
-        &self.chat_messages
+    pub fn chat_events(&self) -> &[ChatEvent] {
+        &self.chat_events
     }
 
-    pub fn set_chat_messages(&mut self, chat_messages: Vec<ChatMessage>) {
-        self.chat_messages = chat_messages;
+    pub fn set_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
+        self.chat_events = chat_events;
     }
 
     pub fn stream_message(&self) -> Option<&MessageDelta> {
@@ -61,54 +61,49 @@ impl Messages {
     }
 
     /// Handles sending user chat message.
-    pub fn handle_user_chat_message(&mut self, user_chat_message: ChatMessage) {
+    pub fn handle_user_chat_message(&mut self, user_chat_message: ChatEvent) {
         self.viewport.scroll_to_top();
-        self.chat_messages.push(user_chat_message);
+        self.chat_events.push(user_chat_message);
         self.is_pending = true;
 
         self.viewport
-            .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
+            .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }
 
     /// Handles chat events streamed from streaming API.
     pub fn handle_chat_event_stream(&mut self, chat_event: ChatEvent) {
         if self.is_pending() {
-            match chat_event.payload() {
-                ChatEventPayload::Message(_) => {
-                    if let Ok(msg) = TryInto::<ChatMessage>::try_into(chat_event) {
-                        self.chat_messages.push(msg);
-                    }
+            match chat_event.payload {
+                Some(chat_event::Payload::Message(_)) => {
+                    self.chat_events.push(chat_event);
                     // mark state as complete on getting full text.
                     self.stream_message = None;
                     self.is_pending = false;
                 }
-                ChatEventPayload::MessageDelta(message_delta) => {
+                Some(chat_event::Payload::MessageDelta(message_delta)) => {
                     if let Some(stream_message) = &mut self.stream_message {
-                        stream_message.delta_mut().push_str(&message_delta.delta);
+                        stream_message.delta.push_str(&message_delta.delta);
                     } else {
                         self.stream_message = Some(MessageDelta {
                             delta: message_delta.delta.clone(),
                         });
                     }
                 }
-                ChatEventPayload::ToolEvent(_) => {}
+                _ => {}
             }
         } else {
             tracing::error!("receiving orphan response")
         }
 
         self.viewport
-            .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
+            .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }
 
     /// Handles chat events loaded from storage.
     pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
-        self.chat_messages = chat_events
-            .into_iter()
-            .filter_map(|event| event.try_into().ok())
-            .collect();
+        self.chat_events = chat_events.into_iter().collect();
 
         self.viewport
-            .build_lines(self.chat_messages.as_slice(), self.stream_message.as_ref());
+            .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }
 }

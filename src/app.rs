@@ -2,10 +2,7 @@ mod model;
 mod update;
 mod view;
 
-use color_eyre::{
-    Result,
-    eyre::{Context, bail},
-};
+use color_eyre::{Result, eyre::Context};
 use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{Event, EventStream, KeyEvent, KeyEventKind};
 use crossterm::execute;
@@ -107,7 +104,7 @@ pub enum Message {
     Editing,
     /// Open setting manager or saves setting manager update and closes it.
     Setting,
-    GetSession(uuid::Uuid),
+    GetSession(String),
     CrosstermClose,
 }
 
