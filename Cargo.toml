@@ -33,6 +33,7 @@ pulldown-cmark = "0.13.0"
 syntect =  "5.2.0"
 prost = "0.14.1"
 prost-types = "0.14.1"
+rusqlite = { version = "0.37.0", features = ["bundled"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

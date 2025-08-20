@@ -1,5 +1,7 @@
 mod chat;
+mod database;
 pub mod llms;
+mod stores;
 mod utils;
 
 use color_eyre::{Result, eyre::eyre};
