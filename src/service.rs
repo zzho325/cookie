@@ -18,7 +18,6 @@ use crate::{
     chat::ChatEvent,
     models::{ServiceReq, ServiceResp},
     service::{
-        chat::SharedSession,
         database::{get_db_conn, spawn_db_thread},
         llms::LlmClientRouter,
         stores::{
@@ -74,8 +73,8 @@ impl ServiceBuilder {
             self.req_rx,
             self.resp_tx,
             db_thread,
-            Box::new(chat_event_store),
-            Box::new(chat_session_store),
+            Arc::new(chat_event_store),
+            Arc::new(chat_session_store),
             router,
         ))
     }
@@ -97,10 +96,9 @@ pub struct Service {
 
     /// DB thread.
     db_thread_handle: Option<std::thread::JoinHandle<()>>,
-    chat_event_store: Box<dyn ChatEventStore>,
-    chat_session_store: Box<dyn ChatSessionStore>,
+    chat_event_store: Arc<dyn ChatEventStore>,
+    chat_session_store: Arc<dyn ChatSessionStore>,
 
-    sessions: HashMap<String, SharedSession>,
     llm_router: LlmClientRouter,
     sessions_chat_tx: HashMap<String, UnboundedSender<ChatEvent>>,
 }
@@ -110,8 +108,8 @@ impl Service {
         req_rx: UnboundedReceiver<ServiceReq>,
         resp_tx: UnboundedSender<ServiceResp>,
         db_thread: std::thread::JoinHandle<()>,
-        chat_event_store: Box<dyn ChatEventStore>,
-        chat_session_store: Box<dyn ChatSessionStore>,
+        chat_event_store: Arc<dyn ChatEventStore>,
+        chat_session_store: Arc<dyn ChatSessionStore>,
         llm_router: LlmClientRouter,
     ) -> Self {
         Self {
@@ -121,7 +119,6 @@ impl Service {
             chat_event_store,
             chat_session_store,
             llm_router,
-            sessions: HashMap::new(),
             sessions_chat_tx: HashMap::new(),
         }
     }
@@ -130,19 +127,22 @@ impl Service {
         // wait for db thread before returning
         let _ = DBThreadJoiner(self.db_thread_handle.take());
 
+        // initialize tui with stored sessions
+        self.send_sessions().await?;
+
         let mut chat_handles = FuturesUnordered::<JoinHandle<Result<()>>>::new();
+
         loop {
             tokio::select! {
                 maybe_req = self.req_rx.recv() => {
                     match maybe_req {
                         None => break,
                         Some(ServiceReq::ChatMessage ( user_message )) => {
-                            if self.sessions.contains_key(&user_message.session_id) {
-                                self.handle_user_message(user_message)?;
-                            } else {
-                                let chat_handle = self.handle_new_session(user_message).await?;
+                            if !self.sessions_chat_tx.contains_key(&user_message.session_id) {
+                                let chat_handle = self.spawn_session(user_message.clone()).await?;
                                 chat_handles.push(chat_handle);
-                            };
+                            }
+                            self.handle_user_message(user_message)?;
                         }
                         Some(ServiceReq::GetSession(session_id)) => {
                            self.handle_get_session(&session_id).await?

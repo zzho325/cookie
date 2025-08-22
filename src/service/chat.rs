@@ -1,126 +1,104 @@
-use std::{sync::Arc, time::SystemTime};
-
 use color_eyre::{Result, eyre::eyre};
-use futures_util::StreamExt;
-use tokio::sync::{RwLock, mpsc};
+use std::sync::Arc;
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
 use crate::{
     chat::*,
     llm::*,
-    models::{ServiceResp, constants::NEW_SESSION_TITLE},
+    models::ServiceResp,
     service::{
         Service,
+        chat_session_worker::ChatSessionWorker,
         llms::{LlmClient, LlmClientRouter, LlmReq},
+        stores::chat_session_store::ChatSessionStore,
     },
 };
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-
-pub type SharedSession = Arc<RwLock<ChatSession>>;
-
-impl ChatSession {
-    fn new(id: String, settings: Option<LlmSettings>) -> Self {
-        // TODO: save to stores and populte timestamps
-        Self {
-            id,
-            events: Vec::new(),
-            title: NEW_SESSION_TITLE.to_string(),
-            llm_settings: settings,
-            created_at: Some(prost_types::Timestamp::from(SystemTime::now())),
-            updated_at: Some(prost_types::Timestamp::from(SystemTime::now())),
-        }
-    }
-
-    /// Persists user message and updates llm settings.
-    pub fn persist_user_message(&mut self, user_message: ChatEvent) {
-        self.llm_settings = user_message.llm_settings;
-        self.events.push(user_message);
-        // update db and populate timestamps
-        self.updated_at = Some(prost_types::Timestamp::from(SystemTime::now()));
-    }
-
-    /// Saves chat event payload to session and returns chat message if exists.
-    pub fn persist_chat_event(&mut self, event: ChatEvent) {
-        self.events.push(event);
-        self.updated_at = Some(prost_types::Timestamp::from(SystemTime::now()));
-    }
-}
 
 impl Service {
-    // ----------------------------------------------------------------
-    // Internal session management, maybe should move out
-    // ----------------------------------------------------------------
-
-    /// Gets shared session.
-    fn shared_session(&mut self, session_id: &String) -> Result<&mut SharedSession> {
-        self.sessions
-            .get_mut(session_id)
-            .ok_or_else(|| eyre!("session {} not found", session_id))
-    }
-
-    /// Gets session chat sender.
-    fn session_chat_tx(&mut self, session_id: &String) -> Result<&mut UnboundedSender<ChatEvent>> {
-        self.sessions_chat_tx
-            .get_mut(session_id)
-            .ok_or_else(|| eyre!("session {} not found", session_id))
-    }
-
-    // ----------------------------------------------------------------
-    // TUI request handling
-    // ----------------------------------------------------------------
-
-    /// Creates new session and its chat sender, sends update sessions to tui; spawns session
-    /// worker and sends and first message.
-    pub async fn handle_new_session(
+    /// Gets chat session from stores if exists or create one if it not exists. Spawns a chat session
+    /// worker job and returns the handle. Spawns a job to generate title for new session as well.
+    pub async fn spawn_session(
         &mut self,
         user_message: ChatEvent,
     ) -> Result<tokio::task::JoinHandle<Result<()>>> {
         let session_id = user_message.session_id.clone();
+        // get session from database or create one
+        let chat_session = match self
+            .chat_session_store
+            .get_chat_session(&session_id)
+            .await?
+        {
+            Some(mut chat_session) => {
+                let chat_events = self
+                    .chat_event_store
+                    .get_chat_events_for_session(&session_id)
+                    .await?;
+                chat_session.events = chat_events;
+                chat_session
+            }
+            None => {
+                // create session
+                let llm_settings = user_message.llm_settings;
+                let mut chat_session = ChatSession::new(session_id.clone(), llm_settings);
+                tracing::debug!("creating session {chat_session:?}");
+                chat_session = self
+                    .chat_session_store
+                    .create_chat_session(chat_session)
+                    .await?;
 
-        // create session
-        let llm_settings = user_message.llm_settings;
-        let session = SharedSession::new(RwLock::new(ChatSession::new(
-            session_id.clone(),
-            llm_settings,
-        )));
-        self.sessions.insert(session_id.clone(), session.clone());
-        self.send_sessions().await?;
+                // publich sessions to tui
+                self.send_sessions().await?;
 
-        // create session channel and send initial message
-        let (chat_tx, chat_rx) = mpsc::unbounded_channel::<ChatEvent>();
-        chat_tx.send(user_message.clone())?;
-        self.sessions_chat_tx.insert(session_id, chat_tx);
+                // generate title async
+                let chat_session_store = self.chat_session_store.clone();
+                let llm_router = self.llm_router.clone();
+                let resp_tx = self.resp_tx.clone();
+                tokio::spawn(Self::try_update_session_title(
+                    chat_session_store,
+                    user_message,
+                    chat_session.clone(),
+                    llm_router,
+                    resp_tx,
+                ));
 
-        // spawn chat
+                chat_session
+            }
+        };
+
+        // create channel and spawn session worker
+        let (chat_tx, chat_rx) = unbounded_channel::<ChatEvent>();
+        self.sessions_chat_tx
+            .insert(session_id.to_string(), chat_tx);
+
         let llm_router = self.llm_router.clone();
         let resp_tx = self.resp_tx.clone();
-        let handle = tokio::spawn(Self::chat(
+        let chat_event_store = self.chat_event_store.clone();
+        let chat_session_store = self.chat_session_store.clone();
+        let worker = ChatSessionWorker::new(
             chat_rx,
-            session.clone(),
-            llm_router.clone(),
-            resp_tx.clone(),
-        ));
-
-        tokio::spawn(Self::try_update_session_title(
-            user_message,
-            session,
+            chat_session,
             llm_router,
             resp_tx,
-        ));
-
-        // ge
+            chat_event_store,
+            chat_session_store,
+        );
+        // spawn chat
+        let handle = tokio::spawn(worker.run());
         Ok(handle)
     }
 
     /// Finds session chat sender for session of `user_message` and dispatch message. Send error
     /// message to tui if session chat sender not found.
     pub fn handle_user_message(&mut self, user_message: ChatEvent) -> Result<()> {
-        let session_id = &(user_message.session_id);
-        match self.session_chat_tx(session_id) {
-            Ok(chat_tx) => {
+        let session_id = &user_message.session_id;
+        match self.sessions_chat_tx.get_mut(session_id) {
+            Some(chat_tx) => {
                 chat_tx.send(user_message)?;
             }
-            Err(e) => {
-                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+            None => {
+                self.resp_tx.send(ServiceResp::Error(format!(
+                    "session {session_id} not found"
+                )))?;
             }
         };
 
@@ -129,13 +107,19 @@ impl Service {
 
     /// Sends `session` of `session_id` to tui. Send error message to tui if session not found.
     pub async fn handle_get_session(&mut self, session_id: &String) -> Result<()> {
-        match self.shared_session(session_id) {
-            Ok(shared_session) => {
-                let session = {
-                    let guard = shared_session.read().await;
-                    (*guard).clone()
-                };
-                self.resp_tx.send(ServiceResp::Session(session))?;
+        match self.chat_session_store.get_chat_session(session_id).await {
+            Ok(Some(mut chat_session)) => {
+                let chat_events = self
+                    .chat_event_store
+                    .get_chat_events_for_session(session_id)
+                    .await?;
+                chat_session.events = chat_events;
+                self.resp_tx.send(ServiceResp::Session(chat_session))?;
+            }
+            Ok(None) => {
+                self.resp_tx.send(ServiceResp::Error(format!(
+                    "session {session_id} not found"
+                )))?;
             }
             Err(e) => {
                 self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
@@ -144,120 +128,56 @@ impl Service {
         Ok(())
     }
 
-    /// Sends sessions in memory to tui.
-    async fn send_sessions(&mut self) -> Result<()> {
+    /// Sends sessions in sotres to tui.
+    pub async fn send_sessions(&mut self) -> Result<()> {
         tracing::debug!("sending sessions");
-        let mut summaries: Vec<ChatSession> = Vec::new();
-        for session in self.sessions.values() {
-            let session_summary = {
-                let guard = session.read().await;
-                ChatSession {
-                    id: guard.id.clone(),
-                    events: vec![],
-                    title: guard.title.clone(),
-                    llm_settings: None,
-                    created_at: None,
-                    updated_at: guard.updated_at,
-                }
-            };
-            summaries.push(session_summary);
-        }
-        self.resp_tx.send(ServiceResp::Sessions(summaries))?;
+        match self.chat_session_store.get_chat_sessions().await {
+            Ok(chat_sessions) => {
+                self.resp_tx.send(ServiceResp::Sessions(chat_sessions))?;
+            }
+            Err(e) => {
+                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+            }
+        };
         Ok(())
     }
 
-    /// Polls chat messages from `chat_rx` and for `session`, gets chat response from `llm_router`,
-    /// saves to memory and send to tui.
-    pub async fn chat(
-        mut chat_rx: UnboundedReceiver<ChatEvent>,
-        session: SharedSession,
-        llm_router: LlmClientRouter,
-        resp_tx: UnboundedSender<ServiceResp>,
-    ) -> Result<()> {
-        // TODO: close worker after inactivity
-        while let Some(user_message) = chat_rx.recv().await {
-            // persist user message
-            {
-                let mut guard = session.write().await;
-                (*guard).persist_user_message(user_message.clone());
-            }
-
-            // ----------------------------------------------------------------
-            // Prepare llm request.
-            // ----------------------------------------------------------------
-            // load history events
-            let events: Vec<chat_event::Payload> = {
-                let guard = session.read().await;
-                guard
-                    .events
-                    .iter()
-                    .filter_map(|event| event.payload.clone())
-                    .collect()
-            };
-            let llm_settings = user_message.llm_settings;
-            let llm_req = LlmReq {
-                events,
-                instructions: None,
-                settings: llm_settings.unwrap_or_default(),
-            };
-
-            // ----------------------------------------------------------------
-            // Stream request and handle response.
-            // ----------------------------------------------------------------
-            let session_id = {
-                let guard = session.read().await;
-                guard.id.clone()
-            };
-            let mut stream = llm_router.stream(llm_req).await?;
-            while let Some(payload) = stream.next().await {
-                // send to tui
-                let chat_event = ChatEvent::new(session_id.clone(), llm_settings, payload.clone());
-                resp_tx.send(ServiceResp::ChatEvent(chat_event.clone()))?;
-
-                // persist non delta event
-                match payload {
-                    chat_event::Payload::Message(_) | chat_event::Payload::ToolEvent(_) => {
-                        let mut guard = session.write().await;
-                        guard.persist_chat_event(chat_event);
-                    }
-                    _ => {}
-                }
-            }
-        }
-        Ok(())
-    }
-
-    // Attempts to generate title with LLM and send to tui.
+    /// Attempts to generate title with LLM and send to tui.
     pub async fn try_update_session_title(
+        chat_session_store: Arc<dyn ChatSessionStore>,
         user_message: ChatEvent,
-        session: SharedSession,
+        mut chat_session: ChatSession,
         llm_router: LlmClientRouter,
         resp_tx: UnboundedSender<ServiceResp>,
     ) {
-        let title =
-            match Self::generate_session_title(user_message, session.clone(), llm_router).await {
-                Ok(title) => title,
-                Err(e) => {
-                    tracing::error!("failed to generate title with LLM {e}");
-                    return;
-                }
-            };
-
-        let session_summary: ChatSession = {
-            let mut guard = session.write().await;
-            guard.title = title;
-            guard.updated_at = Some(prost_types::Timestamp::from(SystemTime::now()));
-            (*guard).clone()
+        chat_session.title = match Self::generate_session_title(
+            user_message,
+            chat_session.llm_settings.unwrap_or_default(),
+            llm_router,
+        )
+        .await
+        {
+            Ok(title) => title,
+            Err(e) => {
+                tracing::error!("failed to generate title with LLM {e}");
+                return;
+            }
         };
-        if let Err(e) = resp_tx.send(ServiceResp::SessionSummary(session_summary)) {
-            tracing::error!("failed to send updated session: {}", e);
+
+        match chat_session_store.update_chat_session(chat_session).await {
+            Ok(chat_session) => {
+                if let Err(e) = resp_tx.send(ServiceResp::SessionSummary(chat_session)) {
+                    tracing::error!("failed to send updated session: {}", e);
+                }
+            }
+            Err(e) => tracing::error!("failed to persist session title: {}", e),
         }
     }
 
     /// Requests LLM to generate session title.
     pub async fn generate_session_title(
         user_message: ChatEvent,
-        session: SharedSession,
+        llm_settings: LlmSettings,
         llm_router: LlmClientRouter,
     ) -> Result<String> {
         let prompt = "You are an AI assistant that generates a concise title for a chat session \
@@ -267,12 +187,6 @@ impl Service {
             .to_string();
         tracing::debug!("{prompt}");
 
-        // load settings
-        let settings = {
-            let guard = session.read().await;
-            guard.llm_settings
-        };
-
         let payload = match user_message.payload {
             Some(p) => p,
             _ => return Err(eyre!("payload is not user message")),
@@ -280,7 +194,7 @@ impl Service {
         let llm_req = LlmReq {
             events: vec![payload],
             instructions: Some(prompt),
-            settings: settings.unwrap_or_default(),
+            settings: llm_settings,
         };
         let resp = llm_router.request(llm_req).await?;
 
