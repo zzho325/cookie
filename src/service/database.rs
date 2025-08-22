@@ -1,4 +1,3 @@
-
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use rusqlite::Connection;
@@ -23,6 +22,9 @@ pub fn spawn_db_thread(mut conn: Connection) -> (JoinHandle<()>, Sender<Job>) {
 const SCHEMA_SQL: &str = include_str!("./database/schema.sql");
 pub fn get_db_conn() -> Result<Connection> {
     let db_path = get_db_path()?;
+    if let Some(dir) = db_path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
     // Open by default disables per-connection mutex.
     let conn = Connection::open(db_path)?;
 
