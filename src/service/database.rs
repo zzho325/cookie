@@ -1,17 +1,17 @@
-use std::{path::PathBuf, thread::JoinHandle};
 
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use rusqlite::Connection;
-use tokio::sync::mpsc::{self, UnboundedSender};
+use std::sync::mpsc::{self, Sender};
+use std::{path::PathBuf, thread::JoinHandle};
 
 pub type Job = Box<dyn FnOnce(&mut Connection) + Send + 'static>;
 
-pub fn spawn_db_thread(mut conn: Connection) -> (JoinHandle<()>, UnboundedSender<Job>) {
-    let (job_tx, mut job_rx) = mpsc::unbounded_channel::<Job>();
+pub fn spawn_db_thread(mut conn: Connection) -> (JoinHandle<()>, Sender<Job>) {
+    let (job_tx, job_rx) = mpsc::channel::<Job>();
 
     let db_thread_handle = std::thread::spawn(move || {
-        while let Some(job) = job_rx.blocking_recv() {
+        for job in job_rx {
             job(&mut conn);
         }
     });
