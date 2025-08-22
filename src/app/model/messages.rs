@@ -95,6 +95,7 @@ impl Messages {
             tracing::error!("receiving orphan response")
         }
 
+        // tracing::debug!("messages {:?}", self.chat_events);
         self.viewport
             .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }
