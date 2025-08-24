@@ -45,6 +45,9 @@ impl ChatSessionWorker {
     pub async fn run(mut self) -> Result<()> {
         // TODO: close worker after inactivity
         while let Some(mut user_message) = self.chat_rx.recv().await {
+            // ----------------------------------------------------------------
+            // Persist user message and send it back to tui.
+            // ----------------------------------------------------------------
             // persist user message and update timestamp
             user_message = self
                 .chat_event_store
@@ -59,6 +62,7 @@ impl ChatSessionWorker {
                     .await?;
             }
             self.chat_session.events.push(user_message.clone());
+            self.resp_tx.send(ServiceResp::ChatEvent(user_message))?;
 
             // ----------------------------------------------------------------
             // Prepare llm request.

@@ -68,7 +68,7 @@ impl Session {
 
     /// If not already pending response, and input editor is not empty, sends user message to
     /// service, create session_id if this is a draft chat, i.e., session_id not populated.
-    /// Returns he user message.
+    /// Returns the user message.
     pub fn handle_sending_user_message(&mut self) -> Option<ChatEvent> {
         // only send response if no response is pending or in progress
         // TODO: implement timeout for pending resp
@@ -95,7 +95,7 @@ impl Session {
             msg: msg_,
         });
         let user_message = ChatEvent::new(session_id, Some(self.llm_settings), payload);
-        self.messages.handle_user_chat_message(user_message.clone());
+        self.messages.handle_send();
         self.input_editor.clear();
         Some(user_message)
     }
