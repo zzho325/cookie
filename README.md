@@ -67,7 +67,7 @@ cargo build --release
   * [ ] Track token usage.
 * Session Management: 
   * [x] Sessions.
-  * [ ] Persist sessions to db.
+  * [x] Persist sessions to db.
   * [ ] Global search.
 
 ### ⚠️ Limitations
