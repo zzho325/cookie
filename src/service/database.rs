@@ -6,7 +6,33 @@ use std::{path::PathBuf, thread::JoinHandle};
 
 pub type Job = Box<dyn FnOnce(&mut Connection) + Send + 'static>;
 
-pub fn spawn_db_thread(mut conn: Connection) -> (JoinHandle<()>, Sender<Job>) {
+pub struct DBWorker {
+    /// DB thread handle.
+    handle: Option<JoinHandle<()>>,
+    /// DB job sender.
+    job_tx: Option<Sender<Job>>,
+}
+
+impl Drop for DBWorker {
+    /// Drop waits for db thread to finish.
+    fn drop(&mut self) {
+        self.job_tx.take();
+        if let Some(handle) = self.handle.take() {
+            handle.join().expect("DB thread panicked");
+        }
+    }
+}
+
+impl DBWorker {
+    pub fn sender(&self) -> Sender<Job> {
+        self.job_tx
+            .as_ref()
+            .expect("DBWorker sender is missing")
+            .clone()
+    }
+}
+
+pub fn spawn_db_thread(mut conn: Connection) -> DBWorker {
     let (job_tx, job_rx) = mpsc::channel::<Job>();
 
     let db_thread_handle = std::thread::spawn(move || {
@@ -15,7 +41,10 @@ pub fn spawn_db_thread(mut conn: Connection) -> (JoinHandle<()>, Sender<Job>) {
         }
     });
 
-    (db_thread_handle, job_tx)
+    DBWorker {
+        handle: Some(db_thread_handle),
+        job_tx: Some(job_tx),
+    }
 }
 
 // embed schema

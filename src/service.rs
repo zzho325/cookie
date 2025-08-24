@@ -18,7 +18,7 @@ use crate::{
     chat::ChatEvent,
     models::{ServiceReq, ServiceResp},
     service::{
-        database::{get_db_conn, spawn_db_thread},
+        database::{DBWorker, get_db_conn, spawn_db_thread},
         llms::LlmClientRouter,
         stores::{
             chat_event_store::{ChatEventStore, ChatEventStoreImpl},
@@ -63,30 +63,18 @@ impl ServiceBuilder {
         };
 
         // Spawn db thread and create stores.
-
-        let (db_thread, job_tx) = spawn_db_thread(conn);
-        let job_tx = Arc::new(job_tx);
-        let chat_event_store = ChatEventStoreImpl::new(job_tx.clone());
-        let chat_session_store = ChatSessionStoreImpl::new(job_tx.clone());
+        let db_worker = spawn_db_thread(conn);
+        let chat_event_store = ChatEventStoreImpl::new(db_worker.sender());
+        let chat_session_store = ChatSessionStoreImpl::new(db_worker.sender());
 
         Some(Service::new(
             self.req_rx,
             self.resp_tx,
-            db_thread,
             Arc::new(chat_event_store),
             Arc::new(chat_session_store),
+            db_worker,
             router,
         ))
-    }
-}
-
-struct DBThreadJoiner(Option<std::thread::JoinHandle<()>>);
-
-impl Drop for DBThreadJoiner {
-    fn drop(&mut self) {
-        if let Some(handle) = self.0.take() {
-            handle.join().expect("DB thread panicked");
-        }
     }
 }
 
@@ -95,9 +83,9 @@ pub struct Service {
     resp_tx: UnboundedSender<ServiceResp>,
 
     /// DB thread.
-    db_thread_handle: Option<std::thread::JoinHandle<()>>,
     chat_event_store: Arc<dyn ChatEventStore>,
     chat_session_store: Arc<dyn ChatSessionStore>,
+    _db_worker: DBWorker,
 
     llm_router: LlmClientRouter,
     sessions_chat_tx: HashMap<String, UnboundedSender<ChatEvent>>,
@@ -107,26 +95,23 @@ impl Service {
     pub fn new(
         req_rx: UnboundedReceiver<ServiceReq>,
         resp_tx: UnboundedSender<ServiceResp>,
-        db_thread: std::thread::JoinHandle<()>,
         chat_event_store: Arc<dyn ChatEventStore>,
         chat_session_store: Arc<dyn ChatSessionStore>,
+        db_worker: DBWorker,
         llm_router: LlmClientRouter,
     ) -> Self {
         Self {
             req_rx,
             resp_tx,
-            db_thread_handle: Some(db_thread),
             chat_event_store,
             chat_session_store,
+            _db_worker: db_worker,
             llm_router,
             sessions_chat_tx: HashMap::new(),
         }
     }
 
     pub async fn run(mut self) -> Result<()> {
-        // wait for db thread before returning
-        let _ = DBThreadJoiner(self.db_thread_handle.take());
-
         // initialize tui with stored sessions
         self.send_sessions().await?;
 
@@ -163,6 +148,10 @@ impl Service {
             }
         }
 
+        // stop chat workers to drop db job senders they hold
+        for (_, tx) in self.sessions_chat_tx.drain() {
+            drop(tx);
+        }
         Ok(())
     }
 }

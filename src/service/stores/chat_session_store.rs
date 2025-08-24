@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use color_eyre::{Result, eyre::eyre};
 use prost::Message;
 use rusqlite::{Connection, OptionalExtension as _};
-use std::sync::{Arc, mpsc::Sender};
+use std::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 
 #[async_trait]
@@ -15,11 +15,11 @@ pub trait ChatSessionStore: Send + Sync {
 }
 
 pub struct ChatSessionStoreImpl {
-    job_tx: Arc<Sender<Job>>,
+    job_tx: Sender<Job>,
 }
 
 impl ChatSessionStoreImpl {
-    pub fn new(job_tx: Arc<Sender<Job>>) -> Self {
+    pub fn new(job_tx: Sender<Job>) -> Self {
         Self { job_tx }
     }
 }
