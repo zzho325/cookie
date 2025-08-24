@@ -53,7 +53,7 @@ impl ChatEvent {
             id: uuid::Uuid::new_v4().to_string(),
             session_id,
             llm_settings,
-            created_at: Some(prost_types::Timestamp::from(SystemTime::now())),
+            created_at: None,
             payload: Some(payload),
         }
     }
@@ -62,5 +62,15 @@ impl ChatEvent {
     pub fn with_created_at(mut self, created_at: prost_types::Timestamp) -> Self {
         self.created_at = Some(created_at);
         self
+    }
+}
+
+impl ChatSession {
+    pub fn new(id: String, llm_settings: Option<LlmSettings>) -> Self {
+        Self {
+            id,
+            llm_settings,
+            ..Default::default()
+        }
     }
 }

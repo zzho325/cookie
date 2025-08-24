@@ -25,7 +25,7 @@ pub struct OpenAIClientImpl {
 impl LlmClient for OpenAIClientImpl {
     async fn request(&self, llm_req: LlmReq) -> Result<LlmResp> {
         let req = ResponsesReq::build(llm_req)?;
-        tracing::debug!(model=?req.model, input=?req.input);
+        // tracing::debug!(model=?req.model, input=?req.input);
         let resp = self.responses(req).await?;
 
         let mut chat_events: Vec<chat_event::Payload> = Vec::new();
@@ -65,7 +65,7 @@ impl LlmClient for OpenAIClientImpl {
                 }
             }
         }
-        tracing::debug!("resp {chat_events:?}");
+        // tracing::debug!("resp {chat_events:?}");
         Ok(LlmResp {
             output: chat_events,
         })

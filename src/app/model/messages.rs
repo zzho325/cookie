@@ -60,21 +60,22 @@ impl Messages {
         *self = Self::default();
     }
 
-    /// Handles sending user chat message.
-    pub fn handle_user_chat_message(&mut self, user_chat_message: ChatEvent) {
+    /// Handles state update on sending user chat message.
+    pub fn handle_send(&mut self) {
         self.viewport.scroll_to_top();
-        self.chat_events.push(user_chat_message);
         self.is_pending = true;
-
-        self.viewport
-            .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }
 
-    /// Handles chat events streamed from streaming API.
+    /// Handles chat events streamed from service.
     pub fn handle_chat_event_stream(&mut self, chat_event: ChatEvent) {
         if self.is_pending() {
-            match chat_event.payload {
-                Some(chat_event::Payload::Message(_)) => {
+            match &chat_event.payload {
+                Some(chat_event::Payload::Message(message)) if message.role() == Role::User => {
+                    self.chat_events.push(chat_event);
+                }
+                Some(chat_event::Payload::Message(message))
+                    if message.role() == Role::Assistant =>
+                {
                     self.chat_events.push(chat_event);
                     // mark state as complete on getting full text.
                     self.stream_message = None;
@@ -95,6 +96,7 @@ impl Messages {
             tracing::error!("receiving orphan response")
         }
 
+        // tracing::debug!("messages {:?}", self.chat_events);
         self.viewport
             .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }

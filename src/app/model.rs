@@ -122,7 +122,7 @@ mod tests {
             role: Role::User as i32,
             msg: "history question".to_string(),
         });
-        messages.handle_user_chat_message(ChatEvent::new(
+        messages.handle_chat_event_stream(ChatEvent::new(
             session_id.clone(),
             Some(llm_settings),
             payload,
@@ -140,7 +140,7 @@ mod tests {
             role: Role::User as i32,
             msg: "pending question".to_string(),
         });
-        messages.handle_user_chat_message(ChatEvent::new(
+        messages.handle_chat_event_stream(ChatEvent::new(
             session_id.clone(),
             Some(llm_settings),
             payload,
