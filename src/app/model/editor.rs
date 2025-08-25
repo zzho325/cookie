@@ -106,6 +106,17 @@ impl Editor {
         }
     }
 
+    pub fn paste_data(&mut self, data: &str) {
+        let idx = self.cursor_byte_idx();
+        // FIXME: ratatui cannot handle \t, replace with 2 spaces for now but we should add guard
+        // for other invisible charactors.
+        let data = data.replace("\t", "  ");
+        self.input.insert_str(idx, &data);
+        self.viewport.reflow(&self.input);
+
+        self.move_cursor_right_by(data.chars().count());
+    }
+
     /// Clears input.
     pub fn clear(&mut self) {
         self.input = String::new();
@@ -143,7 +154,11 @@ impl Editor {
     }
 
     pub fn move_cursor_right(&mut self) {
-        let target_cursor_char_idx = self.cursor_char_idx.saturating_add(1);
+        self.move_cursor_right_by(1)
+    }
+
+    fn move_cursor_right_by(&mut self, offset: usize) {
+        let target_cursor_char_idx = self.cursor_char_idx.saturating_add(offset);
         self.cursor_char_idx = target_cursor_char_idx.clamp(0, self.input.chars().count());
         self.clamp_and_update_cursor_position(target_cursor_char_idx);
     }
