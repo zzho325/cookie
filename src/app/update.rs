@@ -18,6 +18,11 @@ pub type Update = (Option<Message>, Option<Command>);
 pub fn update(model: &mut Model, msg: Message) -> Update {
     match msg {
         Message::Key(evt) => return handle_key_event(model, evt),
+        Message::Paste(data) => {
+            if model.focused == Focused::InputEditor {
+                model.session.input_editor.paste_data(&data);
+            }
+        }
         Message::ServiceResp(resp) => {
             return handle_service_resp(model, resp);
         }

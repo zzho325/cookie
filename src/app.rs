@@ -4,7 +4,7 @@ mod view;
 
 use color_eyre::{Result, eyre::Context};
 use crossterm::cursor::SetCursorStyle;
-use crossterm::event::{Event, EventStream, KeyEvent, KeyEventKind};
+use crossterm::event::{EnableBracketedPaste, Event, EventStream, KeyEvent, KeyEventKind};
 use crossterm::execute;
 
 use tokio::{
@@ -35,7 +35,8 @@ impl App {
         let mut model = Model::new(cfg);
 
         let mut event_reader = EventStream::new();
-
+        // enable crossterm bracketed paste
+        execute!(terminal.backend_mut(), EnableBracketedPaste)?;
         while !model.should_quit {
             // set cursor style based on editing status
             let set_cursor_style = match model.focused {
@@ -83,6 +84,7 @@ fn handle_crossterm_event(
 ) -> Result<Option<Message>> {
     match maybe_evt {
         Some(Ok(Event::Key(evt))) if evt.kind == KeyEventKind::Press => Ok(Some(Message::Key(evt))),
+        Some(Ok(Event::Paste(data))) => Ok(Some(Message::Paste(data))),
         Some(Ok(_)) => Ok(None),
         Some(Err(e)) => Err(e).context("reading crossterm event failed"),
         None => {
@@ -95,6 +97,8 @@ fn handle_crossterm_event(
 /// Drives update.
 pub enum Message {
     Key(KeyEvent),
+    /// Paste event from crossterm.
+    Paste(String),
     ServiceResp(ServiceResp),
     /// Sends message.
     Send,
