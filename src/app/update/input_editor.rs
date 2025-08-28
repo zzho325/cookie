@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use crate::app::Command;
 use crate::app::model::Model;
 use crate::app::{Message, update::Update};
 
@@ -35,6 +36,12 @@ pub fn handle_key_event(
             KeyCode::Tab => model.shift_focus(),
             KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Char('s') => return (Some(Message::Setting), None),
+            KeyCode::Char('v') => {
+                return (
+                    None,
+                    Some(Command::ExternalEditing(editor.input().to_string())),
+                );
+            }
             KeyCode::Enter => return (Some(Message::Send), None),
             KeyCode::Left | KeyCode::Char('h') => editor.move_cursor_left(),
             KeyCode::Right | KeyCode::Char('l') => editor.move_cursor_right(),

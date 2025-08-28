@@ -23,6 +23,9 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
                 model.session.input_editor.paste_data(&data);
             }
         }
+        Message::ExternalEditingComplete(data) => {
+            model.session.input_editor.handle_editting_in_editor(data);
+        }
         Message::ServiceResp(resp) => {
             return handle_service_resp(model, resp);
         }

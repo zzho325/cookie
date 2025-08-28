@@ -30,6 +30,7 @@ cargo build --release
 
 * Type your prompt, `Enter` to send.
 * `i` / `Esc` to toggle input mode, `q` to quit. 
+* `v` to enter editor based on `VISUAL` or `EDITOR` environment variable.
 * `e` to toggle side bar, `j` / `k` or `Down` / `Up` to navigate sessions.
 * `s` to open model selection, `j` / `k` or `Down` / `Up` to select, `Esc` / `Enter` to cancel or save. 
 * `Tab` to shift focus.
@@ -50,7 +51,7 @@ cargo build --release
   * [ ] [Chat messages] Cursor navigation.
   * [ ] Select range and copy.
   * [ ] Mouse event.
-  * [ ] [Input box] Embed nvim.
+  * [x] [Input box] Embed nvim.
 * App:
   * [x] Indicate current focused widget.
   * [ ] Help and Keymaps.

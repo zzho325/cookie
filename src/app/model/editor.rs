@@ -126,6 +126,18 @@ impl Editor {
         self.viewport.update_cursor_position(self.cursor_byte_idx());
     }
 
+    /// Updates input with editor editting result
+    pub fn handle_editting_in_editor(&mut self, data: String) {
+        // replace \t
+        let mut data = data.replace("\t", "  ");
+        // remove trailing newline
+        data.pop();
+
+        self.input = data;
+        self.viewport.reflow(&self.input);
+        self.clamp_and_update_cursor_position(self.cursor_char_idx);
+    }
+
     // ----------------------------------------------------------------
     // Cursor nagivation.
     // ----------------------------------------------------------------

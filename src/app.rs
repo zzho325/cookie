@@ -3,10 +3,14 @@ mod update;
 mod view;
 
 use color_eyre::{Result, eyre::Context};
-use crossterm::cursor::SetCursorStyle;
-use crossterm::event::{EnableBracketedPaste, Event, EventStream, KeyEvent, KeyEventKind};
-use crossterm::execute;
-
+use crossterm::{
+    cursor::SetCursorStyle,
+    event::{EnableBracketedPaste, Event, EventStream, KeyEvent, KeyEventKind},
+    execute, terminal,
+};
+use ratatui::{Terminal, prelude::Backend};
+use std::{env, fs, io::Write};
+use tempfile::NamedTempFile;
 use tokio::{
     select,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -65,10 +69,17 @@ impl App {
                 let (next_msg, maybe_cmd) = update::update(&mut model, msg);
                 maybe_msg = next_msg;
 
-                if let Some(cmd) = maybe_cmd {
-                    if let Some(req) = cmd.into_service_req() {
-                        self.req_tx.send(req)?
+                match maybe_cmd {
+                    Some(Command::ServiceReq(req)) => self.req_tx.send(req)?,
+                    Some(Command::ExternalEditing(initial)) => {
+                        match external_editing(&mut terminal, &initial) {
+                            Ok(data) => maybe_msg = Some(Message::ExternalEditingComplete(data)),
+                            Err(e) => {
+                                tracing::error!("external editing failed: {e}")
+                            }
+                        }
                     }
+                    None => {}
                 }
             }
         }
@@ -99,6 +110,8 @@ pub enum Message {
     Key(KeyEvent),
     /// Paste event from crossterm.
     Paste(String),
+    /// Editing with system's editor finished. Update editor input accordingly.
+    ExternalEditingComplete(String),
     ServiceResp(ServiceResp),
     /// Sends message.
     Send,
@@ -115,12 +128,46 @@ pub enum Message {
 /// Side effect of update.
 pub enum Command {
     ServiceReq(ServiceReq),
+    /// Open system's editor to continue editing.
+    ExternalEditing(String),
 }
 
-impl Command {
-    /// If this `Command` corresponds to a service request, return `Some(_)`, otherwise return `None`.
-    pub fn into_service_req(self) -> Option<ServiceReq> {
-        let Command::ServiceReq(req) = self;
-        Some(req)
-    }
+/// Opens external editor to continue editing initial and return edited string.
+fn external_editing<B>(terminal: &mut Terminal<B>, initial: &str) -> Result<String>
+where
+    B: Backend + Write,
+{
+    // prepare temp file
+    let file = NamedTempFile::new()?;
+    fs::write(file.path(), initial)?;
+
+    // respect VISUAL/EDITOR; fallback to vim
+    let editor = env::var("VISUAL")
+        .or_else(|_| env::var("EDITOR"))
+        .unwrap_or_else(|_| "vim".to_string());
+
+    // leave raw & alt screen
+    terminal::disable_raw_mode().ok();
+    execute!(
+        terminal.backend_mut(),
+        crossterm::event::DisableBracketedPaste,
+        crossterm::terminal::LeaveAlternateScreen
+    )?;
+
+    // launch editor and wait
+    std::process::Command::new(editor)
+        .arg(file.path())
+        .status()?;
+    let input = fs::read_to_string(file.path())?;
+
+    // re-enter raw & alt screen
+    execute!(
+        terminal.backend_mut(),
+        crossterm::terminal::EnterAlternateScreen,
+        crossterm::event::EnableBracketedPaste,
+    )?;
+    terminal::enable_raw_mode()?;
+    terminal.clear()?;
+
+    Ok(input)
 }
