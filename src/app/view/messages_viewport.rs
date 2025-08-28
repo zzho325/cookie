@@ -150,7 +150,10 @@ impl MessagesViewport {
         let styled_lines = StyledLine::from(String::from(""));
         lines.push(styled_lines);
 
-        self.input = lines.iter().map(|p| p.content()).join("\n");
+        self.input = lines
+            .iter()
+            .map(|p| p.content().replace("\t", "  "))
+            .join("\n");
         self.paragraphs = lines.into_iter().map(Paragraph::build).collect();
         self.reflow();
     }
