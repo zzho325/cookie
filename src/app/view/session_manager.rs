@@ -1,7 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Stylize, palette::tailwind},
+    style::{Modifier, Style, Stylize, palette::tailwind},
     text::Line,
     widgets::{Block, Borders, HighlightSpacing, List, ListItem, StatefulWidget, Widget},
 };
@@ -9,15 +9,25 @@ use ratatui::{
 use crate::{
     app::model::{focus::Focusable, session_manager::SessionManager},
     chat::ChatSession,
+    models::constants::NEW_SESSION_TITLE,
 };
 
 impl From<&ChatSession> for ListItem<'_> {
     fn from(value: &ChatSession) -> Self {
-        let line = Line::from(value.title.clone());
+        let title = if value.title.is_empty() {
+            NEW_SESSION_TITLE.to_string()
+        } else {
+            value.title.clone()
+        };
+
+        let line = Line::from(title);
 
         ListItem::new(line)
     }
 }
+const SELECTED_STYLE: Style = Style::new()
+    .bg(tailwind::ZINC.c200)
+    .add_modifier(Modifier::BOLD);
 
 impl Widget for &mut SessionManager {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -40,8 +50,7 @@ impl Widget for &mut SessionManager {
         // Create a List from all list items and highlight the currently selected one
         let list = List::new(items)
             .block(block)
-            // .highlight_style(SELECTED_STYLE)
-            .highlight_symbol(">")
+            .highlight_style(SELECTED_STYLE)
             .highlight_spacing(HighlightSpacing::Always);
 
         StatefulWidget::render(list, area, buf, self.list_state_mut());

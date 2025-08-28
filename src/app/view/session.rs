@@ -32,8 +32,15 @@ impl StatefulWidget for &mut Session {
         // border with title
         let title = self
             .title()
-            .map(String::as_str)
+            .map(|t| {
+                if t.is_empty() {
+                    NEW_SESSION_TITLE
+                } else {
+                    t.as_str()
+                }
+            })
             .unwrap_or(NEW_SESSION_TITLE);
+
         let styled_title = if self.messages.is_focused() {
             title.fg(tailwind::AMBER.c400).bold()
         } else {

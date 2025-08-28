@@ -8,8 +8,8 @@ use ratatui::{
 };
 
 const SELECTED_STYLE: Style = Style::new()
-    .fg(tailwind::ROSE.c100)
-    .bg(tailwind::GRAY.c800)
+    .fg(tailwind::ZINC.c800)
+    .bg(tailwind::ZINC.c200)
     .add_modifier(Modifier::BOLD);
 
 impl Widget for &mut SettingManager {
