@@ -11,7 +11,14 @@ A lightweight, terminal-based chat client for LLMs, built in Rust. Chat with Ope
 
 ### Installation
 
-```sh
+Homebrew:
+```console
+brew tap zzho325/tap
+brew install zzho325/tap/cookie
+```
+
+Build from source:
+```console
 git clone https://github.com/zzho325/cookie.git
 cd cookie
 ```
