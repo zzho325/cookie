@@ -212,7 +212,7 @@ impl MessagesViewport {
             (p.line_offset() as u16 + p.lines().len() as u16) <= y
         });
         // clamp to last paragraph if out of input bound
-        paragraph_idx = paragraph_idx.clamp(0, self.paragraphs.len() - 1);
+        paragraph_idx = paragraph_idx.clamp(0, self.paragraphs.len().saturating_sub(1));
         let paragraph = &self.paragraphs[paragraph_idx];
         paragraph.find_cursor_byte_idx(cursor_position)
     }
