@@ -27,6 +27,11 @@ impl SessionManager {
                 self.list_state.select_next();
                 self.session_summaries.get(i + 1).map(|s| s.id.clone())
             }
+            // select first if no current selection
+            None => {
+                self.list_state.select(Some(0));
+                self.session_summaries.first().map(|s| s.id.clone())
+            }
             _ => None,
         }
     }
