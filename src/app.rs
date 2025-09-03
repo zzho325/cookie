@@ -133,6 +133,10 @@ pub enum Message {
     Paste(String),
     /// Updates editor input accordingly after editing with system's editor finished
     ExternalEditingComplete(String),
+
+    /* ----- messages activities ----- */
+    /// Starts or ends visual selection.
+    ToggleSelection,
 }
 
 /// Side effect of update.

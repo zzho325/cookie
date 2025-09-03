@@ -29,8 +29,10 @@ pub struct MessagesViewport {
     /// Available visual width.
     viewport_width: usize,
     scroll_state: ScrollState,
-    /// Current cursor char idx in input.
+    /// Current cursor char index.
     cursor_char_idx: usize,
+    /// Selection start char index.
+    selection_start_char_idx: Option<usize>,
 }
 
 impl MessagesViewport {
@@ -280,5 +282,19 @@ impl MessagesViewport {
             self.cursor_char_idx
         );
         self.update_cursor_position(self.cursor_byte_idx());
+    }
+
+    // ----------------------------------------------------------------
+    // Visual selection.
+    // ----------------------------------------------------------------
+    /// Sets selection start `selection_start_char_idx` to current cursor index `cursor_char_idx`
+    /// if it's not already set; otherwise clears selection by sets `selection_start_char_idx`
+    /// None.
+    pub fn toggle_visual_selection(&mut self) {
+        if self.selection_start_char_idx.is_some() {
+            self.selection_start_char_idx = None;
+        } else {
+            self.selection_start_char_idx = Some(self.cursor_char_idx);
+        }
     }
 }
