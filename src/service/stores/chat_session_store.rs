@@ -12,6 +12,7 @@ pub trait ChatSessionStore: Send + Sync {
     async fn get_chat_session(&self, session_id: &str) -> Result<Option<ChatSession>>;
     async fn create_chat_session(&self, chat_session: ChatSession) -> Result<ChatSession>;
     async fn update_chat_session(&self, chat_session: ChatSession) -> Result<ChatSession>;
+    async fn delete_chat_session(&self, session_id: &str) -> Result<()>;
 }
 
 pub struct ChatSessionStoreImpl {
@@ -75,6 +76,21 @@ impl ChatSessionStore for ChatSessionStoreImpl {
 
         let job = Box::new(move |conn: &mut Connection| {
             let result = Self::update_chat_session_internal(conn, chat_session);
+            let _ = resp_tx.send(result);
+        });
+
+        self.job_tx
+            .send(job)
+            .map_err(|e| eyre!("failed to send job to DB thread: {}", e))?;
+        resp_rx.await?
+    }
+
+    async fn delete_chat_session(&self, session_id: &str) -> Result<()> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+
+        let session_id = session_id.to_string();
+        let job = Box::new(move |conn: &mut Connection| {
+            let result = Self::delete_chat_session_internal(conn, session_id);
             let _ = resp_tx.send(result);
         });
 
@@ -148,6 +164,17 @@ impl ChatSessionStoreImpl {
         )?;
         let session = stmt.query_row((&buf, &chat_session.id), ChatSession::from_row)?;
         Ok(session)
+    }
+
+    fn delete_chat_session_internal(conn: &mut Connection, session_id: String) -> Result<()> {
+        let mut stmt = conn.prepare(
+            r#"
+            DELETE FROM chat_sessions
+            WHERE id = ?1
+            "#,
+        )?;
+        stmt.execute((session_id,))?;
+        Ok(())
     }
 }
 
