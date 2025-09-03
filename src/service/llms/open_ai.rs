@@ -1,5 +1,7 @@
 pub mod api;
 
+use std::io::Write;
+
 use async_trait::async_trait;
 use color_eyre::eyre::Result;
 use futures_util::{
@@ -92,6 +94,13 @@ impl LlmClient for OpenAIClientImpl {
                             delta: d.delta,
                         })]
                     }
+                    ResponsesStream::OutputItemDone(d) => match d.item {
+                        OutputItem::WebSearchCall { action, .. } => {
+                            tracing::debug!("web search call {action}");
+                            Vec::new()
+                        }
+                        _ => Vec::new(),
+                    },
                     ResponsesStream::OutputTextDone(d) => {
                         vec![chat_event::Payload::Message(Message {
                             role: Role::Assistant as i32,
@@ -104,6 +113,7 @@ impl LlmClient for OpenAIClientImpl {
                         .into_iter()
                         .filter_map(|output| {
                             if let OutputItem::WebSearchCall { action, id, status } = output {
+                                tracing::info!("web search call action {action}");
                                 Some(chat_event::Payload::ToolEvent(ToolEvent {
                                     event: Some(tool_event::Event::WebSearchCall(
                                         tool_event::WebSearchCall {

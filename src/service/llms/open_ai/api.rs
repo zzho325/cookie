@@ -34,7 +34,7 @@ impl ResponsesReq {
 
         let mut tools = vec![];
         if web_search {
-            tools.push(Tool::WebSearchPreview);
+            tools.push(Tool::WebSearch);
         }
         Ok(ResponsesReq {
             model: model.into(),
@@ -112,7 +112,7 @@ impl From<&chat_event::Payload> for Option<InputItem> {
                     id: wsc.id.clone(),
                     status: wsc.status.clone(),
                     action: serde_json::from_str(&wsc.action_json)
-                        .unwrap_or_else(|_| serde_json::Value::Null),
+                        .unwrap_or(serde_json::Value::Null),
                 }),
                 _ => None,
             },
@@ -123,7 +123,7 @@ impl From<&chat_event::Payload> for Option<InputItem> {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Tool {
-    WebSearchPreview,
+    WebSearch,
     // Function {
     //     name: String,
     //     description: String,
@@ -141,7 +141,7 @@ pub enum Model {
     Gpt4oMini,
     #[serde(rename = "o4-mini")]
     O4Mini,
-    #[serde(rename = "o3")]
+    #[serde(rename = "o3-deep-research")]
     O3,
     #[serde(rename = "o3-mini")]
     O3Mini,
@@ -236,6 +236,8 @@ pub enum ResponsesStream {
     Failed { response: Responses },
     #[serde(rename = "response.incomplete")]
     Incomplete { response: Responses },
+    #[serde(rename = "response.output_item.done")]
+    OutputItemDone(OutputItemDone),
     #[serde(rename = "response.output_text.delta")]
     OutputTextDelta(OutputTextDelta),
     #[serde(rename = "response.output_text.done")]
@@ -247,10 +249,20 @@ pub enum ResponsesStream {
 #[derive(Deserialize, Debug)]
 pub struct StreamCommon {
     pub sequence_number: u64,
+    #[serde(default)]
     pub item_id: String,
     pub output_index: u64,
+    #[serde(default)]
     pub content_index: u64,
+    #[serde(default)]
     pub logprobs: Vec<()>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OutputItemDone {
+    #[serde(flatten)]
+    pub common: StreamCommon,
+    pub item: OutputItem,
 }
 
 #[derive(Deserialize, Debug)]
