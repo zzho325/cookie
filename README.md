@@ -63,14 +63,18 @@ cargo build --release
   * [x] Indicate current focused widget.
   * [ ] Help and Keymaps.
   * [x] Load config properly.
-  * [ ] UI to update settings.
+  * [x] UI to update settings.
   * [x] Error popup.
+    * [ ] Separate out recoverable or irrecoverable errors.
+  * [ ] Color theme.
+  * [ ] Configurable key bindings.
 * Chat Engine:
   * [x] Retain context across chats.
   * [x] Web: optional search and crawl.
     * [ ] Support other web search provider.
   * [x] Model selection.
   * [ ] Other LLM providers and provider selection.
+  * [ ] Configurable system prompt.
   * [x] Streaming.
   * [ ] Track token usage.
 * Session Management: 
