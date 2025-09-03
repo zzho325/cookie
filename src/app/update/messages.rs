@@ -16,7 +16,7 @@ pub fn handle_key_event(
     match code {
         KeyCode::Char('q') => model.quit(),
         KeyCode::Char('e') => model.toggle_sidebar(),
-        KeyCode::Char('n') => return (Some(Message::NewChat), None),
+        KeyCode::Char('n') => return (Some(Message::NewSession), None),
         KeyCode::Tab => model.shift_focus(),
         KeyCode::Char('i') => return (Some(Message::Editing), None),
         KeyCode::Char('s') => return (Some(Message::Setting), None),

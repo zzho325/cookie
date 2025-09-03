@@ -38,7 +38,7 @@ cargo build --release
 * Type your prompt, `Enter` to send.
 * `i` / `Esc` to toggle input mode, `q` to quit. 
 * `v` to enter editor based on `VISUAL` or `EDITOR` environment variable.
-* `e` to toggle side bar, `j` / `k` or `Down` / `Up` to navigate sessions.
+* `e` to toggle side bar, `j` / `k` or `Down` / `Up` to navigate sessions and `d` to delete selected session.
 * `s` to open model selection, `j` / `k` or `Down` / `Up` to select, `Esc` / `Enter` to cancel or save. 
 * `Tab` to shift focus.
 * `n` to start new session.

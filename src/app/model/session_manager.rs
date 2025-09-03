@@ -36,7 +36,7 @@ impl SessionManager {
         }
     }
 
-    pub fn select_previous(&mut self) -> Option<String> {
+    pub fn select_prev(&mut self) -> Option<String> {
         match self.list_state.selected() {
             Some(i) if i > 0 => {
                 self.list_state.select_previous();

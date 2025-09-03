@@ -108,21 +108,31 @@ fn handle_crossterm_event(
 /// Drives update.
 pub enum Message {
     Key(KeyEvent),
-    /// Paste event from crossterm.
-    Paste(String),
-    /// Editing with system's editor finished. Update editor input accordingly.
-    ExternalEditingComplete(String),
+    CrosstermClose,
+
     ServiceResp(ServiceResp),
+
+    /* ----- model wide activities ----- */
     /// Sends message.
     Send,
-    /// Starts new empty chat at tui.
-    NewChat,
-    /// Editing input.
+    /// Focuses on editor and enter editing mode.
     Editing,
-    /// Open setting manager or saves setting manager update and closes it.
+    /// Opens setting manager or saves setting manager update and closes it.
     Setting,
-    GetSession(String),
-    CrosstermClose,
+    /// Starts new empty chat at tui.
+    NewSession,
+    /// Deletes currently selected session and navigates to the next session.
+    DeleteSession,
+    /// Selects next session in session manager.
+    SelectNextSession,
+    /// Selects previews session in session manager.
+    SelectPrevSession,
+
+    /* ----- editor activities ----- */
+    /// Pastes event from crossterm.
+    Paste(String),
+    /// Updates editor input accordingly after editing with system's editor finished
+    ExternalEditingComplete(String),
 }
 
 /// Side effect of update.

@@ -18,17 +18,14 @@ pub type Update = (Option<Message>, Option<Command>);
 pub fn update(model: &mut Model, msg: Message) -> Update {
     match msg {
         Message::Key(evt) => return handle_key_event(model, evt),
-        Message::Paste(data) => {
-            if model.focused == Focused::InputEditor {
-                model.session.input_editor.paste_data(&data);
-            }
-        }
-        Message::ExternalEditingComplete(data) => {
-            model.session.input_editor.handle_editting_in_editor(data);
+        Message::CrosstermClose => {
+            model.should_quit = true;
         }
         Message::ServiceResp(resp) => {
             return handle_service_resp(model, resp);
         }
+
+        /* ----- model wide activities ----- */
         // TODO: add a unit test for sending message and create session.
         Message::Send => {
             if let Some(user_message) = model.session.handle_sending_user_message() {
@@ -40,9 +37,6 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
                     ))),
                 );
             }
-        }
-        Message::NewChat => {
-            model.new_draft_chat();
         }
         Message::Editing => {
             model.shift_focus_to(Focused::InputEditor);
@@ -60,11 +54,39 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
                 model.setting_manager_popup = None;
             }
         },
-        Message::GetSession(id) => {
-            return (None, Some(Command::ServiceReq(ServiceReq::GetSession(id))));
+        Message::NewSession => {
+            model.new_draft_chat();
         }
-        Message::CrosstermClose => {
-            model.should_quit = true;
+        Message::DeleteSession => {
+            if let Some(session_id) = &model.selected_session_id {
+                return (
+                    Some(Message::SelectNextSession),
+                    Some(Command::ServiceReq(ServiceReq::DeleteSession(
+                        session_id.to_string(),
+                    ))),
+                );
+            }
+        }
+        Message::SelectNextSession => {
+            let maybe_cmd = model
+                .handle_select_next_session()
+                .map(|id| Command::ServiceReq(ServiceReq::GetSession(id)));
+            return (None, maybe_cmd);
+        }
+        Message::SelectPrevSession => {
+            let maybe_cmd = model
+                .handle_select_prev_session()
+                .map(|id| Command::ServiceReq(ServiceReq::GetSession(id)));
+            return (None, maybe_cmd);
+        }
+        /* ----- editor activities ----- */
+        Message::Paste(data) => {
+            if model.focused == Focused::InputEditor {
+                model.session.input_editor.paste_data(&data);
+            }
+        }
+        Message::ExternalEditingComplete(data) => {
+            model.session.input_editor.handle_editting_in_editor(data);
         }
     }
     (None, None)
@@ -129,19 +151,12 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
         Focused::SessionManager => match keyevent.code {
             KeyCode::Char('q') => model.quit(),
             KeyCode::Char('e') => model.toggle_sidebar(),
-            KeyCode::Char('n') => return (Some(Message::NewChat), None),
+            KeyCode::Char('n') => return (Some(Message::NewSession), None),
+            KeyCode::Char('d') => return (Some(Message::DeleteSession), None),
             KeyCode::Char('i') => return (Some(Message::Editing), None),
             KeyCode::Char('s') => return (Some(Message::Setting), None),
-            KeyCode::Down | KeyCode::Char('j') => {
-                model.selected_session_id = model.session_manager.select_next();
-                let maybe_msg = model.selected_session_id.clone().map(Message::GetSession);
-                return (maybe_msg, None);
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                model.selected_session_id = model.session_manager.select_previous();
-                let maybe_msg = model.selected_session_id.clone().map(Message::GetSession);
-                return (maybe_msg, None);
-            }
+            KeyCode::Down | KeyCode::Char('j') => return (Some(Message::SelectNextSession), None),
+            KeyCode::Up | KeyCode::Char('k') => return (Some(Message::SelectPrevSession), None),
             KeyCode::Tab => model.shift_focus(),
             _ => {}
         },

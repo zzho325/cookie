@@ -21,7 +21,7 @@ pub struct Model {
     pub session: Session,
     pub session_manager: SessionManager,
     /// Source of truth for selected session id.
-    /// It might not be in session_summaries for newly created session.
+    /// It might not be in session_manager for newly created session.
     /// It might not be the same as id in session while waiting for fetching selected session.
     pub selected_session_id: Option<String>,
 
@@ -88,6 +88,26 @@ impl Model {
         self.session_manager.set_selected(None);
         self.shift_focus_to(Focused::InputEditor);
         self.session.input_editor.set_is_editing(true);
+    }
+
+    /// Updates selected session to the next session of current selection in session manager and
+    /// returns the updated selected session id.
+    pub fn handle_select_next_session(&mut self) -> Option<String> {
+        if let Some(selected_session_id) = self.session_manager.select_next() {
+            self.selected_session_id = Some(selected_session_id.clone());
+            return Some(selected_session_id);
+        }
+        None
+    }
+
+    /// Updates selected session to the previous session of current selection in session manager
+    /// and returns the updated selected session id.
+    pub fn handle_select_prev_session(&mut self) -> Option<String> {
+        if let Some(selected_session_id) = self.session_manager.select_prev() {
+            self.selected_session_id = Some(selected_session_id.clone());
+            return Some(selected_session_id);
+        }
+        None
     }
 }
 
