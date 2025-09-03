@@ -132,6 +132,9 @@ impl Service {
                         Some(ServiceReq::GetSession(session_id)) => {
                            self.handle_get_session(&session_id).await?
                         }
+                        Some(ServiceReq::DeleteSession(session_id)) => {
+                            self.handle_delete_session(&session_id).await?
+                        }
                     }
                 }
                 Some(res) = chat_handles.next(), if !chat_handles.is_empty() => {

@@ -106,7 +106,7 @@ impl Service {
     }
 
     /// Sends `session` of `session_id` to tui. Send error message to tui if session not found.
-    pub async fn handle_get_session(&mut self, session_id: &String) -> Result<()> {
+    pub async fn handle_get_session(&mut self, session_id: &str) -> Result<()> {
         match self.chat_session_store.get_chat_session(session_id).await {
             Ok(Some(mut chat_session)) => {
                 let chat_events = self
@@ -128,7 +128,22 @@ impl Service {
         Ok(())
     }
 
-    /// Sends sessions in sotres to tui.
+    /// Delete `session` of `session_id` and sends updated sessions to tui.
+    pub async fn handle_delete_session(&mut self, session_id: &str) -> Result<()> {
+        match self
+            .chat_session_store
+            .delete_chat_session(session_id)
+            .await
+        {
+            Ok(_) => self.send_sessions().await?,
+            Err(e) => {
+                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Sends sessions in stores to tui.
     pub async fn send_sessions(&mut self) -> Result<()> {
         tracing::debug!("sending sessions");
         match self.chat_session_store.get_chat_sessions().await {

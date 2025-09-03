@@ -2,14 +2,16 @@ pub mod configs;
 pub mod constants;
 pub mod settings;
 
-use std::time::SystemTime;
-
 use crate::{chat::*, llm::*};
 
 #[derive(Debug)]
 pub enum ServiceReq {
+    /// Sends user message.
     ChatMessage(ChatEvent),
+    /// Fetches session by session_id.
     GetSession(String),
+    /// Deletes session by session_id.
+    DeleteSession(String),
 }
 
 pub enum ServiceResp {
