@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use itertools::Itertools;
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, palette::tailwind},
     text::Span,
 };
 use textwrap::{Options, WordSeparator, wrap};
@@ -31,13 +31,43 @@ pub struct MessagesViewport {
     scroll_state: ScrollState,
     /// Current cursor char index.
     cursor_char_idx: usize,
-    /// Selection start char index.
-    selection_start_char_idx: Option<usize>,
+    /// Selection start byte index.
+    selection_start_byte_idx: Option<usize>,
 }
 
+const HIGHLIGHT_STYLE: Style = Style::new().fg(tailwind::ZINC.c800).bg(tailwind::ZINC.c200);
+
 impl MessagesViewport {
-    pub fn lines(&self) -> Vec<&StyledLine> {
-        self.paragraphs.iter().flat_map(|p| p.lines()).collect()
+    pub fn lines(&self) -> Vec<StyledLine> {
+        if let Some((start_offset, end_offset)) = self.visual_selection_byte_range() {
+            return self
+                .paragraphs
+                .iter()
+                .flat_map(|p| {
+                    let lines = p.lines();
+                    let mut new_lines: Vec<StyledLine> = Vec::with_capacity(lines.len());
+
+                    let mut line_offset = p.byte_offset();
+                    for line in lines.iter() {
+                        let line_len = line.content().len();
+                        if end_offset < line_offset || start_offset > line_offset + line_len {
+                            new_lines.push(line.clone());
+                        } else {
+                            let mut new_line = line.clone();
+                            new_line.patch_style(HIGHLIGHT_STYLE);
+                            new_lines.push(new_line);
+                        }
+                        line_offset += line_len;
+                    }
+                    new_lines
+                })
+                .collect();
+        }
+        self.paragraphs
+            .iter()
+            .flat_map(|p| p.lines())
+            .cloned()
+            .collect()
     }
 
     pub fn scroll_state(&mut self) -> &mut ScrollState {
@@ -277,24 +307,37 @@ impl MessagesViewport {
     /// Updates cursor position to clamped target cursor position.
     fn clamp_and_update_cursor_position(&mut self, target_cursor_char_idx: usize) {
         self.cursor_char_idx = target_cursor_char_idx.clamp(0, self.input.chars().count());
-        tracing::debug!(
-            "updating cursor position to char idx {:?}",
-            self.cursor_char_idx
-        );
+        // tracing::debug!(
+        //     "updating cursor position to char idx {:?}",
+        //     self.cursor_char_idx
+        // );
         self.update_cursor_position(self.cursor_byte_idx());
     }
 
     // ----------------------------------------------------------------
     // Visual selection.
     // ----------------------------------------------------------------
-    /// Sets selection start `selection_start_char_idx` to current cursor index `cursor_char_idx`
-    /// if it's not already set; otherwise clears selection by sets `selection_start_char_idx`
-    /// None.
+    /// Sets selection start `selection_start_byte_idx` to current cursor byte index if it's not
+    /// already set; otherwise clears selection by sets `selection_start_byte_idx` None.
     pub fn toggle_visual_selection(&mut self) {
-        if self.selection_start_char_idx.is_some() {
-            self.selection_start_char_idx = None;
+        if self.selection_start_byte_idx.is_some() {
+            self.selection_start_byte_idx = None;
         } else {
-            self.selection_start_char_idx = Some(self.cursor_char_idx);
+            let start_offset = self.cursor_byte_idx();
+            self.selection_start_byte_idx = Some(start_offset);
         }
+    }
+
+    /// Returns current visual selection range in byte offset.
+    fn visual_selection_byte_range(&self) -> Option<(usize /*start*/, usize /*end*/)> {
+        if let Some(start_offset) = self.selection_start_byte_idx {
+            let cursor_byte_idx = self.cursor_byte_idx();
+            if start_offset < cursor_byte_idx {
+                return Some((start_offset, cursor_byte_idx));
+            } else {
+                return Some((cursor_byte_idx, start_offset));
+            }
+        }
+        None
     }
 }

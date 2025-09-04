@@ -20,6 +20,7 @@ pub fn handle_key_event(
         KeyCode::Tab => model.shift_focus(),
         KeyCode::Char('i') => return (Some(Message::Editing), None),
         KeyCode::Char('s') => return (Some(Message::Setting), None),
+        KeyCode::Char('v') => messages.viewport.toggle_visual_selection(),
         // KeyCode::Down => messages.scroll_down(),
         // KeyCode::Up => messages.scroll_up(),
         KeyCode::Left | KeyCode::Char('h') => messages.viewport.move_cursor_left(),

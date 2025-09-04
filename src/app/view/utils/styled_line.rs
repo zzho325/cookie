@@ -5,7 +5,7 @@ use ratatui::{
 
 use crate::app::view::utils::paragraph::Slicable;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StyleSlice {
     byte_offset: usize,
     len: usize,
@@ -31,7 +31,7 @@ impl StyleSlice {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct StyledLine {
     /// The literal text to render.
     content: String,
