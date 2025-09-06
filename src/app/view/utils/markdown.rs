@@ -18,7 +18,6 @@ use tracing::{debug, instrument, warn};
 
 use crate::app::view::utils::styled_line::StyledLine;
 
-
 pub fn from_str(input: &str) -> Vec<StyledLine> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
@@ -355,9 +354,9 @@ where
     }
 
     #[instrument(level = "trace", skip(self))]
-    fn push_line(&mut self, mut line: StyledLine) {
+    fn push_line(&mut self, line: StyledLine) {
         let style = self.line_styles.last().copied().unwrap_or_default();
-        line.patch_style(style);
+        let mut line = line.patch_style(style, None);
 
         // insert line prefixes
         let line_prefixes = self.line_prefixes.iter().cloned().collect_vec();

@@ -31,8 +31,8 @@ pub struct MessagesViewport {
     scroll_state: ScrollState,
     /// Current cursor char index.
     cursor_char_idx: usize,
-    /// Selection start byte index.
-    selection_start_byte_idx: Option<usize>,
+    /// Selection start char index.
+    selection_start_char_idx: Option<usize>,
 }
 
 const HIGHLIGHT_STYLE: Style = Style::new().fg(tailwind::ZINC.c800).bg(tailwind::ZINC.c200);
@@ -50,11 +50,14 @@ impl MessagesViewport {
                     let mut line_offset = p.byte_offset();
                     for line in lines.iter() {
                         let line_len = line.content().len();
-                        if end_offset < line_offset || start_offset > line_offset + line_len {
+                        if end_offset <= line_offset || start_offset > line_offset + line_len {
                             new_lines.push(line.clone());
                         } else {
-                            let mut new_line = line.clone();
-                            new_line.patch_style(HIGHLIGHT_STYLE);
+                            let new_line = line.clone();
+                            let start_offset = start_offset.saturating_sub(line_offset);
+                            let end_offset = end_offset.min(line_offset + line_len) - line_offset;
+                            let new_line = new_line
+                                .patch_style(HIGHLIGHT_STYLE, Some((start_offset, end_offset)));
                             new_lines.push(new_line);
                         }
                         line_offset += line_len;
@@ -252,15 +255,15 @@ impl MessagesViewport {
     // ----------------------------------------------------------------
     // Cursor nagivation.
     // ----------------------------------------------------------------
-    /// Returns current cursor byte idx.
+    /// Returns current byte idx for given char index..
     ///
     /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
     /// the byte idx based on the idx of the character.
-    fn cursor_byte_idx(&self) -> usize {
+    fn cursor_byte_idx(&self, char_idx: usize) -> usize {
         self.input
             .char_indices()
             .map(|(i, _)| i)
-            .nth(self.cursor_char_idx)
+            .nth(char_idx)
             .unwrap_or(self.input.len())
     }
 
@@ -311,32 +314,34 @@ impl MessagesViewport {
         //     "updating cursor position to char idx {:?}",
         //     self.cursor_char_idx
         // );
-        self.update_cursor_position(self.cursor_byte_idx());
+        self.update_cursor_position(self.cursor_byte_idx(self.cursor_char_idx));
     }
 
     // ----------------------------------------------------------------
     // Visual selection.
     // ----------------------------------------------------------------
-    /// Sets selection start `selection_start_byte_idx` to current cursor byte index if it's not
-    /// already set; otherwise clears selection by sets `selection_start_byte_idx` None.
+    /// Sets selection start `selection_start_char_idx` to current cursor char index if it's not
+    /// already set; otherwise clears selection by sets `selection_start_char_idx` None.
     pub fn toggle_visual_selection(&mut self) {
-        if self.selection_start_byte_idx.is_some() {
-            self.selection_start_byte_idx = None;
+        if self.selection_start_char_idx.is_some() {
+            self.selection_start_char_idx = None;
         } else {
-            let start_offset = self.cursor_byte_idx();
-            self.selection_start_byte_idx = Some(start_offset);
+            self.selection_start_char_idx = Some(self.cursor_char_idx);
         }
     }
 
-    /// Returns current visual selection range in byte offset.
+    /// Returns current visual selection range [start, end) in byte offset.
     fn visual_selection_byte_range(&self) -> Option<(usize /*start*/, usize /*end*/)> {
-        if let Some(start_offset) = self.selection_start_byte_idx {
-            let cursor_byte_idx = self.cursor_byte_idx();
-            if start_offset < cursor_byte_idx {
-                return Some((start_offset, cursor_byte_idx));
-            } else {
-                return Some((cursor_byte_idx, start_offset));
+        if let Some(mut start_char_idx) = self.selection_start_char_idx {
+            let mut end_char_idx = self.cursor_char_idx;
+            if start_char_idx > end_char_idx {
+                (start_char_idx, end_char_idx) = (end_char_idx, start_char_idx);
             }
+
+            return Some((
+                self.cursor_byte_idx(start_char_idx),
+                self.cursor_byte_idx(end_char_idx + 1),
+            ));
         }
         None
     }
