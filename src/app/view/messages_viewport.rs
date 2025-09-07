@@ -326,6 +326,11 @@ impl MessagesViewport {
         }
     }
 
+    /// Clears visual selection.
+    pub fn clear_visual_selection(&mut self) {
+        self.selection_start_char_idx = None;
+    }
+
     /// Returns current visual selection range [start, end) in byte offset.
     fn visual_selection_byte_range(&self) -> Option<(usize /*start*/, usize /*end*/)> {
         if let Some(mut start_char_idx) = self.selection_start_char_idx {

@@ -27,6 +27,7 @@ pub fn handle_key_event(
                 return (None, Some(Command::CopyToClipboard(selected)));
             }
         }
+        KeyCode::Esc => messages.viewport.clear_visual_selection(),
         // KeyCode::Down => messages.scroll_down(),
         // KeyCode::Up => messages.scroll_up(),
         KeyCode::Left | KeyCode::Char('h') => messages.viewport.move_cursor_left(),

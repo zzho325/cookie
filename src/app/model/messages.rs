@@ -4,7 +4,6 @@ use crate::{
         view::messages_viewport::MessagesViewport,
     },
     chat::*,
-    impl_focusable,
 };
 
 #[derive(Default)]
@@ -15,8 +14,6 @@ pub struct Messages {
     focused: bool,
     pub viewport: MessagesViewport,
 }
-
-impl_focusable!(Messages, Focused::Messages);
 
 impl Messages {
     pub fn is_pending(&self) -> bool {
@@ -107,5 +104,22 @@ impl Messages {
 
         self.viewport
             .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
+    }
+}
+
+impl Focusable for Messages {
+    fn set_focus(&mut self, focused: bool) {
+        // clear visual selection if navigating away.
+        if !focused {
+            self.viewport.clear_visual_selection();
+        }
+        self.focused = focused
+    }
+
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+    fn to_focused(&self) -> Focused {
+        Focused::Messages
     }
 }
