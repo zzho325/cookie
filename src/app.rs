@@ -3,6 +3,7 @@ mod update;
 mod view;
 
 use color_eyre::{Result, eyre::Context};
+use crossterm::clipboard::CopyToClipboard;
 use crossterm::{
     cursor::SetCursorStyle,
     event::{EnableBracketedPaste, Event, EventStream, KeyEvent, KeyEventKind},
@@ -80,7 +81,7 @@ impl App {
                         }
                     }
                     Some(Command::CopyToClipboard(selected)) => {
-                        tracing::info!("copying {selected}");
+                        copy_to_clipboard(&mut terminal, &selected);
                     }
                     None => {}
                 }
@@ -185,4 +186,15 @@ where
     terminal.clear()?;
 
     Ok(input)
+}
+
+/// Copies text to system clipboard.
+fn copy_to_clipboard<B>(terminal: &mut Terminal<B>, text: &str)
+where
+    B: Backend + Write,
+{
+    execute!(
+        terminal.backend_mut(),
+        CopyToClipboard::to_clipboard_from(text)
+    );
 }

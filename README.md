@@ -42,7 +42,7 @@ cargo build --release
 * `Tab` to shift focus.
 * `n` to start new session.
 * In editor: `v` to enter editor based on `VISUAL` or `EDITOR` environment variable.
-* In messages: `v` to toggle line-based visual selection.
+* In messages: `v` to toggle line-based visual selection, `y` to copy selection.
 
 ## 🛣️ Roadmap
 
