@@ -310,10 +310,6 @@ impl MessagesViewport {
     /// Updates cursor position to clamped target cursor position.
     fn clamp_and_update_cursor_position(&mut self, target_cursor_char_idx: usize) {
         self.cursor_char_idx = target_cursor_char_idx.clamp(0, self.input.chars().count());
-        // tracing::debug!(
-        //     "updating cursor position to char idx {:?}",
-        //     self.cursor_char_idx
-        // );
         self.update_cursor_position(self.cursor_byte_idx(self.cursor_char_idx));
     }
 

@@ -94,24 +94,15 @@ impl StyledLine {
         style: Style,
         range: Option<(usize /*start_offset*/, usize /*end_offset*/)>,
     ) -> Self {
-        let content = self.content().to_string();
-
         let style_slices = if let Some((start_offset, end_offset)) = range {
             self.style_slices
                 .into_iter()
                 .flat_map(|s| {
-                    tracing::debug!(
-                        "patching {range:?} on {}:{} of {:?}",
-                        s.start_idx(),
-                        s.end_idx(),
-                        content,
-                    );
                     if start_offset > s.end_idx() || end_offset <= s.start_idx() {
                         return vec![s];
                     }
 
                     let mut new_slices: Vec<StyleSlice> = vec![];
-
                     if s.start_idx() < start_offset {
                         new_slices.push(StyleSlice {
                             byte_offset: s.start_idx(),
@@ -119,13 +110,11 @@ impl StyledLine {
                             style: s.style,
                         })
                     }
-
                     new_slices.push(StyleSlice {
                         byte_offset: start_offset.max(s.start_idx()),
                         len: end_offset.min(s.end_idx()) - start_offset.max(s.start_idx()),
                         style: s.style.patch(style),
                     });
-
                     if s.end_idx() > end_offset {
                         new_slices.push(StyleSlice {
                             byte_offset: end_offset,
@@ -133,8 +122,6 @@ impl StyledLine {
                             style: s.style,
                         })
                     }
-
-                    tracing::debug!(?new_slices);
                     new_slices
                 })
                 .collect()

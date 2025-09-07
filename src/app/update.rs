@@ -89,11 +89,6 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         Message::ExternalEditingComplete(data) => {
             model.session.input_editor.handle_editting_in_editor(data);
         }
-
-        /* ----- messages activities ----- */
-        Message::ToggleSelection => {
-            model.session.messages.viewport.toggle_visual_selection();
-        }
     }
     (None, None)
 }
