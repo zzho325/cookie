@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
+use crate::app::Command;
 use crate::app::model::Model;
 use crate::app::{Message, update::Update};
 
@@ -21,6 +22,11 @@ pub fn handle_key_event(
         KeyCode::Char('i') => return (Some(Message::Editing), None),
         KeyCode::Char('s') => return (Some(Message::Setting), None),
         KeyCode::Char('v') => messages.viewport.toggle_visual_selection(),
+        KeyCode::Char('y') => {
+            if let Some(selected) = messages.viewport.yank_visual_selection() {
+                return (None, Some(Command::CopyToClipboard(selected)));
+            }
+        }
         // KeyCode::Down => messages.scroll_down(),
         // KeyCode::Up => messages.scroll_up(),
         KeyCode::Left | KeyCode::Char('h') => messages.viewport.move_cursor_left(),

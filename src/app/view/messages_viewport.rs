@@ -341,4 +341,17 @@ impl MessagesViewport {
         }
         None
     }
+
+    /// Returns current selected text and clear selection.
+    pub fn yank_visual_selection(&mut self) -> Option<String> {
+        if let Some((start, end)) = self.visual_selection_byte_range() {
+            if let Some(selected) = self.input.get(start..end) {
+                let selected = selected.to_string();
+                self.toggle_visual_selection();
+                return Some(selected);
+            }
+            tracing::warn!("invalid visual selection range {:?}", (start, end));
+        }
+        None
+    }
 }

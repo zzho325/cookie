@@ -79,6 +79,9 @@ impl App {
                             }
                         }
                     }
+                    Some(Command::CopyToClipboard(selected)) => {
+                        tracing::info!("copying {selected}");
+                    }
                     None => {}
                 }
             }
@@ -138,8 +141,10 @@ pub enum Message {
 /// Side effect of update.
 pub enum Command {
     ServiceReq(ServiceReq),
-    /// Open system's editor to continue editing.
+    /// Opens system's editor to continue editing.
     ExternalEditing(String),
+    /// Puts given input to system clipboard.
+    CopyToClipboard(String),
 }
 
 /// Opens external editor to continue editing initial and return edited string.
