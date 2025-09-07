@@ -56,23 +56,25 @@ cargo build --release
     * [ ] Fix color.
     * [ ] Fix unsupported syntax.
   * [x] [Chat messages] Scroll.
-  * [ ] [Chat messages] Cursor navigation.
-  * [ ] Select range and copy.
-  * [ ] Mouse event.
-  * [x] [Input box] Embed nvim.
+  * [x] [Chat messages] Cursor navigation.
+    * [x] Select range and copy.
+  * [ ] Mouse event - scroll, navigation, and select range and copy.
+  * [ ] Embed nvim.
+    * [x] [Input editor].
+    * [ ] [Chat Messages].
 * App:
   * [x] Indicate current focused widget.
-  * [ ] Help and Keymaps.
+  * [ ] Help popup.
+  * [ ] Configurable key bindings.
   * [x] Load config properly.
   * [x] UI to update settings.
   * [x] Error popup.
     * [ ] Separate out recoverable or irrecoverable errors.
   * [ ] Color theme.
-  * [ ] Configurable key bindings.
 * Chat Engine:
   * [x] Retain context across chats.
+    * [ ] Maintain reasoning context.
   * [x] Web: optional search and crawl.
-    * [ ] Support other web search provider.
   * [x] Model selection.
   * [ ] Other LLM providers and provider selection.
   * [ ] Configurable system prompt.
