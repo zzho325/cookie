@@ -81,7 +81,7 @@ impl App {
                         }
                     }
                     Some(Command::CopyToClipboard(selected)) => {
-                        copy_to_clipboard(&mut terminal, &selected);
+                        copy_to_clipboard(&mut terminal, &selected)?;
                     }
                     None => {}
                 }
@@ -189,12 +189,13 @@ where
 }
 
 /// Copies text to system clipboard.
-fn copy_to_clipboard<B>(terminal: &mut Terminal<B>, text: &str)
+fn copy_to_clipboard<B>(terminal: &mut Terminal<B>, text: &str) -> Result<()>
 where
     B: Backend + Write,
 {
     execute!(
         terminal.backend_mut(),
         CopyToClipboard::to_clipboard_from(text)
-    );
+    )?;
+    Ok(())
 }
