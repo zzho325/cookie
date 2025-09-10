@@ -1,7 +1,7 @@
 mod input_editor;
 mod messages;
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::{
     app::{
@@ -149,16 +149,20 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
         Focused::Messages => {
             return messages::handle_key_event(model, keyevent);
         }
-        Focused::SessionManager => match keyevent.code {
-            KeyCode::Char('q') => model.quit(),
-            KeyCode::Char('e') => model.toggle_sidebar(),
-            KeyCode::Char('n') => return (Some(Message::NewSession), None),
-            KeyCode::Char('d') => return (Some(Message::DeleteSession), None),
-            KeyCode::Char('i') => return (Some(Message::Editing), None),
-            KeyCode::Char('s') => return (Some(Message::Setting), None),
-            KeyCode::Down | KeyCode::Char('j') => return (Some(Message::SelectNextSession), None),
-            KeyCode::Up | KeyCode::Char('k') => return (Some(Message::SelectPrevSession), None),
-            KeyCode::Tab => model.shift_focus(),
+        Focused::SessionManager => match (keyevent.code, keyevent.modifiers) {
+            (KeyCode::Char('q'), _) => model.quit(),
+            (KeyCode::Char('e'), KeyModifiers::CONTROL) => model.toggle_sidebar(),
+            (KeyCode::Char('n'), _) => return (Some(Message::NewSession), None),
+            (KeyCode::Char('d'), _) => return (Some(Message::DeleteSession), None),
+            (KeyCode::Char('i'), _) => return (Some(Message::Editing), None),
+            (KeyCode::Char('s'), _) => return (Some(Message::Setting), None),
+            (KeyCode::Down | KeyCode::Char('j'), _) => {
+                return (Some(Message::SelectNextSession), None);
+            }
+            (KeyCode::Up | KeyCode::Char('k'), _) => {
+                return (Some(Message::SelectPrevSession), None);
+            }
+            (KeyCode::Tab, _) => model.shift_focus(),
             _ => {}
         },
     }
@@ -167,7 +171,7 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
 
 #[cfg(test)]
 mod tests {
-    use crossterm::event::{KeyCode, KeyEvent};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use rstest::{fixture, rstest};
     use tracing::{
         level_filters::LevelFilter,
@@ -249,31 +253,31 @@ mod tests {
                 expected_is_editing: false,
             },
             Case {
-                description: "key e opens and navigates to sidebar",
+                description: "key CTRL e opens and navigates to sidebar",
                 focused: Focused::InputEditor,
                 show_sidebar: false,
                 is_editing: false,
-                key_event: KeyCode::Char('e').into(),
+                key_event: KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
                 expected_focused: Focused::SessionManager,
                 expected_show_sidebar: true,
                 expected_is_editing: false,
             },
             Case {
-                description: "key e closes sidebar",
+                description: "key CTRL e closes sidebar",
                 focused: Focused::Messages,
                 show_sidebar: true,
                 is_editing: false,
-                key_event: KeyCode::Char('e').into(),
+                key_event: KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
                 expected_focused: Focused::Messages,
                 expected_show_sidebar: false,
                 expected_is_editing: false,
             },
             Case {
-                description: "key e closes and navigates away from sidebar",
+                description: "key CTRL e closes and navigates away from sidebar",
                 focused: Focused::SessionManager,
                 show_sidebar: true,
                 is_editing: false,
-                key_event: KeyCode::Char('e').into(),
+                key_event: KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
                 expected_focused: Focused::InputEditor,
                 expected_show_sidebar: false,
                 expected_is_editing: false,

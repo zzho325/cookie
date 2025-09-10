@@ -73,6 +73,10 @@ impl MessagesViewport {
             .collect()
     }
 
+    pub fn input(&self) -> &str {
+        &self.input
+    }
+
     pub fn scroll_state(&mut self) -> &mut ScrollState {
         &mut self.scroll_state
     }

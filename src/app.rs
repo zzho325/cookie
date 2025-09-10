@@ -76,12 +76,19 @@ impl App {
                         match external_editing(&mut terminal, &initial) {
                             Ok(data) => maybe_msg = Some(Message::ExternalEditingComplete(data)),
                             Err(e) => {
-                                tracing::error!("external editing failed: {e}")
+                                tracing::error!("failed to edit: {e}")
                             }
                         }
                     }
+                    Some(Command::ExternalEditingReadOnly(initial)) => {
+                        if let Err(e) = external_editing(&mut terminal, &initial) {
+                            tracing::error!("failed to view: {e}")
+                        }
+                    }
                     Some(Command::CopyToClipboard(selected)) => {
-                        copy_to_clipboard(&mut terminal, &selected)?;
+                        if let Err(e) = copy_to_clipboard(&mut terminal, &selected) {
+                            tracing::error!("failed to copy to clipboard: {e}")
+                        }
                     }
                     None => {}
                 }
@@ -144,6 +151,8 @@ pub enum Command {
     ServiceReq(ServiceReq),
     /// Opens system's editor to continue editing.
     ExternalEditing(String),
+    /// Opens system's editor with content, but throws away editing content.
+    ExternalEditingReadOnly(String),
     /// Puts given input to system clipboard.
     CopyToClipboard(String),
 }
