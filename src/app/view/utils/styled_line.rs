@@ -94,8 +94,9 @@ impl StyledLine {
         style: Style,
         range: Option<(usize /*start_offset*/, usize /*end_offset*/)>,
     ) -> Self {
-        let style_slices = if let Some((start_offset, end_offset)) = range {
-            self.style_slices
+        if let Some((start_offset, end_offset)) = range {
+            let style_slices = self
+                .style_slices
                 .into_iter()
                 .flat_map(|s| {
                     if start_offset > s.end_idx() || end_offset <= s.start_idx() {
@@ -124,14 +125,18 @@ impl StyledLine {
                     }
                     new_slices
                 })
-                .collect()
+                .collect();
+            Self {
+                content: self.content,
+                style: self.style,
+                style_slices,
+            }
         } else {
-            self.style_slices
-        };
-        Self {
-            content: self.content,
-            style: self.style,
-            style_slices,
+            Self {
+                content: self.content,
+                style: self.style.patch(style),
+                style_slices: self.style_slices,
+            }
         }
     }
 }

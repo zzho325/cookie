@@ -1,3 +1,9 @@
+// This code is adapted from the original work available at
+// https://github.com/joshka/tui-markdown/blob/main/tui-markdown/src/lib.rs.
+// All credit for the original implementation goes to the author(s).
+// This adaptation is made under the terms of the project's license.
+// Please refer to the original repository for more information.
+
 use std::sync::LazyLock;
 use std::vec;
 
@@ -229,7 +235,6 @@ where
             return;
         }
 
-        // TODO: figure out will there be new line in text?
         for (position, line) in text.lines().with_position() {
             if self.needs_newline {
                 self.push_line(StyledLine::default());
