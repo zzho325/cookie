@@ -9,12 +9,15 @@ use crate::{
     },
 };
 use color_eyre::Result;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::{
+    Mutex,
+    mpsc::{UnboundedReceiver, UnboundedSender},
+};
 use tokio_stream::StreamExt as _;
 
 pub struct ChatSessionWorker {
     chat_rx: UnboundedReceiver<ChatEvent>,
-    chat_session: ChatSession,
+    chat_session: Arc<Mutex<ChatSession>>,
     llm_router: LlmClientRouter,
     resp_tx: UnboundedSender<ServiceResp>,
     chat_event_store: Arc<dyn ChatEventStore>,
@@ -32,7 +35,7 @@ impl ChatSessionWorker {
     ) -> Self {
         Self {
             chat_rx,
-            chat_session,
+            chat_session: Arc::new(Mutex::new(chat_session)),
             llm_router,
             resp_tx,
             chat_event_store,
@@ -48,58 +51,68 @@ impl ChatSessionWorker {
             // ----------------------------------------------------------------
             // Persist user message and send it back to tui.
             // ----------------------------------------------------------------
-            // persist user message and update timestamp
             user_message = self
                 .chat_event_store
                 .create_chat_event(user_message)
                 .await?;
-
-            // update settings if changed
-            if self.chat_session.llm_settings != user_message.llm_settings {
-                self.chat_session.llm_settings = user_message.llm_settings;
-                self.chat_session_store
-                    .update_chat_session(self.chat_session.clone())
-                    .await?;
-            }
-            self.chat_session.events.push(user_message.clone());
-            self.resp_tx.send(ServiceResp::ChatEvent(user_message))?;
+            self.resp_tx
+                .send(ServiceResp::ChatEvent(user_message.clone()))?;
 
             // ----------------------------------------------------------------
-            // Prepare llm request.
+            // Update chat session and prepare llm request.
             // ----------------------------------------------------------------
-            // load history events
-            let events = self
-                .chat_session
-                .events
-                .iter()
-                .filter_map(|e| e.payload.clone())
-                .collect();
+            let llm_req = {
+                let mut chat_session = self.chat_session.lock().await;
 
-            let llm_req = LlmReq {
-                events,
-                instructions: None,
-                settings: self.chat_session.llm_settings.unwrap_or_default(),
+                // update settings if changed.
+                if chat_session.llm_settings != user_message.llm_settings {
+                    chat_session.llm_settings = user_message.llm_settings;
+                    self.chat_session_store
+                        .update_chat_session(chat_session.clone())
+                        .await?;
+                }
+                // append user message.
+                chat_session.events.push(user_message);
+
+                // load history events
+                let events = chat_session
+                    .events
+                    .iter()
+                    .filter_map(|e| e.payload.clone())
+                    .collect();
+
+                LlmReq {
+                    events,
+                    instructions: None,
+                    settings: chat_session.llm_settings.unwrap_or_default(),
+                }
             };
 
             // ----------------------------------------------------------------
             // Stream request and handle response.
             // ----------------------------------------------------------------
-            let session_id = self.chat_session.id.clone();
             let mut stream = self.llm_router.stream(llm_req).await?;
             while let Some(payload) = stream.next().await {
-                let mut chat_event = ChatEvent::new(
-                    session_id.clone(),
-                    self.chat_session.llm_settings,
-                    payload.clone(),
-                );
-                // persist non delta event and update timestamp
-                match payload {
-                    chat_event::Payload::Message(_) | chat_event::Payload::ToolEvent(_) => {
-                        chat_event = self.chat_event_store.create_chat_event(chat_event).await?;
-                        self.chat_session.events.push(chat_event.clone());
+                let chat_event = {
+                    let mut chat_session = self.chat_session.lock().await;
+
+                    let mut chat_event = ChatEvent::new(
+                        chat_session.id.clone(),
+                        chat_session.llm_settings,
+                        payload.clone(),
+                    );
+
+                    // persist non delta event and update timestamp
+                    match payload {
+                        chat_event::Payload::Message(_) | chat_event::Payload::ToolEvent(_) => {
+                            chat_event =
+                                self.chat_event_store.create_chat_event(chat_event).await?;
+                            chat_session.events.push(chat_event.clone());
+                        }
+                        _ => {}
                     }
-                    _ => {}
-                }
+                    chat_event
+                };
                 // send to tui
                 self.resp_tx.send(ServiceResp::ChatEvent(chat_event))?;
             }
