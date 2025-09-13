@@ -131,12 +131,33 @@ impl ChatSessionWorker {
 
                     // persist non delta event and update timestamp
                     match payload {
-                        chat_event::Payload::Message(_) | chat_event::Payload::ToolEvent(_) => {
+                        chat_event::Payload::Message(_) => {
+                            // if the last message is message delta, pop it
+                            chat_session.events.pop_if(|event| {
+                                matches!(event.payload, Some(chat_event::Payload::MessageDelta(_)))
+                            });
                             chat_event =
                                 self.chat_event_store.create_chat_event(chat_event).await?;
                             chat_session.events.push(chat_event.clone());
                         }
-                        _ => {}
+                        chat_event::Payload::MessageDelta(message_delta) => {
+                            // if the last message is message delta, just append delta to it,
+                            // otherwise append the delta
+                            if let Some(event) = chat_session.events.last_mut()
+                                && let Some(chat_event::Payload::MessageDelta(
+                                    ref mut last_delta_message,
+                                )) = event.payload
+                            {
+                                last_delta_message.delta.push_str(&message_delta.delta);
+                            } else {
+                                chat_session.events.push(chat_event.clone());
+                            }
+                        }
+                        chat_event::Payload::ToolEvent(_) => {
+                            chat_event =
+                                self.chat_event_store.create_chat_event(chat_event).await?;
+                            chat_session.events.push(chat_event.clone());
+                        }
                     }
                     chat_event
                 };

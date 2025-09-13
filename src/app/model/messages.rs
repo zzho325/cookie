@@ -99,9 +99,16 @@ impl Messages {
     }
 
     /// Handles chat events loaded from storage.
-    pub fn handle_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
+    pub fn handle_chat_events(&mut self, mut chat_events: Vec<ChatEvent>) {
+        // pick up pending message.
+        if let Some(event) = chat_events
+            .pop_if(|event| matches!(event.payload, Some(chat_event::Payload::MessageDelta(_))))
+            && let Some(chat_event::Payload::MessageDelta(message_delta)) = event.payload
+        {
+            self.stream_message = Some(message_delta);
+            self.is_pending = true;
+        }
         self.chat_events = chat_events.into_iter().collect();
-
         self.viewport
             .build_lines(self.chat_events.as_slice(), self.stream_message.as_ref());
     }
