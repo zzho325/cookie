@@ -114,24 +114,31 @@ impl Service {
 
     /// Sends `session` of `session_id` to tui. Send error message to tui if session not found.
     pub async fn handle_get_session(&mut self, session_id: &str) -> Result<()> {
-        match self.chat_session_store.get_chat_session(session_id).await {
-            Ok(Some(mut chat_session)) => {
-                let chat_events = self
-                    .chat_event_store
-                    .get_chat_events_for_session(session_id)
-                    .await?;
-                chat_session.events = chat_events;
-                self.resp_tx.send(ServiceResp::Session(chat_session))?;
-            }
-            Ok(None) => {
-                self.resp_tx.send(ServiceResp::Error(format!(
-                    "session {session_id} not found"
-                )))?;
-            }
-            Err(e) => {
-                self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
-            }
-        };
+        // Read from worker for active session.
+        if let Some(handle) = self.session_worker_handles.get_mut(session_id) {
+            let chat_session = handle.get_chat_events().await;
+            self.resp_tx.send(ServiceResp::Session(chat_session))?;
+        } else {
+            // Otherwise read from db.
+            match self.chat_session_store.get_chat_session(session_id).await {
+                Ok(Some(mut chat_session)) => {
+                    let chat_events = self
+                        .chat_event_store
+                        .get_chat_events_for_session(session_id)
+                        .await?;
+                    chat_session.events = chat_events;
+                    self.resp_tx.send(ServiceResp::Session(chat_session))?;
+                }
+                Ok(None) => {
+                    self.resp_tx.send(ServiceResp::Error(format!(
+                        "session {session_id} not found"
+                    )))?;
+                }
+                Err(e) => {
+                    self.resp_tx.send(ServiceResp::Error(e.to_string()))?;
+                }
+            };
+        }
         Ok(())
     }
 

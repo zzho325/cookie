@@ -35,6 +35,11 @@ impl ChatSessionWorkerHandle {
         self.chat_tx.send(user_message)?;
         Ok(())
     }
+
+    pub async fn get_chat_events(&mut self) -> ChatSession {
+        let chat_session = self.chat_session.lock().await;
+        chat_session.clone()
+    }
 }
 
 pub struct ChatSessionWorker {
