@@ -1,4 +1,10 @@
+use color_eyre::Result;
 use std::sync::Arc;
+use tokio::sync::{
+    Mutex,
+    mpsc::{UnboundedReceiver, UnboundedSender},
+};
+use tokio_stream::StreamExt as _;
 
 use crate::{
     chat::*,
@@ -8,12 +14,28 @@ use crate::{
         stores::{chat_event_store::ChatEventStore, chat_session_store::ChatSessionStore},
     },
 };
-use color_eyre::Result;
-use tokio::sync::{
-    Mutex,
-    mpsc::{UnboundedReceiver, UnboundedSender},
-};
-use tokio_stream::StreamExt as _;
+
+/// ChatSessionWorkerHandle allows server to interact with each ChatSessionWorker. When
+/// ChatSessionWorkerHandle is dropped, the corresponding woker is stopped.
+pub struct ChatSessionWorkerHandle {
+    chat_tx: UnboundedSender<ChatEvent>,
+    chat_session: Arc<Mutex<ChatSession>>,
+}
+
+impl ChatSessionWorkerHandle {
+    pub fn new(chat_tx: UnboundedSender<ChatEvent>, chat_session: Arc<Mutex<ChatSession>>) -> Self {
+        Self {
+            chat_tx,
+            chat_session,
+        }
+    }
+
+    /// Sends user message to worker.
+    pub fn send_user_message(&self, user_message: ChatEvent) -> Result<()> {
+        self.chat_tx.send(user_message)?;
+        Ok(())
+    }
+}
 
 pub struct ChatSessionWorker {
     chat_rx: UnboundedReceiver<ChatEvent>,
@@ -27,7 +49,7 @@ pub struct ChatSessionWorker {
 impl ChatSessionWorker {
     pub fn new(
         chat_rx: UnboundedReceiver<ChatEvent>,
-        chat_session: ChatSession,
+        chat_session: Arc<Mutex<ChatSession>>,
         llm_router: LlmClientRouter,
         resp_tx: UnboundedSender<ServiceResp>,
         chat_event_store: Arc<dyn ChatEventStore>,
@@ -35,7 +57,7 @@ impl ChatSessionWorker {
     ) -> Self {
         Self {
             chat_rx,
-            chat_session: Arc::new(Mutex::new(chat_session)),
+            chat_session,
             llm_router,
             resp_tx,
             chat_event_store,

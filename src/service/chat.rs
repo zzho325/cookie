@@ -1,6 +1,9 @@
 use color_eyre::{Result, eyre::eyre};
 use std::sync::Arc;
-use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
+use tokio::sync::{
+    Mutex,
+    mpsc::{UnboundedSender, unbounded_channel},
+};
 
 use crate::{
     chat::*,
@@ -8,7 +11,7 @@ use crate::{
     models::ServiceResp,
     service::{
         Service,
-        chat_session_worker::ChatSessionWorker,
+        chat_session_worker::{ChatSessionWorker, ChatSessionWorkerHandle},
         llms::{LlmClient, LlmClientRouter, LlmReq},
         stores::chat_session_store::ChatSessionStore,
     },
@@ -67,21 +70,25 @@ impl Service {
 
         // create channel and spawn session worker
         let (chat_tx, chat_rx) = unbounded_channel::<ChatEvent>();
-        self.sessions_chat_tx
-            .insert(session_id.to_string(), chat_tx);
+        let chat_session = Arc::new(Mutex::new(chat_session));
 
         let llm_router = self.llm_router.clone();
         let resp_tx = self.resp_tx.clone();
         let chat_event_store = self.chat_event_store.clone();
         let chat_session_store = self.chat_session_store.clone();
+
         let worker = ChatSessionWorker::new(
             chat_rx,
-            chat_session,
+            chat_session.clone(),
             llm_router,
             resp_tx,
             chat_event_store,
             chat_session_store,
         );
+        let worker_handle = ChatSessionWorkerHandle::new(chat_tx, chat_session);
+        self.session_worker_handles
+            .insert(session_id.to_string(), worker_handle);
+
         // spawn chat
         let handle = tokio::spawn(worker.run());
         Ok(handle)
@@ -91,9 +98,9 @@ impl Service {
     /// message to tui if session chat sender not found.
     pub fn handle_user_message(&mut self, user_message: ChatEvent) -> Result<()> {
         let session_id = &user_message.session_id;
-        match self.sessions_chat_tx.get_mut(session_id) {
-            Some(chat_tx) => {
-                chat_tx.send(user_message)?;
+        match self.session_worker_handles.get_mut(session_id) {
+            Some(handle) => {
+                handle.send_user_message(user_message)?;
             }
             None => {
                 self.resp_tx.send(ServiceResp::Error(format!(
@@ -130,6 +137,7 @@ impl Service {
 
     /// Delete `session` of `session_id` and sends updated sessions to tui.
     pub async fn handle_delete_session(&mut self, session_id: &str) -> Result<()> {
+        // TODO: kill worker.
         match self
             .chat_session_store
             .delete_chat_session(session_id)

@@ -15,9 +15,9 @@ use tokio::{
 };
 
 use crate::{
-    chat::ChatEvent,
     models::{ServiceReq, ServiceResp},
     service::{
+        chat_session_worker::ChatSessionWorkerHandle,
         database::{DBWorker, get_db_conn, spawn_db_thread},
         llms::LlmClientRouter,
         stores::{
@@ -88,7 +88,7 @@ pub struct Service {
     _db_worker: DBWorker,
 
     llm_router: LlmClientRouter,
-    sessions_chat_tx: HashMap<String, UnboundedSender<ChatEvent>>,
+    session_worker_handles: HashMap<String, ChatSessionWorkerHandle>,
 }
 
 impl Service {
@@ -107,7 +107,7 @@ impl Service {
             chat_session_store,
             _db_worker: db_worker,
             llm_router,
-            sessions_chat_tx: HashMap::new(),
+            session_worker_handles: HashMap::new(),
         }
     }
 
@@ -123,7 +123,7 @@ impl Service {
                     match maybe_req {
                         None => break,
                         Some(ServiceReq::ChatMessage ( user_message )) => {
-                            if !self.sessions_chat_tx.contains_key(&user_message.session_id) {
+                            if !self.session_worker_handles.contains_key(&user_message.session_id) {
                                 let chat_handle = self.spawn_session(user_message.clone()).await?;
                                 chat_handles.push(chat_handle);
                             }
@@ -152,8 +152,8 @@ impl Service {
         }
 
         // stop chat workers to drop db job senders they hold
-        for (_, tx) in self.sessions_chat_tx.drain() {
-            drop(tx);
+        for (_, handle) in self.session_worker_handles.drain() {
+            drop(handle);
         }
         Ok(())
     }
