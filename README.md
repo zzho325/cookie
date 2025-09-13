@@ -80,6 +80,7 @@ cargo build --release
   * [ ] Configurable system prompt.
   * [x] Streaming.
   * [ ] Track token usage.
+  * [ ] On shutdown, persist streaming message.
 * Session Management: 
   * [x] Sessions.
   * [x] Persist sessions to db.
