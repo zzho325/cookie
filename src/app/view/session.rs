@@ -10,17 +10,19 @@ use crate::{
     app::{
         model::{focus::Focusable, session::Session},
         view::{
-            constants::{
-                BORDER_THICKNESS, BORDER_THICKNESS_SIDE, MAX_INPUT_RATIO, MIN_INPUT_HEIGHT,
-            },
+            constants::{MAX_INPUT_RATIO, MIN_INPUT_HEIGHT},
+            utils::area::Area,
             widgets::scroll::AutoScroll,
         },
     },
     models::constants::NEW_SESSION_TITLE,
 };
 
+#[derive(Default)]
 pub struct SessionState {
     pub cursor_position: Option<(u16, u16)>,
+    pub messages_area: Area,
+    pub input_editor_area: Area,
 }
 
 impl StatefulWidget for &mut Session {
@@ -55,25 +57,34 @@ impl StatefulWidget for &mut Session {
         // ----------------------------------------------------------------
 
         // input width
-        let input_content_width = inner_area.width.saturating_sub(BORDER_THICKNESS as u16) as usize;
+        let input_content_width = inner_area.width.saturating_sub(2) as usize;
         self.input_editor.set_viewport_width(input_content_width);
 
         // input height
         let max_input_height = (inner_area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
         let lines = self.input_editor.viewport.lines();
-        let input_height =
-            (lines.len() + BORDER_THICKNESS_SIDE).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
+        let input_height = (lines.len() + 1).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
 
         // message height
-        let message_height = inner_area.height.saturating_sub(input_height);
+        let messages_height = inner_area.height.saturating_sub(input_height);
 
-        let [message_area, input_area] = Layout::vertical([
-            Constraint::Length(message_height),
+        let [messages_area, input_editor_area] = Layout::vertical([
+            Constraint::Length(messages_height),
             Constraint::Length(input_height),
         ])
         .areas(inner_area);
 
-        self.messages.render(message_area, buf);
+        // ----------------------------------------------------------------
+        // Messages
+        // ----------------------------------------------------------------
+
+        self.messages.render(messages_area, buf);
+        state.messages_area = Area {
+            column: 0,
+            row: 0,
+            height: messages_height,
+            width: area.width,
+        };
 
         // ----------------------------------------------------------------
         // Input
@@ -103,7 +114,18 @@ impl StatefulWidget for &mut Session {
                 .padding(Padding::horizontal(1))
                 .title(title.left_aligned()),
         );
-        scrollable.render(input_area, buf, self.input_editor.viewport.scroll_state());
+        scrollable.render(
+            input_editor_area,
+            buf,
+            self.input_editor.viewport.scroll_state(),
+        );
+
+        state.input_editor_area = Area {
+            column: 0,
+            row: messages_height + 2, // messages height + borders
+            height: input_height - 1,
+            width: area.width,
+        };
 
         // ----------------------------------------------------------------
         // Cursor position
@@ -114,18 +136,13 @@ impl StatefulWidget for &mut Session {
                 .viewport
                 .scroll_state()
                 .cursor_viewport_position()
-                .map(|(x, y)| (x, y + BORDER_THICKNESS_SIDE as u16))
+                .map(|(x, y)| (x, y + 1))
         } else if self.input_editor.is_focused() {
             self.input_editor
                 .viewport
                 .scroll_state()
                 .cursor_viewport_position()
-                .map(|(x, y)| {
-                    (
-                        x + BORDER_THICKNESS_SIDE as u16,
-                        y + message_height + BORDER_THICKNESS_SIDE as u16 * 2,
-                    )
-                })
+                .map(|(x, y)| (x + 1, y + messages_height + 2))
         } else {
             None
         }
@@ -190,9 +207,7 @@ mod tests {
         session.set_title(Some("Awesome chat".to_string()));
         session.set_messages(messages);
         session.input_editor.set_input("repeat this".repeat(3));
-        let session_state = &mut SessionState {
-            cursor_position: None,
-        };
+        let session_state = &mut SessionState::default();
 
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(20, 20)).unwrap();

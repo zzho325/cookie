@@ -172,6 +172,26 @@ fn handle_key_event(model: &mut Model, evt: KeyEvent) -> Update {
 
 fn handle_mouse_event(model: &mut Model, evt: MouseEvent) -> Update {
     tracing::debug!(?evt);
+    // TODO: handle popups
+    tracing::debug!(input_editor_area=?model.session.input_editor.viewport.area());
+    tracing::debug!(messages_area=?model.session.messages.viewport.area());
+    if let Some(evt) = model
+        .session
+        .messages
+        .viewport
+        .area()
+        .maybe_mouse_event(evt)
+    {
+        return messages::handle_mouse_event(model, evt);
+    } else if let Some(evt) = model
+        .session
+        .input_editor
+        .viewport
+        .area()
+        .maybe_mouse_event(evt)
+    {
+        return input_editor::handle_mouse_event(model, evt);
+    }
     (None, None)
 }
 

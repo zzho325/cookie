@@ -16,9 +16,8 @@ use ratatui::{
 };
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
-    let session_state = &mut session::SessionState {
-        cursor_position: None,
-    };
+    let session_state = &mut session::SessionState::default();
+
     if model.show_sidebar {
         let layout = Layout::default()
             .direction(Direction::Horizontal)
@@ -39,6 +38,17 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         if let Some((x, y)) = session_state.cursor_position {
             frame.set_cursor_position(Position::new(x, y));
         }
+
+        model
+            .session
+            .input_editor
+            .viewport
+            .set_area(session_state.input_editor_area.clone());
+        model
+            .session
+            .messages
+            .viewport
+            .set_area(session_state.messages_area.clone());
     }
 
     if let Some(setting_manager) = &mut model.setting_manager_popup {
