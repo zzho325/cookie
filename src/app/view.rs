@@ -12,24 +12,23 @@ pub mod widgets;
 use crate::app::{model::Model, view::error_popup::ErrorPopup};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Position},
+    layout::{Constraint, Layout, Position},
 };
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
     let session_state = &mut session::SessionState::default();
 
     if model.show_sidebar {
-        let layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(30), Constraint::Percentage(90)])
-            .split(frame.area());
+        let [side_bar_area, session_area] =
+            Layout::horizontal([Constraint::Min(30), Constraint::Percentage(90)])
+                .areas(frame.area());
 
-        frame.render_widget(&mut model.session_manager, layout[0]);
+        frame.render_widget(&mut model.session_manager, side_bar_area);
 
-        frame.render_stateful_widget(&mut model.session, layout[1], session_state);
+        frame.render_stateful_widget(&mut model.session, session_area, session_state);
 
         if let Some((mut x, y)) = session_state.cursor_position {
-            x += layout[0].width;
+            x += side_bar_area.width;
             frame.set_cursor_position(Position::new(x, y));
         }
     } else {
