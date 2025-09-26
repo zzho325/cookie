@@ -122,10 +122,10 @@ impl Session {
 
     /// Updates title if `session_summary` is for current session.
     pub fn handle_session_summary(&mut self, session_summary: ChatSession) {
-        if let Some(session_id) = self.session_id.clone() {
-            if session_id == session_summary.id {
-                self.title = Some(session_summary.title)
-            }
+        if let Some(session_id) = self.session_id.clone()
+            && session_id == session_summary.id
+        {
+            self.title = Some(session_summary.title)
         }
     }
 }
