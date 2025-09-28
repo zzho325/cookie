@@ -12,7 +12,6 @@ use crate::{
 pub struct Session {
     /// Session Id of current session. None for new session before sending first message.
     pub session_id: Option<String>,
-    title: Option<String>,
     llm_settings: LlmSettings,
     pub messages: Messages,
     pub input_editor: Editor,
@@ -22,7 +21,6 @@ impl Session {
     pub fn new(llm_settings: LlmSettings) -> Self {
         Self {
             session_id: None,
-            title: None,
             llm_settings,
             messages: Messages::default(),
             input_editor: Editor::new(String::new(), WrapMode::default()),
@@ -31,14 +29,6 @@ impl Session {
 
     pub fn session_id(&self) -> Option<&String> {
         self.session_id.as_ref()
-    }
-    pub fn title(&self) -> Option<&String> {
-        self.title.as_ref()
-    }
-
-    #[cfg(test)]
-    pub fn set_title(&mut self, title: Option<String>) {
-        self.title = title;
     }
 
     pub fn set_messages(&mut self, messages: Messages) {
@@ -56,7 +46,6 @@ impl Session {
     /// Clears everything except for editor input with given settings.
     pub fn reset(&mut self, settings: LlmSettings) {
         self.session_id = None;
-        self.title = None;
         self.llm_settings = settings;
 
         self.messages.reset();
@@ -113,10 +102,10 @@ impl Session {
     /// Replaces current content with given session except for editor input.
     pub fn handle_session(&mut self, session: ChatSession) {
         self.session_id = Some(session.id);
-        self.title = Some(session.title);
         self.llm_settings = session.llm_settings.unwrap_or_default();
 
         self.messages.reset();
+        self.messages.set_title(Some(session.title));
         self.messages.handle_chat_events(session.events);
     }
 
@@ -125,7 +114,7 @@ impl Session {
         if let Some(session_id) = self.session_id.clone()
             && session_id == session_summary.id
         {
-            self.title = Some(session_summary.title)
+            self.messages.set_title(Some(session_summary.title))
         }
     }
 }

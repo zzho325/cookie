@@ -31,48 +31,27 @@ impl StatefulWidget for &mut Session {
     /// Renders chat session with input block starting with MIN_INPUT_HEIGHT including border and
     /// increase height as input length increases with a maximum of MAX_INPUT_RATIO of widget area.
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut SessionState) {
-        // border with title
-        let title = self
-            .title()
-            .map(|t| {
-                if t.is_empty() {
-                    NEW_SESSION_TITLE
-                } else {
-                    t.as_str()
-                }
-            })
-            .unwrap_or(NEW_SESSION_TITLE);
-
-        let styled_title = if self.messages.is_focused() {
-            title.fg(tailwind::AMBER.c400).bold()
-        } else {
-            title.fg(tailwind::AMBER.c300)
-        };
-        let block = Block::new().title(Line::from(styled_title).centered());
-        let inner_area = block.inner(area);
-        block.render(area, buf);
-
         // ----------------------------------------------------------------
         // Dynamic height and split area
         // ----------------------------------------------------------------
 
         // input width
-        let input_content_width = inner_area.width.saturating_sub(2) as usize;
+        let input_content_width = area.width.saturating_sub(2) as usize;
         self.input_editor.set_viewport_width(input_content_width);
 
         // input height
-        let max_input_height = (inner_area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
+        let max_input_height = (area.height as f32 * MAX_INPUT_RATIO).floor() as usize;
         let lines = self.input_editor.viewport.lines();
         let input_height = (lines.len() + 1).clamp(MIN_INPUT_HEIGHT, max_input_height) as u16;
 
         // message height
-        let messages_height = inner_area.height.saturating_sub(input_height);
+        let messages_height = area.height.saturating_sub(input_height);
 
         let [messages_area, input_editor_area] = Layout::vertical([
             Constraint::Length(messages_height),
             Constraint::Length(input_height),
         ])
-        .areas(inner_area);
+        .areas(area);
 
         // ----------------------------------------------------------------
         // Messages
@@ -122,7 +101,7 @@ impl StatefulWidget for &mut Session {
 
         state.input_editor_area = Area {
             column: 0,
-            row: messages_height + 2, // messages height + borders
+            row: messages_height + 1,
             height: input_height - 1,
             width: area.width,
         };
@@ -203,8 +182,8 @@ mod tests {
             .with_created_at(assistant_message_created_at),
         ];
         messages.viewport.build_lines(&chat_messages, None);
+        messages.set_title(Some("Awesome chat".to_string()));
         let mut session = super::Session::new(llm_settings);
-        session.set_title(Some("Awesome chat".to_string()));
         session.set_messages(messages);
         session.input_editor.set_input("repeat this".repeat(3));
         let session_state = &mut SessionState::default();
