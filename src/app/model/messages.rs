@@ -12,6 +12,7 @@ pub struct Messages {
     stream_message: Option<MessageDelta>,
     is_pending: bool,
     focused: bool,
+    title: Option<String>,
     pub viewport: MessagesViewport,
 }
 
@@ -26,6 +27,14 @@ impl Messages {
 
     pub fn set_chat_events(&mut self, chat_events: Vec<ChatEvent>) {
         self.chat_events = chat_events;
+    }
+
+    pub fn title(&self) -> Option<&String> {
+        self.title.as_ref()
+    }
+
+    pub fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
     }
 
     pub fn stream_message(&self) -> Option<&MessageDelta> {

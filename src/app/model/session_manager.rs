@@ -1,13 +1,21 @@
-use crate::app::model::focus::{Focusable, Focused};
-use crate::chat::*;
-use crate::impl_focusable;
 use ratatui::widgets::ListState;
+
+use crate::{
+    app::{
+        model::focus::{Focusable, Focused},
+        view::utils::area::Area,
+    },
+    chat::*,
+    impl_focusable,
+};
 
 #[derive(Default)]
 pub struct SessionManager {
     session_summaries: Vec<ChatSession>,
     list_state: ListState,
     focused: bool,
+    /// Area for mouse event handling.
+    area: Area,
 }
 
 impl_focusable!(SessionManager, Focused::SessionManager);
@@ -19,6 +27,14 @@ impl SessionManager {
 
     pub fn list_state_mut(&mut self) -> &mut ListState {
         &mut self.list_state
+    }
+
+    pub fn area(&self) -> &Area {
+        &self.area
+    }
+
+    pub fn set_area(&mut self, area: Area) {
+        self.area = area;
     }
 
     pub fn select_next(&mut self) -> Option<String> {

@@ -6,31 +6,42 @@ pub mod messages_viewport;
 mod session;
 mod session_manager;
 mod setting_manager;
-mod utils;
+pub mod utils;
 pub mod widgets;
 
-use crate::app::{model::Model, view::error_popup::ErrorPopup};
+use crate::app::{
+    model::Model,
+    view::{error_popup::ErrorPopup, utils::area::Area},
+};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Position},
+    layout::{Constraint, Layout, Position},
 };
 
 pub fn render_ui(model: &mut Model, frame: &mut Frame) {
-    let session_state = &mut session::SessionState {
-        cursor_position: None,
-    };
+    let session_state = &mut session::SessionState::default();
+
     if model.show_sidebar {
-        let layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(30), Constraint::Percentage(90)])
-            .split(frame.area());
+        let [side_bar_area, session_area] =
+            Layout::horizontal([Constraint::Min(30), Constraint::Percentage(90)])
+                .areas(frame.area());
 
-        frame.render_widget(&mut model.session_manager, layout[0]);
+        let session_manager_area = &mut Area::default();
+        frame.render_stateful_widget(
+            &mut model.session_manager,
+            side_bar_area,
+            session_manager_area,
+        );
+        model.session_manager.set_area(session_manager_area.clone());
 
-        frame.render_stateful_widget(&mut model.session, layout[1], session_state);
+        // set starting column of messages and input editor areas
+        // they can be further shifted by widgets in render_stateful_widget
+        session_state.messages_area.column = side_bar_area.width;
+        session_state.input_editor_area.column = side_bar_area.width;
+        frame.render_stateful_widget(&mut model.session, session_area, session_state);
 
         if let Some((mut x, y)) = session_state.cursor_position {
-            x += layout[0].width;
+            x += side_bar_area.width;
             frame.set_cursor_position(Position::new(x, y));
         }
     } else {
@@ -40,6 +51,16 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
             frame.set_cursor_position(Position::new(x, y));
         }
     }
+    model
+        .session
+        .input_editor
+        .viewport
+        .set_area(session_state.input_editor_area.clone());
+    model
+        .session
+        .messages
+        .viewport
+        .set_area(session_state.messages_area.clone());
 
     if let Some(setting_manager) = &mut model.setting_manager_popup {
         let setting_area = utils::centered_rect(frame.area(), 30, 60);

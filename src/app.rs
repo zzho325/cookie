@@ -6,7 +6,7 @@ use color_eyre::{Result, eyre::Context};
 use crossterm::clipboard::CopyToClipboard;
 use crossterm::{
     cursor::SetCursorStyle,
-    event::{EnableBracketedPaste, Event, EventStream, KeyEvent, KeyEventKind},
+    event::{Event, EventStream, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind},
     execute, terminal,
 };
 use ratatui::{Terminal, prelude::Backend};
@@ -41,7 +41,11 @@ impl App {
 
         let mut event_reader = EventStream::new();
         // enable crossterm bracketed paste
-        execute!(terminal.backend_mut(), EnableBracketedPaste)?;
+        execute!(
+            terminal.backend_mut(),
+            crossterm::event::EnableBracketedPaste,
+            crossterm::event::EnableMouseCapture
+        )?;
         while !model.should_quit {
             // set cursor style based on editing status
             let set_cursor_style = match model.focused {
@@ -107,6 +111,14 @@ fn handle_crossterm_event(
     match maybe_evt {
         Some(Ok(Event::Key(evt))) if evt.kind == KeyEventKind::Press => Ok(Some(Message::Key(evt))),
         Some(Ok(Event::Paste(data))) => Ok(Some(Message::Paste(data))),
+        Some(Ok(Event::Mouse(evt)))
+            if matches!(
+                evt.kind,
+                MouseEventKind::Down(_) | MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+            ) =>
+        {
+            Ok(Some(Message::MouseEvent(evt)))
+        }
         Some(Ok(_)) => Ok(None),
         Some(Err(e)) => Err(e).context("reading crossterm event failed"),
         None => {
@@ -120,6 +132,7 @@ fn handle_crossterm_event(
 pub enum Message {
     Key(KeyEvent),
     CrosstermClose,
+    MouseEvent(MouseEvent),
 
     ServiceResp(ServiceResp),
 
@@ -190,6 +203,7 @@ where
         terminal.backend_mut(),
         crossterm::terminal::EnterAlternateScreen,
         crossterm::event::EnableBracketedPaste,
+        crossterm::event::EnableMouseCapture,
     )?;
     terminal::enable_raw_mode()?;
     terminal.clear()?;

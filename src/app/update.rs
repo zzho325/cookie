@@ -1,7 +1,7 @@
 mod input_editor;
 mod messages;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 
 use crate::{
     app::{
@@ -21,6 +21,7 @@ pub fn update(model: &mut Model, msg: Message) -> Update {
         Message::CrosstermClose => {
             model.should_quit = true;
         }
+        Message::MouseEvent(evt) => return handle_mouse_event(model, evt),
         Message::ServiceResp(resp) => {
             return handle_service_resp(model, resp);
         }
@@ -119,14 +120,14 @@ fn handle_service_resp(model: &mut Model, resp: ServiceResp) -> Update {
     (None, None)
 }
 
-fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
+fn handle_key_event(model: &mut Model, evt: KeyEvent) -> Update {
     // Quit on any key if there is an error message.
     if model.error_message.is_some() {
         model.quit()
     }
 
     if let Some(setting_manager) = &mut model.setting_manager_popup {
-        match keyevent.code {
+        match evt.code {
             KeyCode::Down | KeyCode::Char('j') => {
                 setting_manager.select_next();
                 return (None, None);
@@ -144,12 +145,12 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
 
     match model.focused {
         Focused::InputEditor => {
-            return input_editor::handle_key_event(model, keyevent);
+            return input_editor::handle_key_event(model, evt);
         }
         Focused::Messages => {
-            return messages::handle_key_event(model, keyevent);
+            return messages::handle_key_event(model, evt);
         }
-        Focused::SessionManager => match (keyevent.code, keyevent.modifiers) {
+        Focused::SessionManager => match (evt.code, evt.modifiers) {
             (KeyCode::Char('q'), _) => model.quit(),
             (KeyCode::Char('e'), KeyModifiers::CONTROL) => model.toggle_sidebar(),
             (KeyCode::Char('n'), _) => return (Some(Message::NewSession), None),
@@ -165,6 +166,35 @@ fn handle_key_event(model: &mut Model, keyevent: KeyEvent) -> Update {
             (KeyCode::Tab, _) => model.shift_focus(),
             _ => {}
         },
+    }
+    (None, None)
+}
+
+fn handle_mouse_event(model: &mut Model, evt: MouseEvent) -> Update {
+    tracing::debug!(?evt);
+    // TODO: handle popups
+    if model.show_sidebar
+        && let Some(_) = model.session_manager.area().maybe_mouse_event(evt)
+    {
+        model.shift_focus_to(Focused::SessionManager);
+    } else if model
+        .session
+        .messages
+        .viewport
+        .area()
+        .maybe_mouse_event(evt)
+        .is_some()
+    {
+        model.shift_focus_to(Focused::Messages);
+    } else if model
+        .session
+        .input_editor
+        .viewport
+        .area()
+        .maybe_mouse_event(evt)
+        .is_some()
+    {
+        model.shift_focus_to(Focused::InputEditor);
     }
     (None, None)
 }

@@ -1,3 +1,4 @@
+pub mod area;
 pub mod markdown;
 pub mod paragraph;
 pub mod styled_line;

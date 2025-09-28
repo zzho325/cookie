@@ -10,6 +10,7 @@ use textwrap::{Options, WordSeparator, wrap};
 use crate::{
     app::view::{
         utils::{
+            area::Area,
             markdown,
             paragraph::{Paragraph, Slicable},
             styled_line::StyledLine,
@@ -33,6 +34,8 @@ pub struct MessagesViewport {
     cursor_char_idx: usize,
     /// Selection start char index.
     selection_start_char_idx: Option<usize>,
+    /// Area for mouse event handling.
+    area: Area,
 }
 
 const HIGHLIGHT_STYLE: Style = Style::new().fg(tailwind::ZINC.c800).bg(tailwind::ZINC.c200);
@@ -83,6 +86,14 @@ impl MessagesViewport {
 
     pub fn scroll_state_mut(&mut self) -> &mut ScrollState {
         &mut self.scroll_state
+    }
+
+    pub fn area(&self) -> &Area {
+        &self.area
+    }
+
+    pub fn set_area(&mut self, area: Area) {
+        self.area = area;
     }
 
     /// Returns current cursor position.

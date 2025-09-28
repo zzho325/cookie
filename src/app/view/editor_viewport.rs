@@ -6,7 +6,10 @@ use unicode_width::UnicodeWidthStr;
 use crate::app::{
     model::editor::WrapMode,
     view::{
-        utils::paragraph::{Paragraph, Slicable},
+        utils::{
+            area::Area,
+            paragraph::{Paragraph, Slicable},
+        },
         widgets::scroll::ScrollState,
     },
 };
@@ -28,6 +31,8 @@ pub struct EditorViewport {
     viewport_width: usize,
 
     scroll_state: ScrollState,
+    /// Area for mouse event handling.
+    area: Area,
 }
 
 impl EditorViewport {
@@ -46,6 +51,14 @@ impl EditorViewport {
 
     pub fn scroll_state(&mut self) -> &mut ScrollState {
         &mut self.scroll_state
+    }
+
+    pub fn area(&self) -> &Area {
+        &self.area
+    }
+
+    pub fn set_area(&mut self, area: Area) {
+        self.area = area;
     }
 
     pub fn set_viewport_width(

@@ -168,7 +168,7 @@ mod tests {
         messages.scroll_down();
 
         let mut model = Model::new(crate::models::configs::Config::default());
-        model.session.set_title(Some(title.clone()));
+        model.session.messages.set_title(Some(title.clone()));
         model.session.set_messages(messages);
         model.session.input_editor.set_is_editing(false);
         model
