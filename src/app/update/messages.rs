@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 
+use crate::app::model::focus::Focused;
 use crate::app::Command;
 use crate::app::model::Model;
 use crate::app::{Message, update::Update};
@@ -47,15 +48,3 @@ pub fn handle_key_event(
     (None, None)
 }
 
-pub fn handle_mouse_event(
-    model: &mut Model,
-    MouseEvent {
-        kind,
-        column,
-        row,
-        modifiers,
-    }: MouseEvent,
-) -> Update {
-    tracing::debug!("messages mouse event");
-     (None, None)
-}
