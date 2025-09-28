@@ -6,16 +6,13 @@ use ratatui::{
     widgets::{Block, Borders, Padding, StatefulWidget, Widget},
 };
 
-use crate::{
-    app::{
-        model::{focus::Focusable, session::Session},
-        view::{
-            constants::{MAX_INPUT_RATIO, MIN_INPUT_HEIGHT},
-            utils::area::Area,
-            widgets::scroll::AutoScroll,
-        },
+use crate::app::{
+    model::{focus::Focusable, session::Session},
+    view::{
+        constants::{MAX_INPUT_RATIO, MIN_INPUT_HEIGHT},
+        utils::area::Area,
+        widgets::scroll::AutoScroll,
     },
-    models::constants::NEW_SESSION_TITLE,
 };
 
 #[derive(Default)]
@@ -58,12 +55,8 @@ impl StatefulWidget for &mut Session {
         // ----------------------------------------------------------------
 
         self.messages.render(messages_area, buf);
-        state.messages_area = Area {
-            column: 0,
-            row: 0,
-            height: messages_height,
-            width: area.width,
-        };
+        state.messages_area.height += messages_height;
+        state.messages_area.width = area.width;
 
         // ----------------------------------------------------------------
         // Input
@@ -99,12 +92,9 @@ impl StatefulWidget for &mut Session {
             self.input_editor.viewport.scroll_state(),
         );
 
-        state.input_editor_area = Area {
-            column: 0,
-            row: messages_height + 1,
-            height: input_height - 1,
-            width: area.width,
-        };
+        state.input_editor_area.row += messages_height + 1;
+        state.input_editor_area.height = messages_height + 1;
+        state.input_editor_area.width = messages_height + 1;
 
         // ----------------------------------------------------------------
         // Cursor position

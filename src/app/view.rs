@@ -6,10 +6,13 @@ pub mod messages_viewport;
 mod session;
 mod session_manager;
 mod setting_manager;
-mod utils;
+pub mod utils;
 pub mod widgets;
 
-use crate::app::{model::Model, view::error_popup::ErrorPopup};
+use crate::app::{
+    model::Model,
+    view::{error_popup::ErrorPopup, utils::area::Area},
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Position},
@@ -23,8 +26,18 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
             Layout::horizontal([Constraint::Min(30), Constraint::Percentage(90)])
                 .areas(frame.area());
 
-        frame.render_widget(&mut model.session_manager, side_bar_area);
+        let session_manager_area = &mut Area::default();
+        frame.render_stateful_widget(
+            &mut model.session_manager,
+            side_bar_area,
+            session_manager_area,
+        );
+        model.session_manager.set_area(session_manager_area.clone());
 
+        // set starting column of messages and input editor areas
+        // they can be further shifted by widgets in render_stateful_widget
+        session_state.messages_area.column = side_bar_area.width;
+        session_state.input_editor_area.column = side_bar_area.width;
         frame.render_stateful_widget(&mut model.session, session_area, session_state);
 
         if let Some((mut x, y)) = session_state.cursor_position {
@@ -37,18 +50,17 @@ pub fn render_ui(model: &mut Model, frame: &mut Frame) {
         if let Some((x, y)) = session_state.cursor_position {
             frame.set_cursor_position(Position::new(x, y));
         }
-
-        model
-            .session
-            .input_editor
-            .viewport
-            .set_area(session_state.input_editor_area.clone());
-        model
-            .session
-            .messages
-            .viewport
-            .set_area(session_state.messages_area.clone());
     }
+    model
+        .session
+        .input_editor
+        .viewport
+        .set_area(session_state.input_editor_area.clone());
+    model
+        .session
+        .messages
+        .viewport
+        .set_area(session_state.messages_area.clone());
 
     if let Some(setting_manager) = &mut model.setting_manager_popup {
         let setting_area = utils::centered_rect(frame.area(), 30, 60);

@@ -31,7 +31,7 @@ pub struct EditorViewport {
     viewport_width: usize,
 
     scroll_state: ScrollState,
-
+    /// Area for mouse event handling.
     area: Area,
 }
 

@@ -3,11 +3,12 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style, Stylize, palette::tailwind},
     text::Line,
-    widgets::{Block, Borders, HighlightSpacing, List, ListItem, StatefulWidget, Widget},
+    widgets::{Block, Borders, HighlightSpacing, List, ListItem, StatefulWidget},
 };
 
+use crate::app::model::focus::Focusable;
 use crate::{
-    app::model::{focus::Focusable, session_manager::SessionManager},
+    app::{model::session_manager::SessionManager, view::utils::area::Area},
     chat::ChatSession,
     models::constants::NEW_SESSION_TITLE,
 };
@@ -29,8 +30,10 @@ const SELECTED_STYLE: Style = Style::new()
     .bg(tailwind::ZINC.c200)
     .add_modifier(Modifier::BOLD);
 
-impl Widget for &mut SessionManager {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+impl StatefulWidget for &mut SessionManager {
+    type State = Area;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state_area: &mut Area) {
         let styled_title = if self.is_focused() {
             "Sessions".fg(tailwind::AMBER.c400).bold()
         } else {
@@ -54,5 +57,7 @@ impl Widget for &mut SessionManager {
             .highlight_spacing(HighlightSpacing::Always);
 
         StatefulWidget::render(list, area, buf, self.list_state_mut());
+        state_area.height = area.height;
+        state_area.width = area.width - 1;
     }
 }

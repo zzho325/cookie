@@ -34,6 +34,7 @@ pub struct MessagesViewport {
     cursor_char_idx: usize,
     /// Selection start char index.
     selection_start_char_idx: Option<usize>,
+    /// Area for mouse event handling.
     area: Area,
 }
 
