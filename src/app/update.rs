@@ -177,15 +177,15 @@ fn handle_mouse_event(model: &mut Model, evt: MouseEvent) -> Update {
         && let Some(_) = model.session_manager.area().maybe_mouse_event(evt)
     {
         model.shift_focus_to(Focused::SessionManager);
-    } else if model
+    } else if let Some(evt) = model
         .session
         .messages
         .viewport
         .area()
         .maybe_mouse_event(evt)
-        .is_some()
     {
         model.shift_focus_to(Focused::Messages);
+        model.session.messages.viewport.handle_mouse_event(evt);
     } else if model
         .session
         .input_editor

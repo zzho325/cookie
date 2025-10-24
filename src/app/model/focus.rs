@@ -63,8 +63,11 @@ impl Model {
         }
     }
 
-    /// Shifts focus to new focused.
+    /// Shifts focus to new focused, if it's not already there.
     pub fn shift_focus_to(&mut self, new: Focused) {
+        if self.focused == new {
+            return;
+        }
         tracing::debug!("shift focus to {new:?}");
         if let Some(old_idx) = self.get_focused_idx() {
             self.focus_order[old_idx](self).set_focus(false);

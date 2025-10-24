@@ -57,10 +57,10 @@ impl Model {
         this.focus_order.push(|m| &mut m.session.messages);
         this.focus_order.push(|m| &mut m.session.input_editor);
 
-        // TODO: it seems bad to combine initialization and setup, clean this up
-        this.shift_focus_to(Focused::InputEditor);
         // by default editing
         this.session.input_editor.set_is_editing(true);
+        this.session.input_editor.set_focus(true);
+
         this
     }
 

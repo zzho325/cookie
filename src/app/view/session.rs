@@ -55,7 +55,8 @@ impl StatefulWidget for &mut Session {
         // ----------------------------------------------------------------
 
         self.messages.render(messages_area, buf);
-        state.messages_area.height += messages_height;
+        state.messages_area.row += 1; // exclude title line
+        state.messages_area.height += messages_height - 1;
         state.messages_area.width = area.width;
 
         // ----------------------------------------------------------------
