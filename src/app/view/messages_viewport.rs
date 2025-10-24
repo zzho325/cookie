@@ -22,7 +22,6 @@ use crate::{
     llm::*,
 };
 
-#[derive(Default)]
 pub struct MessagesViewport {
     /// Aggregate paragraphs content.
     input: String,
@@ -37,6 +36,20 @@ pub struct MessagesViewport {
     selection_start_char_idx: Option<usize>,
     /// Area for mouse event handling.
     area: Area,
+}
+
+impl Default for MessagesViewport {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            paragraphs: vec![Paragraph::build(StyledLine::default())],
+            viewport_width: 0,
+            scroll_state: ScrollState::default(),
+            cursor_char_idx: 0,
+            selection_start_char_idx: None,
+            area: Area::default(),
+        }
+    }
 }
 
 const HIGHLIGHT_STYLE: Style = Style::new().fg(tailwind::ZINC.c800).bg(tailwind::ZINC.c200);
