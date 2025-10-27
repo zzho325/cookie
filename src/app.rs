@@ -114,7 +114,10 @@ fn handle_crossterm_event(
         Some(Ok(Event::Mouse(evt)))
             if matches!(
                 evt.kind,
-                MouseEventKind::Down(_) | MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+                MouseEventKind::Down(_)
+                    | MouseEventKind::Drag(_)
+                    | MouseEventKind::ScrollUp
+                    | MouseEventKind::ScrollDown
             ) =>
         {
             Ok(Some(Message::MouseEvent(evt)))

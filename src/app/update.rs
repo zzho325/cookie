@@ -1,7 +1,7 @@
 mod input_editor;
 mod messages;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 use crate::{
     app::{
@@ -173,28 +173,30 @@ fn handle_key_event(model: &mut Model, evt: KeyEvent) -> Update {
 fn handle_mouse_event(model: &mut Model, evt: MouseEvent) -> Update {
     tracing::debug!(?evt);
     // TODO: handle popups
-    if model.show_sidebar
-        && let Some(_) = model.session_manager.area().maybe_mouse_event(evt)
-    {
-        model.shift_focus_to(Focused::SessionManager);
-    } else if let Some(evt) = model
-        .session
-        .messages
-        .viewport
-        .area()
-        .maybe_mouse_event(evt)
-    {
-        model.shift_focus_to(Focused::Messages);
+    if matches!(evt.kind, MouseEventKind::Down(_)) {
         model.session.messages.viewport.handle_mouse_event(evt);
-    } else if model
-        .session
-        .input_editor
-        .viewport
-        .area()
-        .maybe_mouse_event(evt)
-        .is_some()
-    {
-        model.shift_focus_to(Focused::InputEditor);
+        if model.show_sidebar && model.session_manager.area().contains_mouse_event(evt) {
+            model.shift_focus_to(Focused::SessionManager);
+        } else if model
+            .session
+            .messages
+            .viewport
+            .area()
+            .contains_mouse_event(evt)
+        {
+            model.shift_focus_to(Focused::Messages);
+        } else if model
+            .session
+            .input_editor
+            .viewport
+            .area()
+            .contains_mouse_event(evt)
+        {
+            model.shift_focus_to(Focused::InputEditor);
+        }
+    }
+    if model.focused == Focused::Messages {
+        model.session.messages.viewport.handle_mouse_event(evt);
     }
     (None, None)
 }

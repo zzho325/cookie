@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use crossterm::event::MouseEvent;
+use crossterm::event::{MouseButton, MouseEvent};
 use itertools::Itertools;
 use ratatui::{
     style::{Color, Modifier, Style, palette::tailwind},
@@ -389,20 +389,32 @@ impl MessagesViewport {
         None
     }
 
+    /// moves cursor to given global viewport position.
+    fn move_cursor_to(&mut self, x: u16, y: u16) {
+        let (horizontal_scroll_offset, vertical_scroll_offset) =
+            self.scroll_state().scroll_offset();
+        let x = (x + vertical_scroll_offset).saturating_sub(self.area().column);
+        let y = (y + horizontal_scroll_offset).saturating_sub(self.area().row);
+        let target_cursor_byte_idx =
+            self.find_cursor_byte_idx((x, y));
+        let target_cursor_char_idx = self.input[..target_cursor_byte_idx].chars().count();
+        self.clamp_and_update_cursor_position(target_cursor_char_idx);
+    }
+
     pub fn handle_mouse_event(&mut self, evt: MouseEvent) {
         match evt.kind {
             crossterm::event::MouseEventKind::Down(MouseButton::Left) => {
-                let (horizontal_scroll_offset, vertical_scroll_offset) =
-                    self.scroll_state().scroll_offset();
-                let target_cursor_byte_idx = self.find_cursor_byte_idx((
-                    evt.column + vertical_scroll_offset,
-                    evt.row + horizontal_scroll_offset,
-                ));
-                let target_cursor_char_idx = self.input[..target_cursor_byte_idx].chars().count();
-                self.clamp_and_update_cursor_position(target_cursor_char_idx);
+                self.move_cursor_to(evt.column, evt.row);
+                if self.selection_start_char_idx.is_some() {
+                    self.toggle_visual_selection();
+                }
             }
-            // crossterm::event::MouseEventKind::Drag(mouse_button) => todo!(),
-            // crossterm::event::MouseEventKind::Up(mouse_button) => todo!(),
+            crossterm::event::MouseEventKind::Drag(MouseButton::Left) => {
+                self.move_cursor_to(evt.column, evt.row);
+                if self.selection_start_char_idx.is_none() {
+                    self.toggle_visual_selection();
+                }
+            }
             _ => {}
         }
     }

@@ -1,4 +1,4 @@
-use crossterm::event::MouseEvent;
+use crossterm::event::{MouseEvent, MouseEventKind};
 
 #[derive(Default, Clone, Debug)]
 pub struct Area {
@@ -13,20 +13,14 @@ pub struct Area {
 }
 
 impl Area {
-    /// Returns a mouse event shifted w.r.t. the area if it's within the area. Returns None
-    /// otherwise.
-    pub fn maybe_mouse_event(&self, evt: MouseEvent) -> Option<MouseEvent> {
+    /// Returns if a mouse event is within the area.
+    pub fn contains_mouse_event(&self, evt: MouseEvent) -> bool {
         if evt.row < self.row || evt.row >= self.row + self.height {
-            return None;
+            return false;
         }
-
         if evt.column < self.column || evt.column >= self.column + self.width {
-            return None;
+            return false;
         }
-
-        let mut evt = evt;
-        evt.row -= self.row;
-        evt.column -= self.column;
-        Some(evt)
+        true
     }
 }

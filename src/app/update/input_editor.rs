@@ -1,6 +1,5 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::model::focus::Focused;
 use crate::app::Command;
 use crate::app::model::Model;
 use crate::app::{Message, update::Update};
