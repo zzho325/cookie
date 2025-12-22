@@ -1,35 +1,6 @@
 use ratatui::widgets::ListState;
 
-use crate::{
-    llm::*,
-    models::{GEMINI_MODELS, OPENAI_MODELS},
-};
-
-#[derive(Clone, Copy)]
-pub enum ModelOption {
-    OpenAI(OpenAiModel),
-    Gemini(GeminiModel),
-}
-
-impl ModelOption {
-    pub fn display_name(&self) -> String {
-        match self {
-            ModelOption::OpenAI(m) => format!("openai: {}", m.display_name()),
-            ModelOption::Gemini(m) => format!("gemini: {}", m.display_name()),
-        }
-    }
-
-    pub fn all_models() -> Vec<ModelOption> {
-        let mut models = Vec::new();
-        for m in OPENAI_MODELS {
-            models.push(ModelOption::OpenAI(*m));
-        }
-        for m in GEMINI_MODELS {
-            models.push(ModelOption::Gemini(*m));
-        }
-        models
-    }
-}
+use crate::{llm::*, models::ModelOption};
 
 pub struct SettingManager {
     llm_settings: LlmSettings,
@@ -43,18 +14,24 @@ impl SettingManager {
 
         match &llm_settings.default_model {
             Some(llm_settings::DefaultModel::OpenaiModel(m)) => {
-                if let Some(idx) = all_models.iter().position(
-                    |opt| matches!(opt, ModelOption::OpenAI(model) if *model as i32 == *m),
-                ) {
+                if let Some(idx) = all_models.iter().position(|opt| {
+                    matches!(opt, ModelOption::OpenAI(model) if {
+                        let proto_model: OpenAiModel = model.into();
+                        proto_model as i32 == *m
+                    })
+                }) {
                     list_state.select(Some(idx));
                 } else {
                     tracing::error!("unexpected current OpenAI model {:?}", llm_settings)
                 }
             }
             Some(llm_settings::DefaultModel::GeminiModel(m)) => {
-                if let Some(idx) = all_models.iter().position(
-                    |opt| matches!(opt, ModelOption::Gemini(model) if *model as i32 == *m),
-                ) {
+                if let Some(idx) = all_models.iter().position(|opt| {
+                    matches!(opt, ModelOption::Gemini(model) if {
+                        let proto_model: GeminiModel = model.into();
+                        proto_model as i32 == *m
+                    })
+                }) {
                     list_state.select(Some(idx));
                 } else {
                     tracing::error!("unexpected current Gemini model {:?}", llm_settings)
@@ -109,17 +86,15 @@ impl SettingManager {
 
     fn update_model_from_index(&mut self, idx: usize, all_models: &[ModelOption]) {
         if let Some(model_option) = all_models.get(idx) {
+            self.llm_settings.default_model = Some(model_option.to_proto_model());
+
             match model_option {
-                ModelOption::OpenAI(m) => {
-                    self.llm_settings.default_model =
-                        Some(llm_settings::DefaultModel::OpenaiModel(*m as i32));
+                ModelOption::OpenAI(_) => {
                     if self.llm_settings.open_ai.is_none() {
                         self.llm_settings.open_ai = Some(OpenAiSettings { web_search: true });
                     }
                 }
-                ModelOption::Gemini(m) => {
-                    self.llm_settings.default_model =
-                        Some(llm_settings::DefaultModel::GeminiModel(*m as i32));
+                ModelOption::Gemini(_) => {
                     if self.llm_settings.gemini.is_none() {
                         self.llm_settings.gemini = Some(GeminiSettings {});
                     }

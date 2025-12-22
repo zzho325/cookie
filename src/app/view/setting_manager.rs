@@ -1,4 +1,4 @@
-use crate::app::model::setting_manager::{ModelOption, SettingManager};
+use crate::{app::model::setting_manager::SettingManager, models::ModelOption};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

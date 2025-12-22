@@ -6,40 +6,36 @@ use serde::Deserialize;
 
 use crate::{
     llm::*,
-    models::LlmSettings,
-    service::llms::{gemini, open_ai},
+    models::{LlmSettings, ModelOption},
 };
 
 #[derive(Deserialize)]
 pub struct OpenAIConfig {
-    pub model: open_ai::api::Model,
+    #[serde(default)]
     pub web_search: bool,
 }
 
 #[derive(Deserialize)]
-pub struct GeminiConfig {
-    pub model: gemini::api::Model,
-}
+pub struct GeminiConfig {}
 
 /// Boot time static configs.
 #[derive(Deserialize)]
 pub struct Config {
     #[serde(default)]
-    pub provider: String,
+    pub default_model: Option<ModelOption>,
     #[serde(default)]
     pub open_ai: Option<OpenAIConfig>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub gemini: Option<GeminiConfig>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            provider: "gemini".to_string(),
+            default_model: None,
             open_ai: None,
-            gemini: Some(GeminiConfig {
-                model: gemini::api::Model::default(),
-            }),
+            gemini: Some(GeminiConfig {}),
         }
     }
 }
@@ -72,41 +68,23 @@ impl Config {
     }
 
     pub fn derive_llm_settings(&self) -> LlmSettings {
-        match self.provider.as_str() {
-            "openai" => {
-                let (model, open_ai_settings) = if let Some(open_ai_config) = &self.open_ai {
-                    let model: OpenAiModel = (&open_ai_config.model).into();
-                    (
-                        model,
-                        Some(OpenAiSettings {
-                            web_search: open_ai_config.web_search,
-                        }),
-                    )
-                } else {
-                    (
-                        OpenAiModel::Gpt4o,
-                        Some(OpenAiSettings { web_search: true }),
-                    )
-                };
-                LlmSettings {
-                    default_model: Some(llm_settings::DefaultModel::OpenaiModel(model as i32)),
-                    open_ai: open_ai_settings,
-                    gemini: None,
-                }
-            }
-            _ => {
-                let model = if let Some(gemini_config) = &self.gemini {
-                    let m: GeminiModel = (&gemini_config.model).into();
-                    m
-                } else {
-                    GeminiModel::GeminiModel3FlashPreview
-                };
-                LlmSettings {
-                    default_model: Some(llm_settings::DefaultModel::GeminiModel(model as i32)),
-                    open_ai: None,
-                    gemini: Some(GeminiSettings {}),
-                }
-            }
+        let default_model = self.default_model.as_ref().map(|m| m.to_proto_model());
+
+        // Always populate provider settings
+        let open_ai_settings = if let Some(open_ai_config) = &self.open_ai {
+            Some(OpenAiSettings {
+                web_search: open_ai_config.web_search,
+            })
+        } else {
+            Some(OpenAiSettings { web_search: false })
+        };
+
+        let gemini_settings = Some(GeminiSettings {});
+
+        LlmSettings {
+            default_model,
+            open_ai: open_ai_settings,
+            gemini: gemini_settings,
         }
     }
 }

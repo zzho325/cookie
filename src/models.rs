@@ -3,6 +3,64 @@ pub mod constants;
 pub mod settings;
 
 use crate::{chat::*, llm::*};
+use serde::Deserialize;
+
+#[derive(Clone, Deserialize)]
+#[serde(untagged)]
+pub enum ModelOption {
+    OpenAI(crate::service::llms::open_ai::api::Model),
+    Gemini(crate::service::llms::gemini::api::Model),
+}
+
+impl ModelOption {
+    pub fn display_name(&self) -> String {
+        match self {
+            ModelOption::OpenAI(m) => {
+                let proto_model: OpenAiModel = m.into();
+                format!("openai: {}", proto_model.display_name())
+            }
+            ModelOption::Gemini(m) => {
+                let proto_model: GeminiModel = m.into();
+                format!("gemini: {}", proto_model.display_name())
+            }
+        }
+    }
+
+    pub fn all_models() -> Vec<ModelOption> {
+        use strum::IntoEnumIterator;
+
+        let mut models = Vec::new();
+
+        // Iterate over all OpenAI models
+        for m in OpenAiModel::iter() {
+            if m != OpenAiModel::Unspecified {
+                models.push(ModelOption::OpenAI(m.into()));
+            }
+        }
+
+        // Iterate over all Gemini models
+        for m in GeminiModel::iter() {
+            if m != GeminiModel::Unspecified {
+                models.push(ModelOption::Gemini(m.into()));
+            }
+        }
+
+        models
+    }
+
+    pub fn to_proto_model(&self) -> llm_settings::DefaultModel {
+        match self {
+            ModelOption::OpenAI(m) => {
+                let proto_model: OpenAiModel = m.into();
+                llm_settings::DefaultModel::OpenaiModel(proto_model as i32)
+            }
+            ModelOption::Gemini(m) => {
+                let proto_model: GeminiModel = m.into();
+                llm_settings::DefaultModel::GeminiModel(proto_model as i32)
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum ServiceReq {
@@ -37,14 +95,6 @@ impl OpenAiModel {
     }
 }
 
-pub const OPENAI_MODELS: &[OpenAiModel] = &[
-    OpenAiModel::Gpt4o,
-    OpenAiModel::Gpt4oMini,
-    OpenAiModel::O4Mini,
-    OpenAiModel::O3,
-    OpenAiModel::O3Mini,
-];
-
 impl GeminiModel {
     pub fn display_name(&self) -> &'static str {
         match self {
@@ -54,11 +104,6 @@ impl GeminiModel {
         }
     }
 }
-
-pub const GEMINI_MODELS: &[GeminiModel] = &[
-    GeminiModel::GeminiModel3FlashPreview,
-    GeminiModel::GeminiModel3ProPreview,
-];
 
 impl ChatEvent {
     pub fn new(
