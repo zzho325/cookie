@@ -147,7 +147,7 @@ impl OpenAIClientImpl {
         let resp = utils::post::<ResponsesReq, Responses>(
             &self.client,
             format!("{}/v1/responses", Self::OPENAI_HOST),
-            self.api_key.clone(),
+            Some(self.api_key.clone()),
             &req,
         )
         .await?;
@@ -161,7 +161,7 @@ impl OpenAIClientImpl {
         let stream = utils::post_stream::<ResponsesReq, ResponsesStream>(
             &self.client,
             format!("{}/v1/responses", Self::OPENAI_HOST),
-            self.api_key.clone(),
+            Some(self.api_key.clone()),
             &req,
         )
         .await?;

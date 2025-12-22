@@ -1,6 +1,35 @@
 use ratatui::widgets::ListState;
 
-use crate::{llm::*, models::OPENAI_MODELS};
+use crate::{
+    llm::*,
+    models::{GEMINI_MODELS, OPENAI_MODELS},
+};
+
+#[derive(Clone, Copy)]
+pub enum ModelOption {
+    OpenAI(OpenAiModel),
+    Gemini(GeminiModel),
+}
+
+impl ModelOption {
+    pub fn display_name(&self) -> String {
+        match self {
+            ModelOption::OpenAI(m) => format!("openai: {}", m.display_name()),
+            ModelOption::Gemini(m) => format!("gemini: {}", m.display_name()),
+        }
+    }
+
+    pub fn all_models() -> Vec<ModelOption> {
+        let mut models = Vec::new();
+        for m in OPENAI_MODELS {
+            models.push(ModelOption::OpenAI(*m));
+        }
+        for m in GEMINI_MODELS {
+            models.push(ModelOption::Gemini(*m));
+        }
+        models
+    }
+}
 
 pub struct SettingManager {
     llm_settings: LlmSettings,
@@ -10,16 +39,30 @@ pub struct SettingManager {
 impl SettingManager {
     pub fn new(llm_settings: LlmSettings) -> Self {
         let mut list_state = ListState::default();
-        if let Some(idx) = OPENAI_MODELS.iter().position(|m| {
-            if let Some(llm_settings::Provider::OpenAi(settings)) = &llm_settings.provider {
-                settings.model == *m as i32
-            } else {
-                false
+        let all_models = ModelOption::all_models();
+
+        match &llm_settings.default_model {
+            Some(llm_settings::DefaultModel::OpenaiModel(m)) => {
+                if let Some(idx) = all_models.iter().position(
+                    |opt| matches!(opt, ModelOption::OpenAI(model) if *model as i32 == *m),
+                ) {
+                    list_state.select(Some(idx));
+                } else {
+                    tracing::error!("unexpected current OpenAI model {:?}", llm_settings)
+                }
             }
-        }) {
-            list_state.select(Some(idx));
-        } else {
-            tracing::error!("unexpected current model {:?}", llm_settings)
+            Some(llm_settings::DefaultModel::GeminiModel(m)) => {
+                if let Some(idx) = all_models.iter().position(
+                    |opt| matches!(opt, ModelOption::Gemini(model) if *model as i32 == *m),
+                ) {
+                    list_state.select(Some(idx));
+                } else {
+                    tracing::error!("unexpected current Gemini model {:?}", llm_settings)
+                }
+            }
+            _ => {
+                tracing::error!("no model specified {:?}", llm_settings)
+            }
         }
 
         Self {
@@ -36,37 +79,51 @@ impl SettingManager {
         &mut self.list_state
     }
 
-    // TODO: refactor this and next when implementing other providers
     pub fn select_next(&mut self) {
-        if let Some(i) = self.list_state.selected()
-            && i + 1 < OPENAI_MODELS.len()
-        {
-            if let Some(llm_settings::Provider::OpenAi(settings)) = &mut self.llm_settings.provider
-            {
-                self.list_state.select_next();
-                settings.model = OPENAI_MODELS[i + 1] as i32;
-            } else {
-                tracing::error!(
-                    "current provider does not match {:?}",
-                    self.llm_settings.provider_name()
-                )
-            }
+        let Some(i) = self.list_state.selected() else {
+            return;
+        };
+
+        let all_models = ModelOption::all_models();
+        if i + 1 >= all_models.len() {
+            return;
         }
+
+        self.list_state.select_next();
+        self.update_model_from_index(i + 1, &all_models);
     }
 
     pub fn select_previous(&mut self) {
-        if let Some(i) = self.list_state.selected()
-            && i > 0
-        {
-            if let Some(llm_settings::Provider::OpenAi(settings)) = &mut self.llm_settings.provider
-            {
-                self.list_state.select_previous();
-                settings.model = OPENAI_MODELS[i - 1] as i32;
-            } else {
-                tracing::error!(
-                    "current provider does not match {:?}",
-                    self.llm_settings.provider_name()
-                )
+        let Some(i) = self.list_state.selected() else {
+            return;
+        };
+
+        if i == 0 {
+            return;
+        }
+
+        let all_models = ModelOption::all_models();
+        self.list_state.select_previous();
+        self.update_model_from_index(i - 1, &all_models);
+    }
+
+    fn update_model_from_index(&mut self, idx: usize, all_models: &[ModelOption]) {
+        if let Some(model_option) = all_models.get(idx) {
+            match model_option {
+                ModelOption::OpenAI(m) => {
+                    self.llm_settings.default_model =
+                        Some(llm_settings::DefaultModel::OpenaiModel(*m as i32));
+                    if self.llm_settings.open_ai.is_none() {
+                        self.llm_settings.open_ai = Some(OpenAiSettings { web_search: true });
+                    }
+                }
+                ModelOption::Gemini(m) => {
+                    self.llm_settings.default_model =
+                        Some(llm_settings::DefaultModel::GeminiModel(*m as i32));
+                    if self.llm_settings.gemini.is_none() {
+                        self.llm_settings.gemini = Some(GeminiSettings {});
+                    }
+                }
             }
         }
     }

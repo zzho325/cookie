@@ -1,4 +1,4 @@
-use crate::{app::model::setting_manager::SettingManager, models::OPENAI_MODELS};
+use crate::app::model::setting_manager::{ModelOption, SettingManager};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -18,10 +18,11 @@ impl Widget for &mut SettingManager {
         Clear.render(area, buf);
         let block = Block::bordered().title(Line::from("Model").centered());
 
-        let items: Vec<ListItem> = OPENAI_MODELS
+        let items: Vec<ListItem> = ModelOption::all_models()
             .iter()
-            .map(|m| ListItem::from(m.display_name()))
+            .map(|model| ListItem::from(model.display_name()))
             .collect();
+
         let list = List::new(items)
             .block(block)
             .highlight_style(SELECTED_STYLE);

@@ -45,6 +45,21 @@ pub const OPENAI_MODELS: &[OpenAiModel] = &[
     OpenAiModel::O3Mini,
 ];
 
+impl GeminiModel {
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            GeminiModel::Unspecified => "default",
+            GeminiModel::GeminiModel3ProPreview => "3-pro",
+            GeminiModel::GeminiModel3FlashPreview => "3-flash",
+        }
+    }
+}
+
+pub const GEMINI_MODELS: &[GeminiModel] = &[
+    GeminiModel::GeminiModel3FlashPreview,
+    GeminiModel::GeminiModel3ProPreview,
+];
+
 impl ChatEvent {
     pub fn new(
         session_id: String,

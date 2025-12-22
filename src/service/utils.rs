@@ -12,16 +12,16 @@ use serde::{Serialize, de::DeserializeOwned};
 pub async fn post<U: Serialize, T: DeserializeOwned>(
     client: &reqwest::Client,
     url: String,
-    api_key: String,
+    api_key: Option<String>,
     payload: &U,
 ) -> Result<T> {
-    let resp = client
-        .post(url)
-        .json(payload)
-        .header(AUTHORIZATION, format!("Bearer {}", api_key))
-        .send()
-        .await
-        .wrap_err("failed to send request")?;
+    let mut request = client.post(url).json(payload);
+
+    if let Some(key) = api_key {
+        request = request.header(AUTHORIZATION, format!("Bearer {}", key));
+    }
+
+    let resp = request.send().await.wrap_err("failed to send request")?;
 
     handle_resp(resp).await
 }
@@ -43,17 +43,18 @@ async fn handle_resp<T: DeserializeOwned>(resp: reqwest::Response) -> Result<T> 
 pub async fn post_stream<U, T>(
     client: &reqwest::Client,
     url: String,
-    api_key: String,
+    api_key: Option<String>,
     payload: &U,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<T>> + Send>>>
 where
     U: serde::Serialize,
     T: DeserializeOwned + Send + 'static,
 {
-    let request_builder = client
-        .post(url)
-        .json(payload)
-        .header(AUTHORIZATION, format!("Bearer {}", api_key));
+    let mut request_builder = client.post(url).json(payload);
+
+    if let Some(key) = api_key {
+        request_builder = request_builder.header(AUTHORIZATION, format!("Bearer {}", key));
+    }
 
     let event_source = EventSource::new(request_builder).wrap_err("failed to create SSE client")?;
     Ok(stream::<T>(event_source))

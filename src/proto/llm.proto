@@ -12,13 +12,25 @@ enum OpenAIModel {
 }
 
 message OpenAISettings {
-  OpenAIModel model = 1;
   // Whether to enable open ai native web search.
   bool web_search = 2;
+  reserved 1;
+}
+
+enum GeminiModel {
+  GEMINI_MODEL_UNSPECIFIED = 0;
+  GEMINI_MODEL_3_PRO_PREVIEW = 1;
+  GEMINI_MODEL_3_FLASH_PREVIEW = 2;
+}
+
+message GeminiSettings {
 }
 
 message LlmSettings {
-  oneof provider {
-    OpenAISettings open_ai = 1;
+  oneof default_model {
+    OpenAIModel openai_model = 3;
+    GeminiModel gemini_model = 4;
   }
+  OpenAISettings open_ai = 1;
+  GeminiSettings gemini = 2;
 }

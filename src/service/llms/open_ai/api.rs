@@ -3,7 +3,7 @@ use crate::{
     llm::*,
     service::llms::LlmReq,
 };
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{Context, Result, eyre};
 use serde::{Deserialize, Serialize};
 
 // TODO: handle error response and timeout
@@ -25,12 +25,18 @@ impl ResponsesReq {
     }
 
     pub fn build(llm_req: LlmReq) -> Result<Self> {
-        let (model, web_search) = match llm_req.settings.provider {
-            Some(llm_settings::Provider::OpenAi(open_ai_settings)) => {
-                (open_ai_settings.model(), open_ai_settings.web_search)
-            }
+        let model_i32 = match llm_req.settings.default_model {
+            Some(llm_settings::DefaultModel::OpenaiModel(m)) => m,
             _ => return Err(eyre!("Client and settings do not match")),
         };
+
+        let model = OpenAiModel::try_from(model_i32).wrap_err("Invalid OpenAI model")?;
+
+        let web_search = llm_req
+            .settings
+            .open_ai
+            .map(|s| s.web_search)
+            .unwrap_or(false);
 
         let mut tools = vec![];
         if web_search {
