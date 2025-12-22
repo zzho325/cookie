@@ -3,26 +3,95 @@ pub mod constants;
 pub mod settings;
 
 use crate::{chat::*, llm::*};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+// Serde implementations for proto enums to match API names
+impl Serialize for OpenAiModel {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let name = match self {
+            OpenAiModel::Unspecified => "gpt-4o",
+            OpenAiModel::Gpt4o => "gpt-4o",
+            OpenAiModel::Gpt4oMini => "gpt-4o-mini",
+            OpenAiModel::O4Mini => "o4-mini",
+            OpenAiModel::O3 => "o3-deep-research",
+            OpenAiModel::O3Mini => "o3-mini",
+        };
+        serializer.serialize_str(name)
+    }
+}
+
+impl<'de> Deserialize<'de> for OpenAiModel {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "gpt-4o" => Ok(OpenAiModel::Gpt4o),
+            "gpt-4o-mini" => Ok(OpenAiModel::Gpt4oMini),
+            "o4-mini" => Ok(OpenAiModel::O4Mini),
+            "o3-deep-research" => Ok(OpenAiModel::O3),
+            "o3-mini" => Ok(OpenAiModel::O3Mini),
+            _ => Err(serde::de::Error::unknown_variant(
+                &s,
+                &[
+                    "gpt-4o",
+                    "gpt-4o-mini",
+                    "o4-mini",
+                    "o3-deep-research",
+                    "o3-mini",
+                ],
+            )),
+        }
+    }
+}
+
+impl Serialize for GeminiModel {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let name = match self {
+            GeminiModel::Unspecified => "gemini-3-flash-preview",
+            GeminiModel::GeminiModel3ProPreview => "gemini-3-pro-preview",
+            GeminiModel::GeminiModel3FlashPreview => "gemini-3-flash-preview",
+        };
+        serializer.serialize_str(name)
+    }
+}
+
+impl<'de> Deserialize<'de> for GeminiModel {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "gemini-3-pro-preview" => Ok(GeminiModel::GeminiModel3ProPreview),
+            "gemini-3-flash-preview" => Ok(GeminiModel::GeminiModel3FlashPreview),
+            _ => Err(serde::de::Error::unknown_variant(
+                &s,
+                &["gemini-3-pro-preview", "gemini-3-flash-preview"],
+            )),
+        }
+    }
+}
 
 #[derive(Clone, Deserialize)]
 #[serde(untagged)]
 pub enum ModelOption {
-    OpenAI(crate::service::llms::open_ai::api::Model),
-    Gemini(crate::service::llms::gemini::api::Model),
+    OpenAI(OpenAiModel),
+    Gemini(GeminiModel),
 }
 
 impl ModelOption {
     pub fn display_name(&self) -> String {
         match self {
-            ModelOption::OpenAI(m) => {
-                let proto_model: OpenAiModel = m.into();
-                format!("openai: {}", proto_model.display_name())
-            }
-            ModelOption::Gemini(m) => {
-                let proto_model: GeminiModel = m.into();
-                format!("gemini: {}", proto_model.display_name())
-            }
+            ModelOption::OpenAI(m) => format!("openai: {}", m.display_name()),
+            ModelOption::Gemini(m) => format!("gemini: {}", m.display_name()),
         }
     }
 
@@ -34,14 +103,14 @@ impl ModelOption {
         // Iterate over all OpenAI models
         for m in OpenAiModel::iter() {
             if m != OpenAiModel::Unspecified {
-                models.push(ModelOption::OpenAI(m.into()));
+                models.push(ModelOption::OpenAI(m));
             }
         }
 
         // Iterate over all Gemini models
         for m in GeminiModel::iter() {
             if m != GeminiModel::Unspecified {
-                models.push(ModelOption::Gemini(m.into()));
+                models.push(ModelOption::Gemini(m));
             }
         }
 
@@ -50,14 +119,8 @@ impl ModelOption {
 
     pub fn to_proto_model(&self) -> llm_settings::DefaultModel {
         match self {
-            ModelOption::OpenAI(m) => {
-                let proto_model: OpenAiModel = m.into();
-                llm_settings::DefaultModel::OpenaiModel(proto_model as i32)
-            }
-            ModelOption::Gemini(m) => {
-                let proto_model: GeminiModel = m.into();
-                llm_settings::DefaultModel::GeminiModel(proto_model as i32)
-            }
+            ModelOption::OpenAI(m) => llm_settings::DefaultModel::OpenaiModel(*m as i32),
+            ModelOption::Gemini(m) => llm_settings::DefaultModel::GeminiModel(*m as i32),
         }
     }
 }
@@ -101,6 +164,14 @@ impl GeminiModel {
             GeminiModel::Unspecified => "default",
             GeminiModel::GeminiModel3ProPreview => "3-pro",
             GeminiModel::GeminiModel3FlashPreview => "3-flash",
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            GeminiModel::Unspecified => "gemini-3-flash-preview",
+            GeminiModel::GeminiModel3ProPreview => "gemini-3-pro-preview",
+            GeminiModel::GeminiModel3FlashPreview => "gemini-3-flash-preview",
         }
     }
 }

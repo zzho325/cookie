@@ -74,43 +74,6 @@ pub enum Part {
     Text { text: String },
 }
 
-#[derive(Clone, Default, Serialize, Deserialize, Debug, PartialEq)]
-pub enum Model {
-    #[default]
-    #[serde(rename = "gemini-3-pro-preview")]
-    Gemini3ProPreview,
-    #[serde(rename = "gemini-3-flash-preview")]
-    Gemini3FlashPreview,
-}
-
-impl From<GeminiModel> for Model {
-    fn from(value: GeminiModel) -> Self {
-        match value {
-            GeminiModel::Unspecified => Model::default(),
-            GeminiModel::GeminiModel3ProPreview => Model::Gemini3ProPreview,
-            GeminiModel::GeminiModel3FlashPreview => Model::Gemini3FlashPreview,
-        }
-    }
-}
-
-impl From<&Model> for GeminiModel {
-    fn from(value: &Model) -> Self {
-        match value {
-            Model::Gemini3ProPreview => GeminiModel::GeminiModel3ProPreview,
-            Model::Gemini3FlashPreview => GeminiModel::GeminiModel3FlashPreview,
-        }
-    }
-}
-
-impl Model {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Model::Gemini3ProPreview => "gemini-3-pro-preview",
-            Model::Gemini3FlashPreview => "gemini-3-flash-preview",
-        }
-    }
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateContentResp {

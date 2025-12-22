@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 // TODO: handle error response and timeout
 #[derive(Serialize, Default)]
 pub struct ResponsesReq {
-    pub model: Model,
+    pub model: OpenAiModel,
     /// A system (or developer) message inserted into model's context.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructions: Option<String>,
@@ -43,7 +43,7 @@ impl ResponsesReq {
             tools.push(Tool::WebSearch);
         }
         Ok(ResponsesReq {
-            model: model.into(),
+            model,
             instructions: llm_req.instructions,
             input: llm_req
                 .events
@@ -136,46 +136,6 @@ pub enum Tool {
     //     strict: bool,
     //     parameters: serde_json::Value,
     // },
-}
-
-#[derive(Clone, Default, Serialize, Deserialize, Debug, PartialEq)]
-pub enum Model {
-    #[default]
-    #[serde(rename = "gpt-4o")]
-    Gpt4o,
-    #[serde(rename = "gpt-4o-mini")]
-    Gpt4oMini,
-    #[serde(rename = "o4-mini")]
-    O4Mini,
-    #[serde(rename = "o3-deep-research")]
-    O3,
-    #[serde(rename = "o3-mini")]
-    O3Mini,
-}
-
-impl From<OpenAiModel> for Model {
-    fn from(value: OpenAiModel) -> Self {
-        match value {
-            OpenAiModel::Unspecified => Model::default(),
-            OpenAiModel::Gpt4o => Model::Gpt4o,
-            OpenAiModel::Gpt4oMini => Model::Gpt4oMini,
-            OpenAiModel::O4Mini => Model::O4Mini,
-            OpenAiModel::O3 => Model::O3,
-            OpenAiModel::O3Mini => Model::O3Mini,
-        }
-    }
-}
-
-impl From<&Model> for OpenAiModel {
-    fn from(value: &Model) -> Self {
-        match value {
-            Model::Gpt4o => OpenAiModel::Gpt4o,
-            Model::Gpt4oMini => OpenAiModel::Gpt4oMini,
-            Model::O4Mini => OpenAiModel::O4Mini,
-            Model::O3 => OpenAiModel::O3,
-            Model::O3Mini => OpenAiModel::O3Mini,
-        }
-    }
 }
 
 #[derive(Deserialize, Debug)]

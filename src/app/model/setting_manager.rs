@@ -14,24 +14,18 @@ impl SettingManager {
 
         match &llm_settings.default_model {
             Some(llm_settings::DefaultModel::OpenaiModel(m)) => {
-                if let Some(idx) = all_models.iter().position(|opt| {
-                    matches!(opt, ModelOption::OpenAI(model) if {
-                        let proto_model: OpenAiModel = model.into();
-                        proto_model as i32 == *m
-                    })
-                }) {
+                if let Some(idx) = all_models.iter().position(
+                    |opt| matches!(opt, ModelOption::OpenAI(model) if *model as i32 == *m),
+                ) {
                     list_state.select(Some(idx));
                 } else {
                     tracing::error!("unexpected current OpenAI model {:?}", llm_settings)
                 }
             }
             Some(llm_settings::DefaultModel::GeminiModel(m)) => {
-                if let Some(idx) = all_models.iter().position(|opt| {
-                    matches!(opt, ModelOption::Gemini(model) if {
-                        let proto_model: GeminiModel = model.into();
-                        proto_model as i32 == *m
-                    })
-                }) {
+                if let Some(idx) = all_models.iter().position(
+                    |opt| matches!(opt, ModelOption::Gemini(model) if *model as i32 == *m),
+                ) {
                     list_state.select(Some(idx));
                 } else {
                     tracing::error!("unexpected current Gemini model {:?}", llm_settings)

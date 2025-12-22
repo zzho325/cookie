@@ -12,7 +12,7 @@ use crate::{
         utils,
     },
 };
-use api::{GenerateContentReq, GenerateContentResp, Model};
+use api::{GenerateContentReq, GenerateContentResp};
 
 pub struct GeminiClientImpl {
     client: reqwest::Client,
@@ -102,11 +102,10 @@ impl GeminiClientImpl {
         Self { client, api_key }
     }
 
-    fn extract_model(&self, llm_req: &LlmReq) -> Result<Model> {
+    fn extract_model(&self, llm_req: &LlmReq) -> Result<GeminiModel> {
         match &llm_req.settings.default_model {
             Some(llm_settings::DefaultModel::GeminiModel(m)) => {
-                let gemini_model = GeminiModel::try_from(*m).wrap_err("Invalid Gemini model")?;
-                Ok(gemini_model.into())
+                GeminiModel::try_from(*m).wrap_err("Invalid Gemini model")
             }
             _ => Err(eyre!("Client and settings do not match")),
         }
@@ -114,7 +113,7 @@ impl GeminiClientImpl {
 
     async fn generate_content(
         &self,
-        model: &Model,
+        model: &GeminiModel,
         req: GenerateContentReq,
     ) -> Result<GenerateContentResp> {
         let url = format!(
@@ -132,7 +131,7 @@ impl GeminiClientImpl {
 
     async fn stream_generate_content(
         &self,
-        model: &Model,
+        model: &GeminiModel,
         req: GenerateContentReq,
     ) -> Result<BoxStream<'static, Result<GenerateContentResp>>> {
         let url = format!(
