@@ -1,7 +1,9 @@
 mod app;
+mod headless;
 mod models;
 mod service;
 
+use clap::Parser;
 use color_eyre::{Result, eyre::Context};
 use tokio::sync::mpsc;
 
@@ -10,6 +12,15 @@ use crate::{
     models::{ServiceReq, ServiceResp, configs::Config},
     service::ServiceBuilder,
 };
+
+#[derive(Parser)]
+#[command(name = "cookie")]
+#[command(about = "Terminal LLM chat client", long_about = None)]
+struct Cli {
+    /// Quick inline mode: send a message and get response printed directly
+    #[arg(short = 'q', long = "query", value_name = "MESSAGE")]
+    headless: Option<String>,
+}
 
 pub mod llm {
     include!(concat!(env!("OUT_DIR"), "/llm.rs"));
@@ -22,6 +33,14 @@ pub mod chat {
 async fn main() -> Result<()> {
     color_eyre::install()?;
     let _guard = init_logging();
+
+    let cli = Cli::parse();
+    let config = Config::load().wrap_err_with(|| "load config")?;
+
+    // Check if headless mode is requested
+    if let Some(message) = cli.headless {
+        return headless::run(message, config).await;
+    }
 
     // frontend <> backend channels
     let (req_tx, req_rx) = mpsc::unbounded_channel::<ServiceReq>();
@@ -38,8 +57,6 @@ async fn main() -> Result<()> {
         }
     };
 
-    // TODO: handle error better
-    let config = Config::load().wrap_err_with(|| "load config")?;
     let app_fut = async move {
         let mut app = App::new(req_tx, resp_rx)?;
         app.run(config).await
