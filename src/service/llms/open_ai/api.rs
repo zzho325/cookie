@@ -200,6 +200,7 @@ pub enum OutputItem {
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum ContentItem {
     OutputText {
         text: String,
@@ -212,6 +213,7 @@ pub enum ContentItem {
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum Annotation {
     UrlCitation {
         /// The index of the last character of the URL citation in the message.
@@ -225,6 +227,7 @@ pub enum Annotation {
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
+#[allow(dead_code)]
 pub enum ResponsesStream {
     #[serde(rename = "response.created")]
     Created { response: Responses },
@@ -247,6 +250,7 @@ pub enum ResponsesStream {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct StreamCommon {
     pub sequence_number: u64,
     #[serde(default)]
@@ -259,6 +263,7 @@ pub struct StreamCommon {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct OutputItemDone {
     #[serde(flatten)]
     pub common: StreamCommon,
@@ -266,6 +271,7 @@ pub struct OutputItemDone {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct OutputTextDelta {
     #[serde(flatten)]
     pub common: StreamCommon,
@@ -273,6 +279,7 @@ pub struct OutputTextDelta {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct OutputTextDone {
     #[serde(flatten)]
     pub common: StreamCommon,

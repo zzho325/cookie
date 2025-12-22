@@ -41,6 +41,7 @@ pretty_assertions = "1.4.1"
 rstest = "0.26.1"
 insta = "1.43.1"
 indoc = "2.0.6"
+cargo-husky = { version = "1", default-features = false, features = ["precommit-hook", "run-cargo-fmt", "run-cargo-clippy"] }
 
 [build-dependencies]
 prost-build = "0.14.1"
