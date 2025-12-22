@@ -1,4 +1,4 @@
-use crossterm::event::{MouseEvent, MouseEventKind};
+use crossterm::event::MouseEvent;
 
 #[derive(Default, Clone, Debug)]
 pub struct Area {

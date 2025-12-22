@@ -397,8 +397,7 @@ impl MessagesViewport {
             self.scroll_state().scroll_offset();
         let x = (x + vertical_scroll_offset).saturating_sub(self.area().column);
         let y = (y + horizontal_scroll_offset).saturating_sub(self.area().row);
-        let target_cursor_byte_idx =
-            self.find_cursor_byte_idx((x, y));
+        let target_cursor_byte_idx = self.find_cursor_byte_idx((x, y));
         let target_cursor_char_idx = self.input[..target_cursor_byte_idx].chars().count();
         self.clamp_and_update_cursor_position(target_cursor_char_idx);
     }

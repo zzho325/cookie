@@ -38,37 +38,35 @@ impl SettingManager {
 
     // TODO: refactor this and next when implementing other providers
     pub fn select_next(&mut self) {
-        if let Some(i) = self.list_state.selected() {
-            if i + 1 < OPENAI_MODELS.len() {
-                if let Some(llm_settings::Provider::OpenAi(settings)) =
-                    &mut self.llm_settings.provider
-                {
-                    self.list_state.select_next();
-                    settings.model = OPENAI_MODELS[i + 1] as i32;
-                } else {
-                    tracing::error!(
-                        "current provider does not match {:?}",
-                        self.llm_settings.provider_name()
-                    )
-                }
+        if let Some(i) = self.list_state.selected()
+            && i + 1 < OPENAI_MODELS.len()
+        {
+            if let Some(llm_settings::Provider::OpenAi(settings)) = &mut self.llm_settings.provider
+            {
+                self.list_state.select_next();
+                settings.model = OPENAI_MODELS[i + 1] as i32;
+            } else {
+                tracing::error!(
+                    "current provider does not match {:?}",
+                    self.llm_settings.provider_name()
+                )
             }
         }
     }
 
     pub fn select_previous(&mut self) {
-        if let Some(i) = self.list_state.selected() {
-            if i > 0 {
-                if let Some(llm_settings::Provider::OpenAi(settings)) =
-                    &mut self.llm_settings.provider
-                {
-                    self.list_state.select_previous();
-                    settings.model = OPENAI_MODELS[i - 1] as i32;
-                } else {
-                    tracing::error!(
-                        "current provider does not match {:?}",
-                        self.llm_settings.provider_name()
-                    )
-                }
+        if let Some(i) = self.list_state.selected()
+            && i > 0
+        {
+            if let Some(llm_settings::Provider::OpenAi(settings)) = &mut self.llm_settings.provider
+            {
+                self.list_state.select_previous();
+                settings.model = OPENAI_MODELS[i - 1] as i32;
+            } else {
+                tracing::error!(
+                    "current provider does not match {:?}",
+                    self.llm_settings.provider_name()
+                )
             }
         }
     }

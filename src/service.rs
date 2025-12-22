@@ -47,7 +47,7 @@ impl ServiceBuilder {
             Ok(conn) => conn,
             Err(e) => {
                 let message = ServiceResp::Error(e.to_string());
-                self.resp_tx.send(message);
+                let _ = self.resp_tx.send(message);
                 return None;
             }
         };
@@ -57,7 +57,7 @@ impl ServiceBuilder {
             Err(e) => {
                 // If we failed to build llm router, send an error to tui and skip innitialization.
                 let message = ServiceResp::Error(e.to_string());
-                self.resp_tx.send(message);
+                let _ = self.resp_tx.send(message);
                 return None;
             }
         };

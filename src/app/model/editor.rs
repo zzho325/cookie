@@ -247,15 +247,6 @@ mod tests {
             let mut char_indices: Vec<usize> = Vec::new();
             let mut positions: Vec<(u16, u16)> = Vec::new();
 
-            for (i, b) in case.input.as_bytes().iter().enumerate() {
-                println!("  [{}] = 0x{:02X} ({})", i, b, b);
-            }
-
-            println!("\nChars:");
-            for (i, c) in case.input.char_indices().enumerate() {
-                println!("  [{:?}] = '{:?}'", i, c);
-            }
-
             editor.move_cursor_down();
             positions.push(editor.viewport.cursor_position());
             char_indices.push(editor.cursor_char_idx);
