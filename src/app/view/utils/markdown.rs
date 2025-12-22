@@ -24,10 +24,20 @@ use tracing::{debug, instrument, warn};
 
 use crate::app::view::utils::styled_line::StyledLine;
 
+/// Replace tab characters with spaces to work around ratatui issue #876.
+/// The unicode-width crate calculates tabs as 0 width, causing rendering artifacts
+/// when scrolling with styled content (like code blocks).
+/// See: https://github.com/ratatui/ratatui/issues/876
+fn replace_tabs(text: &str) -> String {
+    text.replace('\t', "    ")
+}
+
 pub fn from_str(input: &str) -> Vec<StyledLine> {
+    // Replace tabs in the input to prevent rendering artifacts
+    let input_with_spaces = replace_tabs(input);
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
-    let parser = Parser::new_ext(input, options);
+    let parser = Parser::new_ext(&input_with_spaces, options);
     let mut writer = TextWriter::new(parser);
     writer.run();
     writer.lines

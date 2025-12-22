@@ -186,7 +186,9 @@ impl MessagesViewport {
                     );
                     lines.push(prefix_line);
 
-                    let mut chat_message_lines: Vec<StyledLine> = msg
+                    // Replace tabs to prevent rendering artifacts (ratatui issue #876)
+                    let msg_with_spaces = msg.replace('\t', "    ");
+                    let mut chat_message_lines: Vec<StyledLine> = msg_with_spaces
                         .lines()
                         .map(|l| StyledLine::from(l.to_string()))
                         .collect();
